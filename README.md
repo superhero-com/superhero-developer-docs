@@ -1,4 +1,4 @@
-# Superhero Dev
+# Superhero developer docs
 
 The developer documentation for [Superhero](https://superhero.com), the on-chain attention
 market where you can discover, trade, and govern the trends you believe in.
@@ -23,9 +23,14 @@ pnpm build    # production build
 
 ### Deployment
 
-The canonical origin used for `og:url` and the social-card image resolves automatically:
-`NEXT_PUBLIC_SITE_URL` if set, otherwise Vercel's `VERCEL_PROJECT_PRODUCTION_URL`. Attaching a
-custom domain in Vercel is enough; no code change is needed.
+The site is a static export (`output: 'export'`) published to GitHub Pages at
+[developer.superhero.com](https://developer.superhero.com). `.github/workflows/pages.yml` builds
+and lints every pull request and deploys on every push to `main`. The custom domain is set by
+`public/CNAME`; the canonical URL for `og:url` and the social card comes from the `SITE_URL`
+repository variable, passed to the build as `NEXT_PUBLIC_SITE_URL`.
+
+Static hosting has no server redirects. A moved page keeps a small client-side redirect page
+at its old path (see `pages/identity/profile-registry.tsx`).
 
 Brand assets live in `public/` and come from the Superhero app's own `public/` directory:
 the mark, the wordmark, the favicon set and the social card.
@@ -77,9 +82,6 @@ Five things break the build, and `scripts/lint-mdx.py` catches all of them: unqu
 frontmatter, a bare `{` or `<` in prose, a `|` inside inline code inside a table row, a broken
 internal link, and a page missing from its directory's `_meta.json`. Run it before every push.
 
-`NOTES.md` holds maintainer-only material: product defects found while writing, and facts that
-have not been verified against a live system. It is not part of the site.
-
 ## Where the content comes from
 
 | Source | What it provides |
@@ -91,6 +93,11 @@ have not been verified against a live system. It is not part of the site.
 Facts in these docs should trace back to one of those. Do not write economic parameters,
 addresses or endpoints from memory.
 
+## Contributing
+
+Pull requests are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) first. Security issues go
+through [SECURITY.md](./SECURITY.md), not public issues.
+
 ## License
 
-MIT
+[MIT](./LICENSE)

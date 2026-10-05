@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security issue
+    url: https://github.com/superhero-com/superhero-developer-docs/security/advisories/new
+    about: Please report security problems privately, not as an issue.
+  - name: Bug in the Superhero app
+    url: https://github.com/superhero-com/superhero/issues
+    about: Product bugs go to the app repository.
