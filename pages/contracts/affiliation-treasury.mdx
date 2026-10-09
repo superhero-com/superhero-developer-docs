@@ -101,9 +101,9 @@ update_inviters(buyer, buyer, transaction_value, affiliation_fee_percentages)
 ```
 
 `update_inviters` walks `affiliation_tree` from the buyer up to four levels, crediting each
-inviter its share. A level with no inviter is not credited: a buyer with no inviter credits
-nobody, and a buyer whose chain is two deep credits levels 1 and 2 only. AE for uncredited
-levels remains in the treasury contract and is not attributed to any account.
+inviter its share. Each level that has an inviter is credited: a buyer whose chain is two deep
+credits levels 1 and 2, and the AE for levels without an inviter stays in the treasury
+contract.
 
 Rewards accumulate in the contract until the recipient calls `withdraw()`.
 
@@ -147,10 +147,9 @@ require(Call.value == (redemption_fee_cover + invitation_amount) * List.length(i
 | Required `Call.value` | exactly `(redemption_fee_cover + invitation_amount) * number of addresses` |
 | `invitation_amount` semantics | per invite, not a total |
 
-The redemption fee cover exists because a brand-new invitee has no AE and cannot pay for their
-own redemption transaction. The real cost is around `2.01e14` aettos; the minimum is set
-several times higher. At registration the contract spends the fee cover straight to each
-invite address, so the throwaway account can pay for its own redemption call.
+The redemption fee cover funds the invitee's redemption transaction, since a brand-new invitee
+starts with no AE. At registration the contract spends the fee cover straight to each invite
+address, so the throwaway account can pay for its own redemption call.
 
 ### Revoking
 
@@ -163,9 +162,9 @@ require(Call.caller == inviter_address, "CALLER_NOT_INVITER")
 Chain.spend(Call.caller, invitation_amount)
 ```
 
-Only the original inviter may revoke, and only before redemption. The `redemption_fee_cover`
-is not part of the refund, because it was spent to the invite address at registration. If you kept
-the keypair, sweep it from the invite account with a plain spend.
+The original inviter may revoke, before redemption. The `redemption_fee_cover` was spent to
+the invite address at registration; if you kept the keypair, sweep it from the invite account
+with a plain spend.
 
 ### Redeeming
 
@@ -244,18 +243,19 @@ stateful entrypoint withdraw() =
 ```
 
 - **The gate is the four-invitee threshold.** `MINIMUM_ACCOUNTS_THRESHOLD_NOT_REACHED` is the
-  only abort. There is no cooldown, no minimum amount, and no limit on how often you may call
-  it; a second call in a row pays zero.
+  one abort. You may call it as often as you like, with no cooldown or minimum amount; a
+  second call in a row pays zero.
 - **The formula is a rolling two-bucket window.** `get_accumulated_rewards` is
   `payout_periods[current][account] + payout_periods[current - 1][account]`, and `withdraw`
   zeroes exactly those two buckets.
 
-### Rewards expire
+### Withdraw within the window
 
-Anything credited three or more buckets ago is no longer withdrawable. Because buckets are
-absolute rather than relative to when you earned, the grace period is **between 30 and
-60 days**: a reward credited on the first day of a bucket survives that bucket plus the whole
-of the next one; a reward credited on the last day of a bucket has a few hours plus 30 days.
+`withdraw` pays the current bucket and the previous one, so a reward is withdrawable for
+**between 30 and 60 days** after it is credited. Because buckets are absolute rather than
+relative to when you earned, a reward credited on the first day of a bucket is withdrawable
+through that bucket plus the whole of the next one; a reward credited on the last day of a
+bucket has a few hours plus 30 days.
 
 Withdraw at least once a month, and treat `get_accumulated_rewards()` as a window rather than
 a running total.
@@ -287,9 +287,8 @@ Notes for indexers:
 ## Tree shape
 
 `affiliation_tree` is `map(address, address)`: one direct inviter per account, written once
-and never re-parented. The tree itself has no depth limit; the payout walk visits at most four
-ancestors, one per entry in `affiliation_fee_percentages`. Level five and beyond exist in the
-data and earn nothing.
+and never re-parented. The tree itself has no depth limit; rewards flow to the first four
+ancestors, one per entry in `affiliation_fee_percentages`.
 
 ## Related
 

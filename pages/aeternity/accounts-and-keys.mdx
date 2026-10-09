@@ -26,10 +26,10 @@ longer binary payloads.
 | `sg_` | Signature | Delegated-posting payloads, address-link claims |
 | `nm_` | Name (AENS) | The on-chain object behind a `.chain` name |
 | `cm_` | Commitment | The salted preclaim hash in AENS registration |
-| `ok_` | Oracle public key | Not used by Superhero |
-| `oq_` | Oracle query id | Not used by Superhero |
-| `ch_` | Channel id | State channels; not used by Superhero |
-| `pp_` | Peer public key | Node-to-node networking; never user-facing |
+| `ok_` | Oracle public key | Accepted as pasted input and linked to the explorer's oracle page |
+| `oq_` | Oracle query id | æternity oracle tooling |
+| `ch_` | Channel id | æternity state channels |
+| `pp_` | Peer public key | Node-to-node networking |
 
 ### Base64: the ones that appear in payloads
 
@@ -49,22 +49,20 @@ The full list is in the protocol's API encoding spec, linked below.
 
 When you paste an identifier into Superhero, it accepts `ak_`, `ct_`, `nm_`, `th_` and `ok_`
 and links each to the matching explorer page. A string ending in `.chain` is treated as a name
-and passes without a prefix check. Other prefixes are not accepted as input.
+and passes without a prefix check.
 
 ## Keys
 
 æternity accounts are **Ed25519** keypairs. The public key, base58-encoded with a checksum and the
-`ak_` prefix, *is* the address. There is no account-creation transaction, and an address is
-valid the moment you generate the key. The same keypair signs delegated-posting messages, which
+`ak_` prefix, *is* the address. An address is valid the moment you generate the key, with no
+separate account-creation step. The same keypair signs delegated-posting messages, which
 contracts verify with `Crypto.verify_sig`.
 
 ### Secret-key encoding
 
 Superhero's tooling uses `@aeternity/aepp-sdk` v14. From v14, `MemoryAccount` takes the secret
-key as an `sk_`-prefixed encoded 32-byte secret, not raw hex. The web app's built-in wallet
-normalises older persisted values (raw hex, or a longer keypair payload) by taking the first
-32 bytes and encoding them as `sk_`. The agent skill does not: it passes `AE_PRIVATE_KEY` straight
-to `new MemoryAccount(privateKey)`, so give it the `sk_` form.
+key as an `sk_`-prefixed encoded 32-byte secret, not raw hex. The agent skill passes
+`AE_PRIVATE_KEY` straight to `new MemoryAccount(privateKey)`, so give it the `sk_` form.
 
 ```bash
 # Generates a v14-shaped keypair and prints the sk_ secret once

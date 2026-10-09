@@ -32,7 +32,7 @@ that do not.
 | `enum` | `datatype` | Sophia datatypes carry payloads, so they cover tagged unions too |
 | `uint256` | `int` | Arbitrary precision on FATE, and signed |
 | `address` | `address` | Same idea, `ak_`/`ct_` encoded off-chain |
-| scattered storage variables | one `state` record, updated with `put` | There is no ambient mutable storage |
+| scattered storage variables | one `state` record, updated with `put` | All state lives in that one record |
 | `require(cond, "msg")` | `require(cond, "msg")` | Also `abort("msg")` |
 | ABI | **ACI** | See below |
 
@@ -148,7 +148,7 @@ top of one.
 
 - [Smart Contracts](/contracts): the Superhero contracts written in this language.
 - [Calling contracts](/contracts/calling-contracts): using an ACI to make a real call.
-- [Contract security](/contracts/security): where Sophia's guarantees stop and yours start.
+- [Contract security](/contracts/security): what the contracts guarantee and what your code handles.
 - [AEX Standards](/aeternity/aex-standards): AEX-9 read from a Sophia ACI.
 - [Sophia language features](https://docs.aeternity.com/aesophia/v6.1.0/sophia_features/): the canonical reference for `stateful`, `payable`, state and events.
 - [FATE VM](https://docs.aeternity.com/aeternity-core-concepts/protocol/fast-aeternity-transaction-engine-fate-vm): the official description of the VM.

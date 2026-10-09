@@ -24,9 +24,9 @@ If you already know what a bonding curve is, skip ahead to
 | Page | What it answers |
 | --- | --- |
 | [What is Superhero?](/concepts/what-is-superhero) | What the product is, and how superhero.com, the mobile apps and the wallet relate. |
-| [Attention Markets](/concepts/attention-markets) | Why a bonding curve is used to price a hashtag, and what the resulting price does and does not tell you. |
+| [Attention Markets](/concepts/attention-markets) | Why a bonding curve is used to price a hashtag, and how to read the resulting price. |
 | [Architecture Overview](/concepts/architecture) | Which contract holds what, which service serves what, and the exact path a post and a trade take. |
-| [On-Chain Social](/concepts/on-chain-social) | What it means for a post to be a contract call: permanence, provenance, and the costs. |
+| [On-Chain Social](/concepts/on-chain-social) | What it means for a post to be a contract call: permanence, provenance, and what you pay. |
 | [Where the Money Goes](/concepts/value-flow) | Every fraction of AE on a buy and on a sell, traced to the contract that receives it. |
 | [Glossary](/concepts/glossary) | Every Superhero and æternity term, defined once, linked to the page that goes deeper. |
 | [FAQ](/concepts/faq) | The user FAQ from superhero.com, plus developer and agent questions. |
@@ -37,11 +37,13 @@ Superhero runs on three mechanisms. Most questions about the product come back t
 
 **Posts are contract calls.** A post is a `post_without_tip` call on the `Tipping.aes` v3 contract.
 The author's address, the text and a list of media URLs are written into contract state and indexed
-by a `tip_id`. Nobody, including Superhero, can delete it afterwards.
+by a `tip_id`. Nobody, Superhero included, can censor or quietly edit it afterwards, and anyone can
+verify it.
 
 **Topics are tokens.** Any hashtag can be turned into an AEX-9 token whose price is a deterministic
-function of its own circulating supply. There is no order book and no counterparty: you buy from the
-curve and sell back to it, and the contract holds a reserve large enough to redeem the entire supply.
+function of its own circulating supply. You buy from the curve and sell back to it, so there is
+always a price and always liquidity, and the contract holds a reserve large enough to redeem the
+entire supply.
 
 **The spread funds the community.** The gap between the buy curve and the sell curve is 1%. Half
 goes to the token's own DAO treasury, half to a four-level referral chain. Token holders vote on

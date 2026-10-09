@@ -14,8 +14,8 @@ Superhero builds are **pinned to one network when they are built**, through the 
 environment variable. It accepts `ae_mainnet` (the default) or `ae_uat`; anything else falls back
 to mainnet.
 
-There is no in-app network switcher. The running app offers exactly one network, and a wallet on
-the other one produces a mismatch you resolve in the wallet. To use testnet, build for it:
+The running app offers exactly one network, so switch your wallet to the same one from the wallet's
+own settings. To use testnet, build for it:
 
 ```bash
 VITE_NETWORK=ae_uat npm run dev
@@ -23,24 +23,24 @@ VITE_NETWORK=ae_uat npm run build
 ```
 
 If you are also testing passkeys on that build, set the WebAuthn Relying Party ID to match your
-origin, or passkey registration fails with no visible prompt:
+origin, which passkey registration requires:
 
 ```bash
 VITE_NETWORK=ae_uat VITE_WEBAUTHN_RP_ID=localhost npm run dev
 ```
 
-See [Troubleshooting](/wallets/troubleshooting) for that failure.
+See [Troubleshooting](/wallets/troubleshooting) if registration shows no prompt.
 
-There is no hosted testnet build of superhero.com. The hosted wallet at `wallet.superhero.com` does
-switch to testnet from its own settings, which is enough to hold test AE, claim testnet `.chain`
-names, inspect AEX-9 balances and sign for a locally built app.
+Testnet runs from your own build. The hosted wallet at `wallet.superhero.com` switches to testnet
+from its own settings, which is enough to hold test AE, claim testnet `.chain` names, inspect AEX-9
+balances and sign for a locally built app.
 
 ## Endpoints
 
 | Setting | Mainnet (`ae_mainnet`) | Testnet (`ae_uat`) |
 | --- | --- | --- |
-| Backend / API | `https://api.superhero.com` | Not publicly documented |
-| WebSocket | `https://api.superhero.com` | Not publicly documented |
+| Backend / API | `https://api.superhero.com` | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) |
+| WebSocket | `https://api.superhero.com` | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) |
 | Node | `https://mdw.wordcraft.fun` | `https://testnet.aeternity.io` |
 | Middleware | `https://mdw.wordcraft.fun/mdw` | `https://testnet.aeternity.io/mdw` |
 | Explorer | `https://aescan.io` | `https://testnet.aescan.io` |
@@ -81,9 +81,9 @@ deployment.
 | Wrapped AE (WAE) | `ct_J3zBY8xxjsRr3QojETNw48Eb38fjvEuJKkQ6KzECvubvEcvCa` |
 | æETH | `ct_ryTY1mxqjCjq1yBn9i6HDaCSdA6thXUFZTA84EMzbWd1SLKdh` |
 
-Community token sale contracts are **not** in this table. The factory deploys them per community,
-so you discover them from the backend or from the factory's own events. The active factory address
-comes from the backend's factory endpoint.
+Community token sale contracts are deployed per community by the factory, so discover them from the
+backend or from the factory's own events. The active factory address comes from the backend's
+factory endpoint.
 
 ## Get test AE
 
@@ -94,13 +94,13 @@ your `ak_...` address, and submit. It also has a programmatic form:
 curl -X POST https://faucet.aepps.com/account/ak_YOUR_ADDRESS
 ```
 
-**There is a per-address cooldown.** Request again too soon and the faucet answers **HTTP 425** with
+**The faucet has a per-address cooldown.** Request again too soon and it answers **HTTP 425** with
 a message of the form "The address is graylisted for another …". Handle 425 explicitly in any
-script that tops an account up; it is a wait, not a failure. Read the grant amount from the
+script that tops an account up: it is a wait, not a failure. Read the grant amount from the
 faucet's response rather than hard-coding it.
 
-Test AE has no value and is not convertible to mainnet AE. If you need more than one grant, wait
-out the graylist and request again, or run your own faucet from
+Test AE is for testnet only. If you need more than one grant, wait out the cooldown and request
+again, or run your own faucet from
 [aeternity/aepp-faucet](https://github.com/aeternity/aepp-faucet), where the top-up amount is a
 configuration value.
 
@@ -117,7 +117,7 @@ Its æternity testnet defaults:
 | Node | `https://testnet.aeternity.io` |
 | Middleware | `https://testnet.aeternity.io/mdw` |
 | Explorer | `https://testnet.aescan.io` |
-| Superhero API | Not publicly documented |
+| Superhero API | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) |
 | Tipping backend | `https://superhero-backend-testnet.prd.service.aepps.com` |
 | Multisig backend | `https://ga-multisig-backend-testnet.prd.service.aepps.com` |
 
@@ -125,9 +125,8 @@ Once the wallet is on testnet it shows a **Faucet** entry (on the More screen an
 screen) linking to `https://faucet.aepps.com?address=<your ak_ address>` with your address
 prefilled. It is hidden on mainnet.
 
-Because superhero.com is build-pinned, the two must agree: a mainnet build plus a testnet wallet is
-a mismatch the app cannot fix, and an æpp cannot ask Superhero Wallet to switch networks. Change it
-in the wallet. See [Connecting a Wallet](/wallets/connecting).
+Because superhero.com is build-pinned, the two must agree: the network switch lives in the wallet,
+so set the wallet to the network your build uses. See [Connecting a Wallet](/wallets/connecting).
 
 ## Point the agent skill at testnet
 
@@ -139,8 +138,8 @@ AE_NODE_URL=https://testnet.aeternity.io node scripts/superhero-governance.mjs .
 ```
 
 The other scripts set their node and API URLs as constants at the top of the file. To run them
-against testnet, change those constants. The Superhero API base needs changing too: the testnet API
-is a different host rather than a path on the mainnet one, and it is not publicly documented.
+against testnet, change those constants. Point the Superhero API base at your own instance, run
+from [superhero-api](https://github.com/superhero-com/superhero-api) against the testnet node.
 
 | Script | Constants to change |
 | --- | --- |

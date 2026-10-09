@@ -56,8 +56,7 @@ The service behind `api.superhero.com` is one NestJS process doing several jobs:
   in Postgres and runs two loops: a **live indexer** fed by middleware WebSocket subscriptions for
   transactions and key blocks, and a **backward/bulk indexer** that backfills history, seeding its
   tip height from the middleware's `/v3/status` → `mdw_height`. The indexer reads the middleware,
-  not the node directly, so the middleware's own lag is the floor on how fresh any API response can
-  be.
+  so API responses are as fresh as the middleware's view of the chain.
 - **Plugins**: all domain decoding. Each plugin declares a `startFromHeight()` and a `filters()`
   list matching contract calls by contract id and entrypoint name (or spend transactions by
   predicate), then receives `onTransactionsSaved(txs)`. The shipped set is `bcl` (token sales),
@@ -77,8 +76,8 @@ The service behind `api.superhero.com` is one NestJS process doing several jobs:
 - **Clients**: the React/Vite web app, the React Native mobile apps, and the
   [agent skill](/agents) for AI agents.
 
-The backend reads the chain; it does not submit posts on a user's behalf. The
-`post_without_tip_sig` entrypoint exists for delegated posting; see
+The backend reads the chain. Posts are submitted by the client that signs them; for a post
+submitted by a third party, the `post_without_tip_sig` entrypoint provides delegated posting. See
 [Delegated & Gasless Posting](/social/delegated-posting).
 
 The indexer reads the chain through its own endpoints:
@@ -135,7 +134,8 @@ receipt's events directly: the `Buy` event for the AE amount, the token contract
 the tokens you received, and a *second* `Mint` on a different contract address for the ProtocolDAO
 tokens. That is why the success screen can show your balance before the indexer has caught up.
 
-**Selling takes two transactions**, because AEX-9 has no "transfer from" without prior approval:
+**Selling takes two transactions**, because AEX-9 requires an approval before another contract can
+move your tokens:
 
 1. `create_allowance` (or `change_allowance`) on the community token, granting the sale contract
    permission to move `count` tokens.
@@ -147,7 +147,7 @@ The web app shows this as a two-step progress indicator; the agent CLI runs both
 
 ## The live-update path
 
-Token views do not poll. The web app opens a single socket.io connection to the `websocketUrl` from
+Token views update live. The web app opens a single socket.io connection to the `websocketUrl` from
 config (`https://api.superhero.com` on mainnet). The backend emits two channels:
 
 | Channel | Emitted when |
@@ -181,7 +181,7 @@ else is mainnet). A deployed container can override most of these at runtime thr
 
 | Key | Mainnet | Testnet |
 | --- | --- | --- |
-| `BACKEND_URL` | `https://api.superhero.com` | Not publicly documented |
+| `BACKEND_URL` | `https://api.superhero.com` | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) |
 | `NODE_URL` | `https://mdw.wordcraft.fun` | `https://testnet.aeternity.io` |
 | `MIDDLEWARE_URL` | `https://mdw.wordcraft.fun/mdw` | `https://testnet.aeternity.io/mdw` |
 | `EXPLORER_URL` | `https://aescan.io` | `https://testnet.aescan.io` |

@@ -49,7 +49,7 @@ Non-stateful entrypoints can be dry-run for free; stateful ones need a signed tr
 | `transfer_allowance(from, to, value)` | allowance | Spend someone else's authorised balance |
 | `mint(account, value)` | mintable | Owner only |
 | `burn(value)` | burnable | Destroy your own |
-| `swap()` | swappable | Migrate a legacy balance |
+| `swap()` | swappable | Migrate a balance from a predecessor token |
 | `check_swap(account)` | swappable | Inspect a migration |
 
 `init(name, decimals, symbol, initial_owner_balance)` is the deploy-time constructor;
@@ -61,8 +61,7 @@ Non-stateful entrypoints can be dry-run for free; stateful ones need a signed tr
    `Some(0)`. Handle the empty case explicitly.
 2. **Allowances are three calls, not one.** ERC-20's `approve` is split into `create_allowance`
    (for an allowance that does not exist yet), `change_allowance` (relative) and
-   `reset_allowance`. There is no single idempotent setter, so check whether an allowance exists
-   before you write one.
+   `reset_allowance`. Check whether an allowance exists before you write one.
 3. **`transfer_allowance` is `transferFrom`.** Same withdraw pattern, different name.
 4. **Extensions are declared, not assumed.** Call `aex9_extensions()` before assuming `mint` or
    `burn` exists. A minimal AEX-9 token has neither. A Superhero community token returns four
@@ -88,7 +87,7 @@ ProtocolDAO token the same way. `aex9_extensions()` on any of them returns:
 | `mintable` | `buy` on the sale contract calls `mint(Call.caller, count)` |
 | `burnable` | `sell` calls `burn(count)` |
 | `allowances` | `sell` calls `transfer_allowance`; `DAOVote.vote` locks tokens the same way |
-| `swappable` | Not used by Superhero; it comes with the reference variant |
+| `swappable` | Part of the reference variant; `swapped()` is empty on a factory-created token |
 
 `decimals` is **18** for every community token: the factory's `decimals()` returns 18 and the sale
 contract's `init` requires `decimals == bonding_curve.supported_decimals()`, which is also 18.
@@ -109,16 +108,16 @@ See [Networks & Endpoints](/aeternity/networks).
 
 | Standard | Subject | Status | Superhero's relationship to it |
 | --- | --- | --- | --- |
-| AEX-2 | Wallet-to-æpp communication | Withdrawn, but still the js-sdk's reference implementation | Used: connecting a wallet runs the AEX-2 RPC flow (`walletDetector` over a `BrowserWindowMessageConnection`, then `connectToWallet`) |
+| AEX-2 | Wallet-to-æpp communication | Withdrawn as a proposal; the js-sdk's reference implementation | Used: connecting a wallet runs the AEX-2 RPC flow (`walletDetector` over a `BrowserWindowMessageConnection`, then `connectToWallet`) |
 | AEX-3 | Encrypted secret storage (keystore JSON) | Active | Relevant if you import a keystore file |
 | AEX-8 | Message signing | Draft | Relevant to any off-chain signature, including the tipping contract's signed messages |
 | AEX-9 | Fungible tokens | Review | Used everywhere |
 | AEX-10 | BIP32 derivation path for deterministic wallets | Final | Applies to any mnemonic-based æternity wallet; see [Accounts & Keys](/aeternity/accounts-and-keys) |
-| AEX-130 | æpp meta-information format | Draft | Not used |
-| AEX-141 | Non-fungible tokens | Review | Not used; Superhero has no NFT feature |
+| AEX-130 | æpp meta-information format | Draft | Applies to æpps that publish a metadata file |
+| AEX-141 | Non-fungible tokens | Review | The æternity NFT standard; Superhero's tokens are all AEX-9 |
 
-AEX-9's status is Review and nothing supersedes it. Every æternity wallet, explorer and the
-middleware's AEX-9 indexing are built against it as written.
+AEX-9's status is Review, and it is the standard every æternity wallet, explorer and the
+middleware's AEX-9 indexing are built against.
 
 ## Related
 

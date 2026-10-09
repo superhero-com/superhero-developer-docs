@@ -1,13 +1,15 @@
 ---
 title: "State Channels"
-description: "æternity's layer-2 mechanism in brief, and that Superhero does not use it."
+description: "æternity's layer-2 mechanism in brief, and where it fits next to Superhero's on-chain model."
 ---
 
 # State Channels
 
 State channels are æternity's layer-2 scaling mechanism: a private, two-party ledger that settles
-on chain only at its endpoints. **Superhero does not use them.** Posts, tips, trades and votes are
-individual on-chain transactions; chat runs on Nostr relays and video calls on Jitsi.
+on chain only at its endpoints. Superhero's posts, tips, trades and votes are individual
+on-chain transactions, so each one is public and verifiable; chat runs on Nostr relays and video
+calls on Jitsi. Channels are available on the same chain for two-party, high-frequency flows of
+your own.
 
 ## How a channel works
 
@@ -25,23 +27,22 @@ higher round number, and `channel_settle` then pays out. The honest party always
 co-signed state than a cheater can produce, so cheating is unprofitable.
 
 The economics: two on-chain transactions, amortised over as many off-chain updates as the
-participants make. A channel used for two updates is worse than doing it on chain; a channel used
-for ten thousand is dramatically better.
+participants make. The more updates a channel carries, the better the amortisation.
 
 ## Superhero and channels
 
-Channels fit two-party, high-frequency interaction. A public social feed is neither: a post has
-to be visible to everyone, and trading against a bonding curve is inherently many-party. The
-closest thing in Superhero to "off chain" is [delegated posting](/social/delegated-posting),
-where a user signs a message and a relayer pays for the transaction, but every post still lands on
-chain individually.
+Channels fit two-party, high-frequency interaction. A public social feed is a different shape: a
+post is visible to everyone, and trading against a bonding curve is many-party, so Superhero puts
+each of those on chain individually. [Delegated posting](/social/delegated-posting) lets a user
+sign a message off chain while a relayer pays for the transaction, and the post lands on chain
+with the signer as its author.
 
-If you need state channels on æternity, they are fully supported at the protocol and SDK level.
-You would be building on the chain, not on Superhero.
+If you need state channels on æternity, they are fully supported at the protocol and SDK level
+and run alongside Superhero's contracts on the same chain.
 
 ## Related
 
-- [Why æternity](/aeternity/why-aeternity): the chain features Superhero does use.
+- [Why æternity](/aeternity/why-aeternity): the chain features Superhero builds on.
 - [Chat](/social/chat): the off-chain system Superhero ships.
 - [Delegated posting](/social/delegated-posting): off-chain signatures with on-chain settlement.
 - [State channel transactions](https://docs.aeternity.com/aeternity-core-concepts/protocol/transactions/state-channel-transactions): the on-chain transaction types.

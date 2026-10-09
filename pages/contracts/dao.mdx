@@ -81,10 +81,9 @@ require(Option.default(0, token.balance(Call.caller)) >= minimum_token_threshold
 The threshold is a balance check at call time. Proposing locks no tokens; only voters lock
 stake, when they call `DAOVote.vote`.
 
-`add_vote` does not check a payout amount against the treasury balance. A `VotePayout` or
-`VotePayoutAmount` for more AE than the DAO holds is accepted and can pass, and then fails at
-execution when `apply_vote_subject` reaches `Chain.spend`. Check the treasury balance before
-proposing an amount.
+Check the treasury balance before proposing an amount: `add_vote` accepts any
+`VotePayoutAmount`, and one above what the DAO holds fails at execution when
+`apply_vote_subject` reaches `Chain.spend`.
 
 ```javascript
 const result = await dao.add_vote(
@@ -145,7 +144,7 @@ switch(vote.final_vote_state())
 
 ### Quorum and supermajority
 
-`DAOVote.final_vote_state()` does no threshold arithmetic. It returns `Some(vote_state)` once
+`DAOVote.final_vote_state()` returns `Some(vote_state)` once
 `Chain.block_height >= close_height` and `None` before that. Every percentage check is in
 `DAO.apply_vote_subject`:
 
@@ -186,9 +185,9 @@ The full precondition set for execution, in the order the contract checks them:
 
 ### The execution window
 
-A vote that passed but was not applied within `vote_timeout` key blocks after its close height
-can no longer be applied: `apply_vote_subject` aborts with `VOTE_RESULT_TIMEOUTED` from then
-on. To retry, open the proposal again, at the cost of another 555 AE.
+Apply a passed vote within `vote_timeout` key blocks of its close height; after that,
+`apply_vote_subject` aborts with `VOTE_RESULT_TIMEOUTED`, and the path forward is a new
+proposal with its own 555 AE.
 
 The window is **960 key blocks**, set once in `init`:
 
@@ -197,11 +196,11 @@ vote_timeout = (60 / 3) * 24 * 2   // 2 days: (60 / 3) key blocks per hour, 24 h
 ```
 
 At æternity's roughly three-minute key block time that is about two days. `dao.vote_timeout()`
-returns the raw key-block count. No vote subject changes it, so every DAO the factory deploys
-carries the same 960.
+returns the raw key-block count. Every DAO the factory deploys carries the same 960; no vote
+subject changes it.
 
-Execution is open to any account and nobody is obliged to do it. If you care about a proposal
-passing, call `apply_vote_subject` yourself once the vote closes.
+Execution is open to any account. If you care about a proposal passing, call
+`apply_vote_subject` yourself once the vote closes.
 
 ## Receiving sale proceeds
 
@@ -211,9 +210,9 @@ so a replacement DAO can implement its own split or accounting. That is the poin
 `ReplaceableDAO` interface, where proceeds arrive through a contract call rather than a bare
 `Chain.spend`.
 
-The stock `DAO.aes` accepts the AE and records nothing further; no event fires. For per-buy
-attribution, read the sale contract's `Buy` event. The sale calls this entrypoint with
-`protected = true`, so a DAO that aborts here cannot block a buy.
+The stock `DAO.aes` accepts the AE; for per-buy attribution, read the sale contract's `Buy`
+event. The sale calls this entrypoint with `protected = true`, so a buy completes even if a DAO
+aborts here.
 
 Users never need to call this.
 
@@ -234,8 +233,8 @@ require(get_community_management() == new_dao.get_community_management(),
 ```
 
 Only then does it hand community management's ownership over. A replacement DAO that resolves
-a different community management contract aborts the whole migration. This is an initial
-check only. Once installed, a custom DAO can change it.
+a different community management contract aborts the whole migration. The check runs at
+migration time; once installed, a custom DAO manages its own community management reference.
 
 ## `set_token_sale` is creator-only and one-shot
 
@@ -244,8 +243,8 @@ require(Call.caller == Contract.creator, "ONLY_CREATOR_CAN_SET_SALE")
 require(Option.is_none(state.token_sale), "TOKEN_SALE_ALREADY_SET")
 ```
 
-The factory calls it in the same transaction as the DAO's deployment, to break the
-sale-needs-DAO / DAO-needs-sale cycle. It can never be called again.
+The factory calls it once, in the same transaction as the DAO's deployment, to break the
+sale-needs-DAO / DAO-needs-sale cycle.
 
 ## Related
 

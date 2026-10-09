@@ -65,8 +65,8 @@ moderators.has('ak_alice...');   // true or false
 
 ## The `meta_info` map
 
-`meta_info` is `map(string, string)` with no schema, no validation and no reserved keys. The
-Superhero app writes these keys when it creates a community:
+`meta_info` is a free-form `map(string, string)`: any keys, any values. The Superhero app
+writes these keys when it creates a community:
 
 | Key | What the app puts there | Where it shows up |
 | --- | --- | --- |
@@ -78,8 +78,8 @@ Superhero app writes these keys when it creates a community:
 All four are optional. A community created with `new Map()` has no metadata, and the app
 falls back to a generated description.
 
-`change_meta_info` replaces the whole map. There is no per-key update, so read the current
-map, modify it, and write it back through a `ChangeMetaInfo(map(string, string))` DAO vote:
+`change_meta_info` replaces the whole map, so read the current map, modify it, and write it
+back through a `ChangeMetaInfo(map(string, string))` DAO vote:
 
 ```javascript
 const current = await cm.meta_info().then((r) => r.decodedResult);
@@ -100,9 +100,8 @@ datatype event =
   | ChangedMetaInfo
 ```
 
-`ChangedMetaInfo` is the only event in the Superhero suite that carries no arguments. It
-signals that the map changed without saying how. An indexer that wants the new metadata
-re-reads `meta_info()` when it sees this event.
+`ChangedMetaInfo` carries no arguments: it signals that the map changed. An indexer that wants
+the new metadata re-reads `meta_info()` when it sees this event.
 
 ## Who may call what
 
@@ -124,10 +123,10 @@ function require_moderator() =
   require(Set.member(Call.caller, state.moderator_accounts), "ONLY_MODERATOR_CAN_CHANGE")
 ```
 
-Moderators are not owners: a moderator cannot add another moderator, change the
-threshold, or touch the metadata. The owner is not automatically a moderator either, so the DAO
-cannot mute anyone without first voting itself onto the moderator set. The initial moderator
-is the community creator, set once in `init`; the owner becomes the DAO immediately afterwards.
+Moderators and owners are distinct roles. Adding a moderator, changing the threshold and
+editing the metadata are owner actions; muting is a moderator action. To let the DAO mute
+directly, vote it onto the moderator set with an `AddModerator` vote. The initial moderator is
+the community creator, set once in `init`; the owner becomes the DAO immediately afterwards.
 
 Muting is the one action that does not need a vote: governance sets the policy and appoints
 the people, and those people act in real time.
@@ -148,14 +147,15 @@ Chain.create(Call.caller, 10 ^ decimals(), is_private, meta_info) : CommunityMan
 | `meta_info` | whatever you passed to `create_community` |
 | `owner` | `Call.caller` at construction, then the DAO |
 
-The default threshold is a literal in `CommunityFactory.create_community`, not a parameter, so
-every community starts at one whole token. Only a `ChangeMinimumTokenThreshold` vote moves it.
+The default threshold is a literal in `CommunityFactory.create_community`, so every community
+starts at one whole token. A `ChangeMinimumTokenThreshold` vote changes it after creation.
 
 ## What `minimum_token_threshold` gates
 
 **On chain, it gates proposal creation.** `DAO.add_vote` calls
 `community_management.minimum_token_threshold()` and requires the proposer's balance to meet
-it, aborting with `ADD_VOTE_TOKEN_HOLDER_MISSMATCH` otherwise. No other contract reads it.
+it, aborting with `ADD_VOTE_TOKEN_HOLDER_MISSMATCH` otherwise. `DAO.add_vote` is the on-chain
+reader of this value.
 
 **Off chain, it gates the community's chat room.** The Superhero API mirrors the on-chain
 state and uses the threshold as the membership predicate for the community's token-gated
@@ -165,25 +165,20 @@ holder is ineligible however many tokens they hold.
 
 ## What a `user_id` is
 
-`mute_user_id` and `unmute_user_id` take a `string`, not an `address`, and the contract
-places no constraint on the format. Superhero's chat layer compares entries from
-`muted_user_ids` against **æternity account addresses**, so write `ak_...` addresses if you
-want a mute to take effect in Superhero. A client reading the list should still handle other
-strings rather than assuming the prefix.
+`mute_user_id` and `unmute_user_id` take a `string`, so any format is accepted on chain.
+Superhero's chat layer compares entries from `muted_user_ids` against **æternity account
+addresses**, so write `ak_...` addresses for a mute to take effect in Superhero. A client
+reading the list should handle other strings rather than assuming the prefix.
 
 ## What `is_private` controls
 
-On chain, `is_private` is set once in `init` and not read by any entrypoint. It has no
-dedicated getter; read it through `get_state()`. Contract state is public, so a private
-community's moderators, mutes, threshold and metadata are readable by anyone.
+On chain, `is_private` is set once in `init`; read it through `get_state()`. Like all contract
+state it is public, so `is_private` is a chat-room visibility setting stored on chain, and the
+community's moderators, mutes, threshold and metadata stay readable by anyone.
 
 Off chain, the Superhero API copies it to the community's chat room and uses it to choose the
 visibility tag on the NIP-29 edit-metadata event, `public` or `private`. The web client
-reports a private room as `auth-required` rather than rendering it openly. A token with no
-chat room defaults to public.
-
-`is_private` is a chat-room visibility preference stored on chain, not a confidentiality
-control over on-chain data.
+reports a private room as `auth-required`. A token with no chat room defaults to public.
 
 ## Related
 

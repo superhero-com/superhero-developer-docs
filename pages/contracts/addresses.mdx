@@ -110,9 +110,9 @@ Given a collection id and a token name:
 | `get_community_management(token_sale)` | the `CommunityManagement` address |
 | `has_community(collection_name, name)` | whether the name is taken |
 
-The factory has no getter for the DAO. Read it from the sale contract's state
-(`get_state().dao_contract`), or capture all three addresses from the `CreateCommunity` event,
-which carries the DAO, the sale and the community management contract.
+Read the DAO from the sale contract's state (`get_state().dao_contract`), or capture all three
+addresses from the `CreateCommunity` event, which carries the DAO, the sale and the community
+management contract.
 
 If you already have a sale address, `GET /api/tokens/<sale address>` returns the same set of
 addresses without any chain calls.
