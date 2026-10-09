@@ -10,10 +10,11 @@ against whatever you were sent.
 
 ## The rule
 
-> Superhero lives on `superhero.com` and `wallet.superhero.com`. Nothing else is the app.
+> Superhero lives on `superhero.com` and `wallet.superhero.com`. Check for one of these two
+> domains before you sign.
 
-Check the domain before you sign anything. A phishing site can copy the entire interface (the
-palette, the logo, the copy), but it cannot copy the domain.
+Check the domain before you sign anything. A phishing site can copy the interface (the palette,
+the logo, the copy); the domain is what identifies the real one.
 
 ## Product
 
@@ -89,11 +90,11 @@ Two contracts Superhero deploys are maintained under the `aeternity` organisatio
 
 ## Backend services
 
-You do not need these to use Superhero, but you do need them to build against it.
+The app uses these for you; use them directly when you build against Superhero.
 
 | Service | Mainnet | Testnet |
 | --- | --- | --- |
-| API and WebSocket | `https://api.superhero.com` | Not publicly documented |
+| API and WebSocket | `https://api.superhero.com` | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) |
 | æternity node | `https://mdw.wordcraft.fun` | `https://testnet.aeternity.io` |
 | Middleware | `https://mdw.wordcraft.fun/mdw` | `https://testnet.aeternity.io/mdw` |
 | Explorer | `https://aescan.io` | `https://testnet.aescan.io` |
@@ -107,7 +108,8 @@ The agent skill's scripts use `https://mainnet.aeternity.io` as their node; both
 
 ## Third-party services the app uses
 
-These are not operated by Superhero, but the app links to them, so seeing one is not a red flag.
+These are operated by the wider æternity ecosystem and linked from the app, so seeing one is
+expected.
 
 | Service | URL | Why it appears |
 | --- | --- | --- |
@@ -124,12 +126,12 @@ These are not operated by Superhero, but the app links to them, so seeing one is
 | Privacy, data-protection and general enquiries | `superherowallet@protonmail.com` |
 | Bugs and product feedback | The GitHub issue tracker above |
 
-A "Superhero" token sale, airdrop, presale, migration or wallet-verification page on any domain
-other than `superhero.com` and `wallet.superhero.com` is not Superhero.
+Superhero's own pages are on `superhero.com` and `wallet.superhero.com`. Treat a "Superhero" token
+sale, airdrop, presale, migration or wallet-verification page on any other domain as phishing.
 
-**No one ever needs your key.** Not support, not a migration, not a verification, not an airdrop
-claim, not a "wallet sync". Every legitimate Superhero action is a transaction you sign in your own
-wallet. See [Security Best Practices](/wallets/security).
+**Your key stays with you.** Support, migrations, verifications, airdrop claims and "wallet syncs"
+never need it. Every legitimate Superhero action is a transaction you sign in your own wallet. See
+[Security Best Practices](/wallets/security).
 
 ## Related
 

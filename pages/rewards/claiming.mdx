@@ -16,24 +16,24 @@ a contract call you sign, and one is signed by a one-time key embedded in an inv
 | Affiliate rewards | You press **Collect rewards**, which calls `withdraw()` on the AffiliationTreasury | You | An ordinary æternity transaction fee |
 | An invite link's AE gift | You open the link and press **Claim reward** | The invite's one-time key, not your wallet | Covered by the `redemption_fee_cover` the inviter funded |
 
-## X posting rewards: nothing to claim
+## X posting rewards: paid automatically
 
-There is no claim button for the [Superhero Rewards Program](/rewards/rewards-program).
+The [Superhero Rewards Program](/rewards/rewards-program) pays out without a claim step.
 Press **Check rewards** on `/trends/invite`, sign the ownership challenge with your wallet,
-and the backend scans your posts and sends AE to your connected wallet. There is no
-transaction for you to sign and no gas for you to pay.
+and the backend scans your posts and sends AE to your connected wallet. You sign no
+transaction and pay no gas.
 
-What can go wrong:
+Checking your status:
 
-- **The button is greyed out with a countdown.** The recheck is rate-limited. The status
-  response carries `next_check_allowed_at`; a submit past the cap returns HTTP 429 and the
-  scan is skipped. Wait for the countdown and try again.
-- **The check succeeds but nothing arrives.** A recheck that returns HTTP 200 can still carry
-  an `error` string: below the follower minimum, the X identity was already rewarded on a
-  different address, or the payout transaction itself failed. The card shows that string in a
-  red banner; read it rather than retrying blindly.
-- **You rejected the signature.** The client leaves the state unchanged. Press the button
-  again and approve the signature request.
+- **The button shows a countdown.** You can run one scan per 24 hours. The status response
+  carries `next_check_allowed_at`, and a submit before that time returns HTTP 429. Wait for
+  the countdown, then check again.
+- **The check completes with an `error` string.** A recheck that returns HTTP 200 may explain
+  why no reward was sent: the account has fewer than 100 followers, the X identity has already
+  been rewarded on a different address, or the payout transaction did not complete. The card
+  shows that string in a red banner; address the cause it names, then check again.
+- **You dismissed the signature request.** Your state is unchanged. Press the button again and
+  approve the signature.
 
 ## Affiliate rewards: the withdraw call
 
@@ -44,14 +44,14 @@ token sales. The Collect Rewards card reads this live from the contract, shows a
 out of four, and lists each invitee's spend against the 10 AE threshold.
 
 **The claim window:** rewards accumulate in 30-day periods. `withdraw()` pays the current and
-previous period; earlier periods are no longer claimable. A given reward is claimable for
-between 30 and 60 days depending on where in a period it landed, so withdraw at least monthly.
-The arithmetic is on [The Affiliation System](/rewards/affiliation).
+previous period, so a given reward is claimable for between 30 and 60 days depending on where
+in a period it landed. Withdraw at least monthly. The arithmetic is on
+[The Affiliation System](/rewards/affiliation).
 
 To withdraw:
 
 1. Open `https://superhero.com/trends/invite` and connect the wallet that created the
-   invites. Rewards accrue to the inviter address, not to any other account.
+   invites. Rewards accrue to the inviter address.
 2. Scroll to **Collect your rewards**. The card shows **Available Rewards**, the value of
    `get_accumulated_rewards(<your address>)`, converted from aettos.
 3. If the progress bar reads 4/4 and the balance is above zero, the button is enabled. Press
@@ -59,49 +59,47 @@ To withdraw:
 
 | Button reads | Meaning |
 | --- | --- |
-| Not eligible yet | Fewer than four invitees have crossed 10 AE |
-| No rewards yet | Threshold reached, but `get_accumulated_rewards` returns zero |
+| Not eligible yet | The gate opens once four direct invitees have each crossed 10 AE; the bar shows progress |
+| No rewards yet | Threshold reached; `get_accumulated_rewards` returns zero so far |
 | Collect rewards | Eligible; the call will go through |
 | Withdrawing... | Transaction submitted, waiting on the wallet and the chain |
 
-`withdraw()` takes no arguments and always pays the whole two-period balance. There is no
-partial withdrawal. Its only requirement is the `ThresholdReached` check; it does not require
-a non-zero balance, so a withdraw with nothing accrued succeeds, spends zero, and still costs
-the transaction fee.
+`withdraw()` takes no arguments and pays the whole two-period balance in one call. Its one
+requirement is the `ThresholdReached` check. The call pays gas at the network's current gas
+price, so wait for the card to show a balance above zero before pressing the button.
 
-Contract errors the card translates:
+Contract messages the card translates:
 
 - `MINIMUM_ACCOUNTS_THRESHOLD_NOT_REACHED` and `MINIMUM_OF_4_ACCOUNTS_SHALL_BUY` both render
   as "you need 4 direct invitees who each spent at least 10 AE in token sales". If you see
-  this while the bar shows 4/4, reload: the on-chain state and the cached UI have diverged.
-- A `Key does not exist` or `Maps:` error from `get_unique_invitee` means the contract has no
-  entry for your address yet. The card treats that as zero progress. It is the normal state
-  for an account that has never invited anyone.
+  this while the bar shows 4/4, reload the page to refresh the on-chain state.
+- A `Key does not exist` or `Maps:` message from `get_unique_invitee` means the contract has
+  no entry for your address yet. The card treats that as zero progress. It is the normal state
+  for an account that has not invited anyone yet.
 
-## An invite link's AE gift: claimed by the link, not by you
+## An invite link's AE gift: signed by the link's one-time key
 
 When someone opens an invite link, the app reads `invite_code` out of the URL fragment,
 reconstructs a one-time account from the secret it contains, and shows a claim card with the
 funded amount and who sent it.
 
 Pressing **Claim reward** calls `redeem_invitation_code(<your wallet address>)` **signed by
-the invite's one-time key**, not by your wallet. That is why the inviter funds a
-`redemption_fee_cover` alongside the gift: the one-time account needs enough AE to pay for
-its own redemption transaction. Your wallet only has to be connected so the contract knows
-where to send the AE and whom to attach to the affiliation tree.
+the invite's one-time key**. The inviter funds a `redemption_fee_cover` alongside the gift so
+the one-time account can pay for its own redemption transaction. Your wallet is connected so
+the contract knows where to send the AE and whom to attach to the affiliation tree.
 
-| Error | What happened |
+| Message | What happened and what to do |
 | --- | --- |
-| `ALREADY_REDEEMED` | The link was already claimed. The card also detects this up front by reading the third field of `get_invitation_code`. |
-| `INVITEE_ALREADY_REGISTERED` | Your wallet address is already attached to an inviter. One account can only be invited once. |
-| `INVITER_EQUAL_INVITEE` | You are redeeming your own code into your own wallet. |
-| `Trying to call undefined function` | You are on the wrong network: the treasury at that address does not exist on the network your wallet is set to. |
-| A message mentioning `Secret key` | The secret in the link is in a format the SDK cannot load. The link is malformed or truncated. |
+| `ALREADY_REDEEMED` | The link was already claimed. The card also detects this up front by reading the third field of `get_invitation_code`. Ask the inviter for a fresh link. |
+| `INVITEE_ALREADY_REGISTERED` | Your wallet address is already attached to an inviter. Each account is invited once. |
+| `INVITER_EQUAL_INVITEE` | You are redeeming your own code into your own wallet. Share the link with someone else instead. |
+| `Trying to call undefined function` | Your wallet is set to a different network from the treasury. Switch networks and retry. |
+| A message mentioning `Secret key` | The link was cut short or altered in transit. Ask the inviter for the full link. |
 
 If you are the **inviter** and you open your own link, the card switches to **Revoke
 invitation** instead of Claim, and calls `revoke_invitation_code` with your wallet. Revoking
-returns the `invitation_amount` to you. An unclaimed invite link does **not** expire; it
-stays claimable until you revoke it.
+returns the `invitation_amount` to you. An unclaimed invite link stays claimable until you
+revoke it.
 
 ## Related
 
@@ -111,6 +109,6 @@ stays claimable until you revoke it.
   accrued.
 - [Invite Links](/rewards/invite-links): creating and revoking the links whose gifts are
   claimed here.
-- [AE and gas](/aeternity/ae-and-gas): why the withdraw call costs a fee and how fees work.
+- [AE and gas](/aeternity/ae-and-gas): how transaction fees work for calls such as `withdraw()`.
 - [Refer & Earn on superhero.com](https://superhero.com/trends/invite): the page with both
   the Collect Rewards card and the Check rewards button.

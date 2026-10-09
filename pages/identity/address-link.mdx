@@ -36,9 +36,9 @@ providers the Superhero backend runs:
 | `site` | A hostname and path, scheme stripped | `/api/address-links/site/` |
 | `prefaens` | A `.chain` name the address owns | `/api/address-links/prefered-aens-name/` |
 
-Values are capped at 200 characters and may not contain a colon, because the signed message is
-colon-delimited. `site` therefore stores `example.com/blog` rather than
-`https://example.com/blog`, and a port is rejected.
+Values are up to 200 characters and contain no colon, because the signed message is
+colon-delimited. `site` therefore stores `example.com/blog` for `https://example.com/blog`;
+enter the hostname and path without a port.
 
 ### Provider ownership
 
@@ -53,9 +53,8 @@ Authority is therefore split in two, and both halves are required:
 - **The provider owner submits the transaction** and pays for it. For every provider above, the
   owner is the Superhero backend wallet.
 
-You cannot link an `x` handle to your own address by calling the contract yourself, even with a
-valid signature. You can register your own provider and run your own namespace on the same
-contract.
+Links in the `x` namespace are submitted through the Superhero API. To run your own namespace
+on the same contract, register your own provider.
 
 ## Entrypoints
 
@@ -99,8 +98,8 @@ uses this namespace.
 | `get_link_did` | `(did: string, controller: address, provider: string) => option(string)` |
 | `resolve_did_controller` | `(did: string) => option(address)` |
 
-The `did` is an opaque string; the contract attaches no syntax or meaning to it. The Superhero
-providers use the address-keyed and principal-keyed namespaces, and the API indexes those two.
+The `did` is an opaque string, so you choose its syntax. The Superhero providers use the
+address-keyed and principal-keyed namespaces, and the API indexes those two.
 
 ### Events
 
@@ -142,7 +141,7 @@ The same construction is used by [delegated posting](/social/delegated-posting).
 | `INVALID_SIGNATURE` | The Ed25519 check failed against the subject |
 | `INVALID_NONCE` | The nonce moved between claim and submit; restart from claim |
 | `ALREADY_CLAIMED` | This provider is already linked to a different value for this subject |
-| `NOT_LINKED` / `NO_LINKS` | Nothing to unlink |
+| `NOT_LINKED` / `NO_LINKS` | No link exists for that provider yet |
 | `NOT_PROVIDER_OWNER` | The submitting wallet does not own the provider namespace |
 | `PRINCIPAL_NOT_FOUND` | The AENS name is not registered |
 | `PRINCIPAL_MISMATCH` | The AENS name is not owned by the signer |
@@ -161,15 +160,14 @@ The backend's address-link module is environment-driven:
 | `ADDRESS_LINK_VERIFICATION_TTL_SECONDS` | Claim-token lifetime, default 300 |
 | `ADDRESS_LINK_NOSTR_EVENT_MAX_AGE_SECONDS` | Nostr proof-event freshness window, default 300 |
 
-With either of the first two unset, every address-link read and write returns
-`503 Service Unavailable` and nothing is indexed.
+The first two are required: once both are set, the module serves address-link reads and writes
+and indexes links. Until then it returns `503 Service Unavailable`.
 
 ## How a link reaches the API
 
 The indexer scans `link`, `unlink`, `link_principal` and `unlink_principal` calls from height
 1,273,691. On a live `link` transaction it decodes the call arguments directly (`addr`,
-`provider`, `value`), so the API reflects a link the moment the transaction is mined, without
-waiting for contract logs to be indexed.
+`provider`, `value`), so the API reflects a link as soon as the transaction is mined.
 
 The link lands in the account's `links` object, keyed by provider id:
 
@@ -188,11 +186,11 @@ deprecated):
 | Field | Source |
 | --- | --- |
 | `profile.x_username` | `links.x`, trimmed, lowercased, leading `@` stripped |
-| `profile.bio` | `links.bio`, falling back to the legacy profile field |
+| `profile.bio` | `links.bio`, falling back to the profile's own `bio` field |
 | `profile.site` | `links.site` |
 | `profile.prefered_aens_name` | `links.prefaens` |
 | `profile.chain_name` | The middleware's AENS name for the address, refreshed hourly |
-| `profile.fullname`, `avatarurl`, `username`, `chain_expires_at` | Legacy profile fields, read-only |
+| `profile.fullname`, `avatarurl`, `username`, `chain_expires_at` | Profile fields, read-only |
 | `public_name` | `prefered_aens_name`, else `chain_name`, else `username`, else the address |
 | `followers_count`, `following_count` | The social-graph counts, when that feature is enabled |
 

@@ -1,6 +1,6 @@
 ---
 title: "Superhero Rewards Program"
-description: "Earn AE by linking your X account and posting about Superhero — the milestones, follower tiers, streak bonus and verification flow."
+description: "Earn AE by linking your X account and posting about Superhero: the milestones, follower tiers, streak bonus and verification flow."
 ---
 
 # Superhero Rewards Program
@@ -9,14 +9,13 @@ The Superhero Rewards Program pays AE for promoting Superhero on X. You link you
 to your on-chain SuperheroID, post about Superhero, and the backend scans your posts and sends
 AE to your connected wallet.
 
-This is **not** the affiliate program. Affiliate rewards come from trading fees and are
+The affiliate program is separate: affiliate rewards come from trading fees and are
 withdrawn from a contract. See [The Affiliation System](/rewards/affiliation).
 
 ## Where it lives
 
 The program is at the top of `https://superhero.com/trends/invite`, above the Refer & Earn
-cards. Connect your wallet first; nothing on the page tracks progress without an active
-account.
+cards. Connect your wallet first so the page can track your progress.
 
 ## Milestone 1: Link X Account & Post
 
@@ -33,17 +32,15 @@ The app pre-fills the compose intent with:
 Check out @superhero_chain — earn AE tokens by posting on X! https://superhero.com
 ```
 
-- **Your X account must have at least 100 followers.** Accounts under that threshold are not
-  eligible.
-- Milestone 1 is a **regular post** and does not need your referral link. Only milestone 2
-  requires the link.
+- **Accounts with at least 100 followers qualify.**
+- Milestone 1 is a **regular post**; your referral link comes into play at milestone 2.
 
 Linking X also sets up your SuperheroID profile. See [SuperheroID](/identity/superhero-id)
 and [X verification](/identity/x-verification).
 
 ## Milestone 2: Post on X & Earn
 
-**Reward: 10–30 AE per qualifying post, plus a 50 AE streak bonus.** Locked until milestone 1
+**Reward: 10–30 AE per qualifying post, plus a 50 AE streak bonus.** Opens once milestone 1
 is paid.
 
 Every post must contain **your unique referral link** in the post text. The link is minted
@@ -54,11 +51,11 @@ opens an X compose intent pre-filled with:
 Check out @superhero_chain — earn AE tokens by posting on X! <your referral link>
 ```
 
-Your per-post rate is set by your follower count:
+Accounts with at least 100 followers qualify, and your per-post rate is set by your follower
+count:
 
 | Follower count | Per qualifying post |
 | --- | --- |
-| Under 100 | Not eligible |
 | 100 – 10,000 | 10 AE |
 | 10,000 – 1,000,000 | 20 AE |
 | Over 1,000,000 | 30 AE |
@@ -82,32 +79,28 @@ At the base tier, milestone 1 plus 10 posts plus one streak bonus adds up to 200
 | Per-post | A post containing your referral link | Once per UTC day, at your follower tier's rate |
 | Streak bonus | 10 consecutive UTC days of referral posts | Recurring: the counter resets and starts again |
 
-An account below the minimum follower count accrues nothing (no qualifying posts, no
-per-post rewards, no streak progress), though already-accrued payouts still settle.
+Qualifying posts, per-post rewards and streak progress accrue to accounts with at least 100
+followers. Payouts already accrued always settle.
 
 ### What counts as a qualifying post
 
 - **Referral posts are matched on the host.** A URL in the post must have host `superhero.com`
-  and a `?ref=` query parameter equal to your referral code, case-insensitively. X's truncated
-  `display_url` values are accepted only when they start with `superhero.com` followed by `/`,
-  `?`, `#` or the end of the string, so `evil.com/?u=superhero.com&ref=<code>` and
-  `superhero.com.evil.com/?ref=<code>` do not qualify.
-- **One rewarded post per UTC day.** A second referral post on the same UTC day earns nothing.
-  A tweet whose `created_at` cannot be parsed into a UTC day earns nothing either.
-- **A streak day is a UTC day.** The streak increments only when a qualifying day is exactly
-  one after the last qualifying day. Any larger gap resets the streak to 1. The streak is
-  anchored to UTC midnight, not to your local time or to 24-hour spacing.
-- **Old posts fall off the back.** A scan covers the 2,000 newest tweets and advances a
-  forward-only cursor even when it truncates, so posts older than that are never counted. The
-  status response reports this as `x_posts_scan_truncated`.
-- **Nothing is clawed back.** Payouts are on-chain AE spends and the ledger is insert-only.
-  Deleting a tweet after it has been rewarded stops it appearing in future scans but does not
-  reclaim the AE.
+  and a `?ref=` query parameter equal to your referral code, case-insensitively.
+- **One rewarded post per UTC day.** The first qualifying referral post of each UTC day is
+  rewarded.
+- **A streak day is a UTC day.** The streak grows by one when a qualifying day directly follows
+  the last qualifying day; after a gap it starts again at 1. Days are counted from UTC
+  midnight, so plan your posts by UTC rather than local time.
+- **A scan covers your 2,000 newest tweets.** Post and check regularly so each qualifying post
+  falls inside that window. The status response carries `x_posts_scan_truncated` when a scan
+  reached that limit.
+- **Payouts are final.** Rewarded AE is sent on-chain and stays yours. A rewarded post that is
+  later deleted simply stops appearing in future scans.
 
 ## How verification works
 
-Nothing here is on-chain until the payout. The flow is a signed request to the Superhero
-backend, which scans X on your behalf.
+The payout is the on-chain step. The flow is a signed request to the Superhero backend, which
+scans X on your behalf.
 
 1. The rewards card calls `GET /api/profile/<address>/x-posting-reward` on load and renders
    your status, rewarded post count, streak, follower count, tier and referral link.
@@ -120,37 +113,32 @@ backend, which scans X on your behalf.
 4. Minting the referral link uses the same signed proof against
    `POST /api/profile/<address>/x-reward/referral-link`.
 
-**The recheck is rate-limited to one scan per 24 hours.** The status response carries
-`next_check_allowed_at`; until that timestamp passes the button is disabled and shows a
-countdown. A submit past the cap returns HTTP 429 and the scan is skipped. The cap is claimed
-atomically, so retries and concurrent requests cannot exceed it.
+**You can run one scan per 24 hours.** The status response carries `next_check_allowed_at`;
+the button shows a countdown until that time, and a submit before it returns HTTP 429. A
+pending payout from an earlier scan is settled on your next recheck, including during the
+cooldown, because settling it needs no new scan.
 
-- A handled scan failure, such as an X outage, still consumes the slot. An unexpected failure
-  such as a database error releases it.
-- Recovering a pending or failed payout never calls X, so it runs **before** the cap check. A
-  recheck that finds a stuck payout can settle it even while the scan itself is cooling down.
+**Read the status after a check.** A recheck that returns HTTP 200 may carry an `error` string
+when no reward was sent: the account has fewer than 100 followers, the X identity has already
+been rewarded on another address, or the payout transaction did not complete. The card shows
+that string as a red banner, so you know what to change before the next check.
 
-**A successful check can still pay nothing.** A recheck that returns HTTP 200 may carry an
-`error` string explaining why no reward was sent: below the follower minimum, the X identity
-was already rewarded on another address, or the payout transaction failed. The card shows that
-string as a red banner.
-
-**Payouts are automatic.** AE is sent to your connected wallet by the backend; there is no
-claim transaction and no gas cost to you. See [Claiming Rewards](/rewards/claiming) for the
-rewards that *do* need a transaction.
+**Payouts are automatic.** AE is sent to your connected wallet by the backend, with no
+transaction to sign and no gas to pay. See [Claiming Rewards](/rewards/claiming) for the
+rewards you collect with a transaction.
 
 ## Eligibility
 
-The program is discretionary: rewards are not guaranteed, the program can be paused at any
-time, and users from restricted regions are not eligible. The full terms are shown at the foot
-of the rewards page. Rewards may be reportable as income.
+The program runs under the terms shown at the foot of the rewards page: it is discretionary,
+Superhero may pause it, and it is open to users outside restricted regions. Rewards may be
+reportable as income.
 
 ## Related
 
 - [Claiming Rewards](/rewards/claiming): what arrives automatically versus what you sign for.
 - [Invite Links](/rewards/invite-links): the other half of the `/trends/invite` page.
-- [The Affiliation System](/rewards/affiliation): the on-chain referral system, which has
-  entirely different rules.
+- [The Affiliation System](/rewards/affiliation): the on-chain referral system, with its own
+  rules.
 - [X verification](/identity/x-verification): the linking step behind milestone 1.
 - [Rewards page on superhero.com](https://superhero.com/trends/invite): where you connect a
   wallet, link X and press Check rewards.

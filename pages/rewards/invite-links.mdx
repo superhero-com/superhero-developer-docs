@@ -11,17 +11,14 @@ invitee, which is how you start earning from the [affiliation system](/rewards/a
 
 > **Invite links contain one-time secrets.**
 >
-> The link is not an identifier. It carries the **secret key** of a funded account, in the
-> URL fragment. Anyone who reads the link can claim the AE. No wallet of yours is needed and
-> no confirmation is asked of you.
+> The link carries the **secret key** of a funded account, in the URL fragment. Anyone who
+> reads the link can claim the AE; the claim needs neither your wallet nor your confirmation.
 >
-> - **Never paste an invite link into a shared channel**, a group chat, an issue tracker or a
->   support ticket. Send it to one person, directly.
-> - **Never commit one to a repository**, and never write one into a log file, a shell
->   history, an error report or a screenshot.
-> - **The app never persists the secret.** Generated links are held in memory and cleared on
->   reload. If you close the dialog without copying, the secret is gone. The AE stays locked
->   on-chain and the only way to get it back is to revoke the code.
+> - **Send an invite link to one person, directly.** Keep it out of shared channels, group
+>   chats, issue trackers and support tickets.
+> - **Keep it out of repositories**, log files, shell history, error reports and screenshots.
+> - **Copy your links before closing the dialog.** The app holds generated links in memory and
+>   clears them on reload. If a link is lost, revoke its code to return the AE to your wallet.
 > - **Treat a leaked link as spent.** If one escapes, revoke it immediately.
 
 ## What a link looks like
@@ -71,12 +68,12 @@ the recipient can pay for their own redemption transaction, which is signed by t
 key rather than the recipient's wallet. See
 [`redemption_fee_cover`](/rewards/affiliation) on the affiliation page.
 
-Ten links of 1 AE each cost 10.01 AE plus gas.
+Ten links of 1 AE each lock 10.01 AE, and the call pays gas at the network's current gas
+price.
 
 - The contract checks `Call.value == (redemption_fee_cover + invitation_amount) × count` with
-  **exact equality**. Attaching more aborts with `INVITATION_AMOUNT_AND_FEE_NOT_MATCHING`.
-- Fund your wallet for `(amount + 0.001) × count` plus the transaction fee. The app's form
-  checks your balance against `amount × count` only.
+  **exact equality**; a different value aborts with `INVITATION_AMOUNT_AND_FEE_NOT_MATCHING`.
+- Fund your wallet for `(amount + 0.001) × count` plus gas before you press Generate.
 
 ## Claiming: the recipient's side
 
@@ -88,10 +85,9 @@ Once it lands, they hold the AE and are attached to you in the affiliation tree:
 they subsequently spend on community tokens pays you 0.300% at level 1, and your own inviter
 0.125% at level 2.
 
-An address can only be invited once; a second attempt fails with
-`INVITEE_ALREADY_REGISTERED`. A link that has already been claimed fails with
-`ALREADY_REDEEMED`; the card reads the claimed flag from `get_invitation_code` and shows that
-state before the button is pressed.
+Each address is invited once; a second attempt returns `INVITEE_ALREADY_REGISTERED`. A link
+that has already been claimed returns `ALREADY_REDEEMED`; the card reads the claimed flag from
+`get_invitation_code` and shows that state before the button is pressed.
 
 ## Revoke a link
 
@@ -106,19 +102,18 @@ All three call `revoke_invitation_code(invitation_address)` with your wallet. Th
 the public address of the one-time account, not the secret. It is safe to handle and it is
 what the invitation list shows you.
 
-Revoking returns the `invitation_amount` to your wallet; the 0.001 AE fee cover was sent to
-the one-time address at registration and is not part of the refund. Revoking ten unclaimed
-1 AE links returns 10 AE, and costs a transaction fee.
+Revoking returns the `invitation_amount` to your wallet; the 0.001 AE fee cover stays with the
+one-time address it was sent to at registration. Revoking ten unclaimed 1 AE links returns
+10 AE, and the call pays gas at the network's current gas price.
 
-There is **no expiry**. An `invitation_codes` entry is the tuple
-`(inviter, invitation_amount, is_redeemed)`. It carries no timestamp, and no entrypoint
-prunes the map. An unclaimed link stays claimable indefinitely, which is why revoking a leaked
-one matters.
+An unclaimed link stays claimable until you revoke it. An `invitation_codes` entry is the tuple
+`(inviter, invitation_amount, is_redeemed)`, with no expiry, so revoke any link that leaked.
 
-Three errors you can hit: `INVITATION_NOT_REGISTERED` if the code was already revoked or never
-existed (the app uses this to drop a stale local entry), `ALREADY_REDEEMED` if somebody claimed
-it first (the app refreshes so the row flips to claimed), and `CALLER_NOT_INVITER` if the
-connected wallet is not the address that registered the code.
+Three messages you can see: `INVITATION_NOT_REGISTERED` if the code was already revoked or
+never existed (the app drops the stale local entry), `ALREADY_REDEEMED` if somebody claimed it
+first (the app refreshes so the row flips to claimed), and `CALLER_NOT_INVITER` if the
+connected wallet is a different address from the one that registered the code; switch to that
+wallet and retry.
 
 ## Track your invitations
 
@@ -126,7 +121,7 @@ The **Your Invitations** list shows every code you registered, with one of three
 
 | Status | Meaning |
 | --- | --- |
-| `created` | Registered on-chain, nobody has claimed it. Revocable. Shows the copyable link if the secret is still in this browser session. |
+| `created` | Registered on-chain and awaiting a claim. Revocable. Shows the copyable link when the secret is held in this browser session. |
 | `claimed` | Redeemed. Shows the claimer's address and the claim time. |
 | `revoked` | Cancelled. Shows when. |
 
@@ -157,9 +152,9 @@ The list is assembled from two sources:
   one of `pending`, `claimed` or `revoked`, plus `tx_hash`, `block_height`, `amount`,
   `sender_address`, `invitee_address`, `revoke_tx_hash` and `status_updated_at`.
 
-Because the secret keys are never persisted, links you generated in an earlier session appear
-in the list with their status and amount but **without a copyable link**. The AE is still
-recoverable by revoking.
+Links you generated in an earlier session appear in the list with their status and amount. The
+secret lives in the browser session that generated it, so copy links when you create them. The
+AE in any unclaimed link is recoverable by revoking.
 
 ## From the command line
 
@@ -186,16 +181,16 @@ node scripts/superhero-invite.mjs revoke ak_...
 `total_cost_ae`, `tx_hash` and a `links` array. Progress messages go to stderr, so the stdout
 payload stays parseable.
 
-**The `links` array is the secret material.** Do not pipe it into a log, a CI artefact, a
-chat webhook, or anything an agent will later summarise into a shared transcript. Redirect
-stdout to a file with restrictive permissions, or read the links and clear the output.
+**The `links` array is the secret material.** Keep it out of logs, CI artefacts, chat
+webhooks, and anything an agent will later summarise into a shared transcript. Redirect stdout
+to a file with restrictive permissions, or read the links and clear the output.
 
 ## Turn invites into withdrawable rewards
 
 The affiliate balance becomes withdrawable once **4 of your direct invitees have each spent at
-least 10 AE** in token sales, cumulatively. Only direct invitees count: someone your invitee
-invites earns you 0.125% at level 2 but does nothing for your qualification, so a wide first
-ring gets you paid sooner than a deep chain.
+least 10 AE** in token sales, cumulatively. Direct invitees are the ones who qualify you:
+someone your invitee invites earns you 0.125% at level 2, while your own level-1 invitees open
+the gate, so a wide first ring gets you paid sooner than a deep chain.
 
 Rewards accumulate in 30-day periods and `withdraw()` pays the current and previous period,
 so withdraw monthly once you qualify. The Collect Rewards card tracks the gate and the live

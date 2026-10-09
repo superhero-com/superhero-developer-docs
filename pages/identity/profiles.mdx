@@ -13,7 +13,7 @@ The page merges on-chain links, the API's account aggregate and trading statisti
 | Route | What it is |
 | --- | --- |
 | `/users/:address` | The social profile: header, feed, owned and created tokens, transactions |
-| `/user/:address` | Legacy path; redirects to `/users/:address` |
+| `/user/:address` | Redirects to `/users/:address` |
 | `/trends/accounts` | The trader index: every account with token activity |
 | `/trends/accounts/:address` | The Trendminer view of an account, focused on trading |
 | `/trends/leaderboard` | Ranked accounts by portfolio performance |
@@ -64,7 +64,7 @@ All four datasets are prefetched when the page loads. The feed tab merges posts 
 | Preferred AENS name, bio, website, X handle, Nostr key | `AddressLink` contract state, as provider links, signed by you and submitted by the backend |
 | AENS name ownership and pointers | æternity AENS |
 | Chain name shown on a profile | Resolved from the middleware and cached on the account; not a contract link |
-| Fullname, avatar URL, legacy username, `chain_expires_at` | Legacy profile fields, read-only |
+| Fullname, avatar URL, username, `chain_expires_at` | Profile fields, read-only |
 | Follower and following counts | The social-graph tables, when that feature is enabled |
 | Posts and comments | `Tipping` v3 contract, indexed by the API |
 | Balances, portfolio history, leaderboard stats | Computed by the API from chain data |
@@ -89,10 +89,10 @@ Each link has a matching unlink: `/unclaim` returns a message and nonce, you sig
 `/unclaim/submit` relays the removal. The editor reloads its state after each operation.
 
 Every claim reads the contract's own `get_nonce(address)`, and the nonce advances on each link
-or unlink. If two devices claim at once, the second submit fails with a nonce mismatch and
-restarts from claim.
+or unlink. If two devices claim at once, the second submit returns a nonce mismatch; restart it
+from claim.
 
-Fullname, avatar and the legacy username are read-only.
+Fullname, avatar and username are read-only.
 
 ## Leaderboards
 
@@ -118,7 +118,7 @@ which sorts ascending because a smaller drawdown is better.
 
 `/trends/accounts` reads `GET /api/accounts`, which pages at 1 to 100 rows and accepts a
 `search` term matched against the address, `chain_name`, `public_name`, `username` and
-`fullname`. `order_by` takes exactly nine values, and anything else is a `400`:
+`fullname`. `order_by` takes one of nine values (any other value returns `400`):
 
 | `order_by` | Ranks by |
 | --- | --- |
@@ -135,12 +135,11 @@ which sorts ascending because a smaller drawdown is better.
 `order_direction` is `ASC` or `DESC`, defaulting to `DESC`. `has_nostr=true` returns only
 accounts that have linked a Nostr key, which is useful for a chat-contact suggester.
 
-Both the account index and the leaderboard rank trading activity only; nothing ranks by
-posting, commenting, tipping or governance.
+Both the account index and the leaderboard rank trading activity.
 
 ## How `public_name` is computed
 
-Server-side, by a fixed four-step ladder with no per-account preference:
+Server-side, by a fixed four-step ladder:
 
 ```text
 prefered_aens_name   (links.prefaens — the AENS name the user explicitly linked)

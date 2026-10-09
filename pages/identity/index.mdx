@@ -7,8 +7,8 @@ description: "SuperheroID: an æternity address with signed, revocable links to 
 
 Your identity on Superhero is your æternity address plus whatever you choose to attach to it.
 Attachments are provider links in the `AddressLink` contract, each authorised by your own
-signature over a nonce-bearing message. There is no account to be locked out of, and only you
-can remove a link.
+signature over a nonce-bearing message. You hold the key, and a link is removed by your
+signature alone.
 
 ## The shape of an identity
 
@@ -20,9 +20,9 @@ can remove a link.
 | X handle | An X handle you linked after OAuth | `AddressLink`, provider `x` |
 | Nostr key | The npub your chat identity uses | `AddressLink`, provider `nostr` |
 | Bio and website | Free-text links | `AddressLink`, providers `bio` and `site` |
-| Fullname, avatar, username | Legacy profile fields, read-only | The Superhero API |
+| Fullname, avatar, username | Profile fields, read-only | The Superhero API |
 
-A name is never the identity. Resolution always ends at an address, and the name types differ
+The address is the identity. Resolution always ends at an address, and the name types differ
 in how much evidence backs them. See [Names](/identity/names).
 
 ## In this section
@@ -32,7 +32,7 @@ in how much evidence backs them. See [Names](/identity/names).
 - [AddressLink](/identity/address-link): the contract reference: data model, entrypoints,
   events, providers and the signed message format.
 - [Names](/identity/names): the name types, and how a public name is resolved.
-- [Chain Names (AENS)](/identity/chain-names): registering, pointing, extending and losing a
+- [Chain Names (AENS)](/identity/chain-names): registering, pointing, extending and renewing a
   `.chain` name, including the sponsored free claim.
 - [Verifying Your X Account](/identity/x-verification): the OAuth plus claim-sign-submit flow,
   in enough detail to reimplement.
