@@ -17,7 +17,6 @@ All paths are relative to `https://api.superhero.com`. Reads need no authenticat
 | `GET /api/transactions` | `token_address`, `account_address`, `includes`, `limit`, `page` | Paginated trade rows |
 | `GET /api/transactions/by-hash` | `tx_hash` | One trade row |
 | `GET /api/tokens/{address}/transactions` | `interval`, `start_date`, `end_date`, `convertTo`, `mode` | Aggregated series for one token |
-| `GET /api/debug/failed-transactions` | None | The 500 most recent indexer failures |
 
 These are Superhero trade records, not raw chain transactions. For arbitrary chain history
 (transfers, contract calls, name transactions), use the middleware; see
@@ -44,10 +43,10 @@ curl -s "https://api.superhero.com/api/transactions?token_address=ct_YOUR_SALE_A
 
 Response is the standard `items` plus `meta` envelope.
 
-Results are ordered by `created_at` descending, and that is the only order: there is no
-`order_by`, `order_direction`, `from_date` or `to_date` (unrecognised keys are ignored). To bound
-a date range, page from the top and stop when `created_at` passes your cutoff, or use
-`GET /api/tokens/{address}/transactions`, which takes `start_date` and `end_date`.
+Results are ordered by `created_at` descending. The parameters above are the full set, and
+unrecognised keys are ignored. To bound a date range, page from the top and stop when
+`created_at` passes your cutoff, or use `GET /api/tokens/{address}/transactions`, which takes
+`start_date` and `end_date`.
 
 Without `token_address` the list is restricted to tokens from the **current** community factory.
 An unresolvable `token_address` returns an empty page, not a 404. `account_address` also adds
@@ -70,7 +69,7 @@ each row even without `includes=token`.
 | `unit_price` | `PriceDto` | `amount / volume`, the realised price per token, in **AE** |
 | `previous_buy_price` | `PriceDto` or null | Curve buy price before this trade, in **AE** |
 | `buy_price` | `PriceDto` | Curve buy price after this trade, in **AE** |
-| `sell_price` | `PriceDto` or null | Legacy field |
+| `sell_price` | `PriceDto` or null | Retained for backward compatibility |
 | `total_supply` | string | Token supply after the trade, in **whole tokens** |
 | `market_cap` | `PriceDto` or null | `buy_price * total_supply`, in **AE**, not aettos |
 | `created_at` | string | ISO 8601, the micro-block time |
@@ -97,13 +96,13 @@ Nothing on a trade row needs dividing by 1e18, even though the field names repea
 | `sell` | A sale back into the curve |
 | `create_community` | Token creation. Carries the creator's initial purchase, so it has a non-zero `volume` and `amount` and counts as a buy |
 
-Nothing else (a DEX swap, an AE transfer, a governance vote) is indexed here, and reverted
-transactions are skipped, so every row is a trade that succeeded.
+Every row is a bonding-curve trade that succeeded; reverted transactions are left out. DEX swaps
+have their own records under [DEX API](/api-reference/dex), and AE transfers and governance votes
+are read from the middleware.
 
 **Treat `create_community` as a buy.** PnL, volume and trending all use
 `tx_type IN ('buy', 'create_community')` on the acquisition side and `tx_type = 'sell'` on the
-disposal side; counting only `buy` understates every creator's position by their founding
-purchase.
+disposal side, so every creator's position includes their founding purchase.
 
 For the DEX's separate `tx_type` vocabulary, see [DEX API](/api-reference/dex#tx_type).
 
@@ -116,8 +115,8 @@ curl -s "https://api.superhero.com/api/transactions/by-hash?tx_hash=th_YOUR_TX_H
 ```
 
 Returns a single row; a malformed hash is a 400. On a miss, the handler fetches the transaction
-from the middleware and indexes it on the spot, so a trade the indexer has not caught up to can
-be pulled in by asking for it; only if that also fails is it a 404. The DEX equivalent takes the
+from the middleware and indexes it on the spot, so asking for a fresh trade by hash pulls it
+into the index; a hash the middleware does not know is a 404. The DEX equivalent takes the
 hash as a path segment: `GET /api/dex/transactions/{txHash}`.
 
 ## `GET /api/tokens/{address}/transactions`
@@ -155,22 +154,6 @@ endpoint once, then update from the socket. See [WebSocket](/api-reference/webso
 | Middleware | `GET https://mainnet.aeternity.io/mdw/v3/transactions/{tx_hash}` |
 
 While a trade is confirming, poll the middleware form and treat a `404` as "still pending".
-
-## `GET /api/debug/failed-transactions`
-
-A diagnostics endpoint: the 500 most recent rows of the failed-transactions table, newest first,
-with no parameters and no pagination.
-
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `hash` | string | `th_...` of the transaction the indexer could not process |
-| `retries` | number | How many times it has been re-attempted |
-| `error` | string | The error message |
-| `error_trace` | string | The stack trace |
-| `created_at` | string | ISO 8601 |
-
-Use it when a trade of yours is missing from `/api/transactions` and you want to know whether
-the indexer failed on it.
 
 ## Related
 

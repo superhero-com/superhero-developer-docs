@@ -31,16 +31,16 @@ curl -s "https://api.superhero.com/api/profile/ak_2ruXgsLy9jMwEqsgyQgEsxw8chYDfv
 | --- | --- | --- |
 | `address` | string | The `ak_...` |
 | `public_name` | string | Resolved display name. **Never null**: it falls back to the address |
-| `profile.fullname` | string | Display name from the legacy profile cache. `""` when unset |
+| `profile.fullname` | string | Display name from the profile cache. `""` when unset |
 | `profile.bio` | string | The verified `links.bio` if present, else the cached bio, else `""` |
 | `profile.site` | string or null | The verified `links.site` |
 | `profile.avatarurl` | string | `""` when unset |
-| `profile.username` | string or null | Legacy custom username |
+| `profile.username` | string or null | Custom username from the profile cache |
 | `profile.prefered_aens_name` | string or null | The verified `links.prefaens`. Note the one-`r` spelling |
 | `profile.x_username` | string or null | The verified `links.x` |
 | `profile.chain_name` | string or null | The account's `chain_name` first, then the cached copy |
 | `profile.chain_expires_at` | string or null | When the `.chain` name expires |
-| `profile.followers_count` / `following_count` | number | Single-profile read only, and only when the social-graph feature is enabled |
+| `profile.followers_count` / `following_count` | number | Present on the single-profile read when the social-graph feature is enabled |
 
 The display name resolves as:
 
@@ -48,8 +48,8 @@ The display name resolves as:
 public_name = prefered_aens_name || chain_name || username || address
 ```
 
-An X handle never becomes the display name. `fullname`, `avatarurl` and `username` come from a
-legacy profile cache; the account's `chain_name` is refreshed hourly and is the live one.
+An X handle never becomes the display name. `fullname`, `avatarurl` and `username` come from the
+profile cache; the account's `chain_name` is refreshed hourly and is the live one.
 
 `includeOnChain` is accepted on both read endpoints and ignored; profiles are served from indexed
 data.
@@ -188,7 +188,7 @@ POST /api/address-links/x/unclaim/submit   { address, nonce, signature }
 ```
 
 Read the result back from `GET /api/accounts/{address}` as `links.x`, falling back to
-`profile.x_username` and then the legacy top-level `x_username`.
+`profile.x_username` and then the top-level `x_username`.
 
 ## Sponsored `.chain` name registration
 
@@ -253,9 +253,9 @@ The recheck and referral-link endpoints take the same signed proof body: `challe
 `challenge_expires_at`, `signature_hex`. **The recheck is capped at once per 24 hours**;
 exceeding it returns `429` with `nextAllowedAt` in the body, and the scan is skipped, not queued.
 
-## Deprecated: the legacy profile update
+## Deprecated: the generic profile update
 
-Two endpoints implement an older generic profile edit. Use the address-link endpoints instead.
+Two endpoints implement an earlier generic profile edit. Use the address-link endpoints instead.
 
 | Method & path | Body | Returns |
 | --- | --- | --- |

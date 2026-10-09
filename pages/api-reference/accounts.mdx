@@ -41,13 +41,13 @@ curl -s "https://api.superhero.com/api/accounts/ak_2ruXgsLy9jMwEqsgyQgEsxw8chYDf
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `address` | string | The `ak_...` |
-| `bio` | string or null | Legacy bio field |
-| `chain_name` | string or null | Legacy `.chain` name field |
+| `bio` | string or null | Top-level bio field; see the precedence rule below |
+| `chain_name` | string or null | Top-level `.chain` name field |
 | `chain_name_updated_at` | string or null | ISO 8601 |
 | `links` | object or null | Verified address links, see below |
 | `profile` | object or null | Profile payload, see [Profile](/api-reference/profile) |
 | `public_name` | string or null | Resolved display name |
-| `x_username` | string or null | Legacy X handle field |
+| `x_username` | string or null | Top-level X handle field |
 
 `links` holds the current, verified identity:
 
@@ -78,7 +78,7 @@ curl -s "https://api.superhero.com/api/accounts?order_by=total_volume&order_dire
 | Field | Type | Sortable | Meaning |
 | --- | --- | --- | --- |
 | `address` | string | | The `ak_...`, primary key |
-| `bio` | string or null | | Legacy bio |
+| `bio` | string or null | | Top-level bio field |
 | `chain_name` | string or null | | Cached `.chain` name |
 | `chain_name_updated_at` | string or null | | Last successful resolution |
 | `total_volume` | string | yes | Lifetime trade volume in **AE** |
@@ -162,9 +162,9 @@ Returns a **bare JSON array** of snapshots.
 
 Snapshots are reconstructed at request time: the range is walked in `interval`-second steps
 (future timestamps dropped, at most 100,000 points), each timestamp is resolved to a block
-height, and the AE balance, token holdings and PnL are computed at that height. Every point costs
-work, so this is the slowest endpoint in the API. Bound it with `startDate` and `endDate`.
-History reaches back to the factory's deployment height.
+height, and the AE balance, token holdings and PnL are computed at that height. Each point is
+computed on demand, so bound the range with `startDate` and `endDate` and pick an `interval`
+that matches the chart you draw. History reaches back to the factory's deployment height.
 
 | Field | Type | Meaning |
 | --- | --- | --- |

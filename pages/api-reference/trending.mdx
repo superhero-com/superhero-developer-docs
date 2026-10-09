@@ -44,7 +44,7 @@ curl -s "https://api.superhero.com/api/trending-tags?order_by=score&order_direct
 | --- | --- | --- |
 | `id` | number | Row id |
 | `tag` | string | The normalised tag, unique |
-| `description` | string or null | Currently always null |
+| `description` | string or null | Null |
 | `score` | number | The provider's score, as sent |
 | `source` | string | The `provider` string from the ingest call |
 | `created_at` | string | ISO 8601 |
@@ -58,10 +58,9 @@ normalises the path parameter the same way ingest does, so `/superHero` finds `S
 
 ### `score` and `source`
 
-Tag scores are supplied by the provider that posts them, with no normalisation, cap or rescaling
-and no documented range. Each ingest replaces the whole table, so every score in a response comes
-from one provider on one scale: treat `score` as a ranking key within a response, not a quantity
-to compare across time. `source` is the `provider` string as sent.
+Tag scores are supplied by the provider that posts them and stored as sent. Each ingest replaces
+the whole table, so every score in a response comes from one provider on one scale: use `score`
+as a ranking key within a response. `source` is the `provider` string as sent.
 
 ### Normalisation
 
@@ -153,9 +152,9 @@ lies in `[0, 1]`; `freshness` is at most 1 at zero age and falls monotonically.
 the window.
 
 The caps, weights and decay constants are shared by every token and nothing depends on other
-tokens, so the score is **comparable across tokens**. It is not comparable across time: the same
-activity scores lower an hour later, because `age_hours` runs from the most recent qualifying
-event.
+tokens, so the score is **comparable across tokens**. Compare scores at one point in time: the
+same activity scores lower an hour later, because `age_hours` runs from the most recent
+qualifying event.
 
 ### Inputs
 
@@ -188,7 +187,8 @@ and read in that thread counts for the token whether or not it repeats the hasht
 | `GET /api/tokens/{address}/score` | On demand, and it persists the result |
 
 Decay is applied at write time, so a token with no new activity keeps its last score until a
-backfill reaches it. `trending_score_update_at` tells you how stale.
+backfill reaches it. `trending_score_update_at` tells you when the score was last computed; call
+`GET /api/tokens/{address}/score` for a fresh value.
 
 ### Which tokens are eligible
 
