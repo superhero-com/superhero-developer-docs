@@ -27,9 +27,9 @@ See [The Built-In Wallet](/wallets/built-in-wallet).
 | Platforms | Chrome, Brave, Opera, Firefox | iOS, Android | Any browser | Any browser; in-page signing in the installed PWA | Anywhere Node runs |
 | Install needed | Yes | Yes | No | No | No |
 | Unlocks with | Wallet password | Device biometrics, if enabled | Wallet password | Passkey, passphrase or recovery code | Nothing; the key is live |
-| Change the unlock secret later | Yes | Biometrics on or off | Yes | **No** | n/a |
+| Change the unlock secret later | Yes | Biometrics on or off | Yes | By recreating the wallet from its phrase | n/a |
 | Portable backup | Seed phrase | Seed phrase | Seed phrase | Seed phrase, or a syncing passkey | The secret key |
-| Export one account's private key | Yes | Yes | Yes | **No** | It *is* the key |
+| Export one account's private key | Yes | Yes | Yes | No | It *is* the key |
 | Ledger (æternity app) | Chromium only | No | Yes | No | No |
 | AirGap cold signing | Yes | Yes | Yes | No | No |
 | In-app dæpp browser | No | Yes | No | n/a | n/a |
@@ -41,27 +41,24 @@ between them are platform capabilities, not different products.
 
 ## Hardware and cold signing
 
-Both hardware options in Superhero Wallet are **æternity-only**.
+Both hardware options in Superhero Wallet work with **æternity** accounts.
 
 **Ledger** connects over WebUSB and uses the æternity app on the device. You can *discover* accounts
 that already have activity or *derive* one at an account index you type. Ledger accounts sign
-transactions and messages on the device. Two limits:
-
-- **Not on Firefox**, which does not implement WebUSB.
-- **Not on the mobile apps.**
-
-That leaves the Chromium extension and the hosted web build.
+transactions and messages on the device. Ledger is available where WebUSB is: the Chromium
+extension (Chrome, Brave, Opera) and the hosted web build in a Chromium browser.
 
 **AirGap** is the offline-device path and works on the extension, the mobile apps and the web
 wallet alike. You scan your AirGap Vault's QR code (or paste the `airgap-wallet://?ur=…` string) to
 import accounts, then scan a second pair of QR codes to get a transaction signed by the offline
-device and broadcast it from Superhero Wallet. Set AirGap to **QR code V3** or the pairing will not
-decode. AirGap accounts cannot sign *messages*, only transactions.
+device and broadcast it from Superhero Wallet. Set AirGap to **QR code V3**, the format Superhero
+Wallet decodes. AirGap accounts sign *transactions*; when an æpp asks for a message signature, use a
+non-AirGap account.
 
 ## What else Superhero Wallet offers
 
-Beyond holding coins, the standalone wallet has features superhero.com does not, available on all
-three surfaces unless noted:
+Beyond holding coins, the standalone wallet adds a set of its own features, available on all three
+surfaces unless noted:
 
 | Feature | Where |
 | --- | --- |
@@ -77,8 +74,8 @@ three surfaces unless noted:
 | **WalletConnect** sessions | EVM chains only |
 | **In-app dæpp browser** | Mobile apps only |
 
-**WalletConnect in Superhero Wallet is for EVM chains, not for æternity.** æternity æpps connect
-over AEX-2 instead; see [Connecting a Wallet](/wallets/connecting).
+**WalletConnect in Superhero Wallet serves the EVM chains.** æternity æpps connect over AEX-2; see
+[Connecting a Wallet](/wallets/connecting).
 
 ## Pick by who you are
 
@@ -86,19 +83,19 @@ over AEX-2 instead; see [Connecting a Wallet](/wallets/connecting).
 
 Use a **passkey** (recommended): tap "Continue with passkey", approve with Face ID or a
 fingerprint, and you have an account. Make sure your passkey syncs. On a passkey-created wallet
-the passkey *is* your backup, and there is no phrase export screen. If you prefer a seed phrase,
-install the **Superhero Wallet mobile app**.
+the passkey *is* your backup, so confirm it is in iCloud Keychain or Google Password Manager. If you
+prefer a seed phrase, install the **Superhero Wallet mobile app**.
 
 ### First time, on a desktop
 
-Install the **browser extension**. A desktop browser tab does not install the in-page signer, so
-desktop signing needs it. The extension also gives you the multi-chain wallet, an address book and
-`.chain` name management in one place.
+Install the **browser extension**. On desktop the extension is the signer, and it also gives you
+the multi-chain wallet, an address book and `.chain` name management in one place.
 
 ### Trading actively and holding real value
 
 Use the **extension** (desktop) or the **mobile app**, with a written seed phrase stored offline in
-two places. You want a portable backup and storage a browser cannot evict.
+two places. You get a portable backup and wallet storage that lives outside the browser's site
+data.
 
 ### Nothing to install
 
@@ -109,13 +106,13 @@ Use a **passkey** (recommended), or the **web wallet** at
 ### A hardware device
 
 Use the **extension on a Chromium browser** or the **hosted web wallet**, and import your Ledger's
-æternity accounts. An AirGap Vault pairs with any of the three Superhero Wallet surfaces. Neither
-option exists in the built-in wallet.
+æternity accounts. An AirGap Vault pairs with any of the three Superhero Wallet surfaces.
 
 ### An agent
 
 Use a **raw key in an environment variable**, in a dedicated account funded with a capped amount.
-Every other option requires a human to approve each signature.
+The other wallets are built around a person approving each signature, which is what you want for
+your own account and what an unattended agent does without.
 
 ```bash
 node scripts/superhero-wallet.mjs generate
@@ -127,25 +124,26 @@ Read [Agent Safety](/agents/safety) and [Wallet Security](/wallets/security) bef
 ### You already have an æternity account
 
 Connect it. Any of the three Superhero Wallet surfaces imports your existing seed phrase, and
-superhero.com connects to it. In a browser tab the built-in wallet does not offer phrase import.
+superhero.com connects to it. The installed Superhero app also imports a phrase; in a browser tab,
+use Connect.
 
-## What actually differs: recovery
+## Recovery: what gets you back in
 
 | Wallet | What gets you back in on a new device |
 | --- | --- |
 | Extension, mobile, web wallet | The seed phrase or, for one account at a time, that account's exported private key. |
-| Built-in wallet from a phrase | The seed phrase. Its passphrase and recovery code are **same-device only**. |
-| Built-in wallet from a passkey | The passkey, **only if it syncs**. The recovery code is same-device only. |
+| Built-in wallet from a phrase | The seed phrase. The passphrase and recovery code unlock the wallet on the device where it was created. |
+| Built-in wallet from a passkey | The passkey, when it **syncs** (iCloud Keychain, Google Password Manager). The recovery code unlocks the wallet on the same device. |
 | Raw agent key | The secret key string. |
-| A Ledger or AirGap account held in Superhero Wallet | The device's own recovery words. The Superhero Wallet seed phrase does **not** restore it, because the wallet only stores its public address. |
+| A Ledger or AirGap account held in Superhero Wallet | The device's own recovery words. Superhero Wallet stores the account's public address, so restore these accounts from the device. |
 
-The same applies to an account you imported by pasting a private key: it cannot be restored with
-the seed phrase, only with that private key.
+An account you imported by pasting a private key is restored with that private key, so keep that
+key backed up on its own.
 
-The built-in wallet's storage is evictable in a way an installed wallet's is not: clearing site data
-deletes the encrypted vault, and Safari's tracking prevention can evict it after about seven days
-of no interaction. That is survivable with a written phrase or a syncing passkey and fatal without
-either. [Backup & Recovery](/wallets/backup-and-recovery) has the full matrix.
+The built-in wallet keeps its encrypted vault in the browser's site data for superhero.com, so a
+written phrase or a syncing passkey is what carries it through a cleared browser. Clearing site data
+removes the vault, and Safari's tracking prevention can remove it after about seven days of no
+interaction. [Backup & Recovery](/wallets/backup-and-recovery) has the full matrix.
 
 ## You can use more than one
 
@@ -162,5 +160,5 @@ either. [Backup & Recovery](/wallets/backup-and-recovery) has the full matrix.
 - [The Built-In Wallet](/wallets/built-in-wallet): how the in-app vault works.
 - [Backup & Recovery](/wallets/backup-and-recovery): the recovery table above, expanded.
 - [Connecting a Wallet](/wallets/connecting): what happens after you have chosen one.
-- [Web Wallet](/wallets/web-wallet): what `wallet.superhero.com` can and cannot do.
+- [Web Wallet](/wallets/web-wallet): what `wallet.superhero.com` offers.
 - [Superhero Wallet on the æternity docs hub](https://docs.aeternity.com/aeternity-user-tools-and-services/superhero-wallet): the standalone wallet's own documentation.
