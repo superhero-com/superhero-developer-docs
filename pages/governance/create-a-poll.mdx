@@ -6,21 +6,22 @@ description: "Deploy a poll contract and register it in the Registry, from the w
 # Creating a Poll
 
 Creating a poll takes **two on-chain transactions** (deploy the poll contract, then register
-it in the `Registry`) and costs roughly 0.02 AE. Allow 2–5 minutes for both to mine.
+it in the `Registry`), each paying gas at the network's current gas price. Allow 2–5 minutes
+for both to mine.
 
-**A poll cannot be edited after it is deployed.** There is no entrypoint to change the title,
-fix a typo in the description, add an option, or move the close height. The only correction is
-a new poll. Get the text and the options right before you sign.
+**A poll is final once deployed.** The title, description, options and close height are fixed
+at deployment, so get the text and the options right before you sign. A correction is a new
+poll.
 
 ## Before you start
 
 | Check | Why |
 | --- | --- |
-| At least 0.02 AE in the wallet | Two transactions, and the deploy is the expensive one |
-| Final wording for title and description | Neither is editable afterwards |
+| AE for gas in the wallet | Two transactions, each paying gas at the network's current gas price |
+| Final wording for title and description | Both are fixed at deployment |
 | A reference link | Required, and it must start with `http://` or `https://` |
 | The full option list, in order | Option indices are fixed at deployment and are 0-based |
-| A close height, or a decision to leave it open-ended | Also not editable |
+| A close height, or a decision to leave it open-ended | Fixed at deployment |
 
 ## Field limits
 
@@ -43,10 +44,9 @@ require(String.length(metadata.description) =< 300, "DESCRIPTION_STRING_TO_LONG"
 The lengths are counted in **characters, not bytes**, so 300 characters is 300 characters
 whatever alphabet they are in.
 
-The link, `spec_ref` and the option map are not inspected by the contract; the `http`/`https`
-prefix rule and the two-option minimum are enforced by the clients. A poll with fewer than two
-options deploys but cannot be voted on usefully, because `vote` requires the option to exist
-in the map.
+The contract checks the title and description; the `http`/`https` prefix rule and the
+two-option minimum are enforced by the clients. Give every poll at least two options, since
+`vote` requires the chosen option to exist in the map.
 
 The `link` is stored on-chain as a string. Clients that render it must treat it as untrusted
 input; the Superhero app runs it through a URL-safety check before putting it in an `href`.
@@ -75,16 +75,15 @@ Micro-blocks arrive about every three seconds, but `close_height` is a key-block
 always convert at three minutes per block.
 
 Setting `0`, or omitting it in the CLI, creates a poll that **never closes**. Stake weighting
-is computed against the state at the close height, so an open-ended poll has no snapshot and
-produces a continuously moving figure rather than a settled outcome. Use it for standing
-sentiment, not for a decision.
+is computed against the current state for as long as the poll runs, so the figure keeps
+moving. Use it for standing sentiment; set a close height for a decision.
 
 ## Create from the web app
 
 Go to [superhero.com/voting/create](https://superhero.com/voting/create), or open
 [superhero.com/voting](https://superhero.com/voting) and pick the **Create Poll** tab.
 
-1. Connect a wallet with at least 0.02 AE.
+1. Connect a wallet holding AE for gas.
 2. Enter the **title** (50 characters) and the **description** (300 characters).
 3. Enter the **link**. If it does not point at `forum.aeternity.com`, the form suggests opening
    a forum thread and linking that instead. This is a hint, not a requirement.
@@ -99,9 +98,9 @@ Go to [superhero.com/voting/create](https://superhero.com/voting/create), or ope
 
 On success the app takes you to `/voting/p/:pollAddress`, the poll's own page.
 
-If the second transaction fails after the first succeeds, you have a deployed but unregistered
-poll. It exists on-chain and can be voted on by address, but it will not appear in any listing
-until somebody calls `add_poll` for it.
+If the second transaction does not go through, the poll is deployed but unregistered: it exists
+on-chain and can be voted on by address. Call `Registry.add_poll` for it to put it in the
+listings.
 
 ## Create from the CLI
 
@@ -140,7 +139,7 @@ node scripts/superhero-governance.mjs create \
 ```
 
 The script validates every field before touching the chain, and checks a non-zero close height
-against the node's current height so it cannot be set in the past. On success it prints:
+against the node's current height so a past height is caught before any transaction. On success it prints:
 
 ```json
 {
@@ -177,19 +176,17 @@ Both Superhero paths leave `spec_ref` unset. The registry to call is the one for
 see [The Governance Registry](/governance/registry).
 
 Deploy the poll from the **account that should be its author**: `Poll.state.author` is set at
-deployment and `is_author` checks against it. The author has no special power over the poll
-afterwards (they cannot close it, edit it or delete it), but the attribution is permanent.
+deployment and `is_author` checks against it. Authorship is a permanent attribution; the poll
+runs on its own once deployed.
 
 `Registry.add_poll` can be called by any account for any deployed poll, and the caller sets
-`is_listed`. The registry has no `remove_poll`, no `set_listed` and no update entrypoint, so
-a registration is permanent: the id, the cached title and the `is_listed` flag are fixed. If
-you register with the wrong `is_listed` value, register the poll again with the other value
+`is_listed`. A registration is permanent: the id, the cached title and the `is_listed` flag are
+fixed at registration. To change the listing, register the poll again with the other value
 (both entries remain), or deploy a fresh poll.
 
 Deploy the standard poll bytecode as shipped with the app or the agent skill. The governance
-backend computes `stake_weighted_results` only for polls built from the unmodified
-`Poll_Iris.aes` source; a poll compiled from modified source can be voted on but has no
-official result.
+backend computes `stake_weighted_results` for polls built from the unmodified `Poll_Iris.aes`
+source, so use that source to get an official result.
 
 ## Transactions
 

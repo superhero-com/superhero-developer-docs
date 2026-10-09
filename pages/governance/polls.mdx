@@ -6,9 +6,8 @@ description: "The poll contract's data model, how stake weighting works, and how
 # Polls
 
 A poll is a contract. Each one is deployed on its own, registered in the `Registry`, and holds
-its own ballot. It does **not** hold the result: the contract records one option per address,
-and the weight behind those addresses is computed off-chain from AE balances and delegations
-at the poll's close height.
+its own ballot. The contract records one option per address; the weight behind those addresses
+is computed off-chain from AE balances and delegations at the poll's close height.
 
 ## The official result
 
@@ -17,11 +16,11 @@ only.**
 
 The `Poll` contract stores `votes : map(address, int)`: one option per address, with no
 weight attached. Counting those entries tells you how many addresses picked each option,
-which can point the opposite way from the stake-weighted result: a hundred addresses holding
-dust outvote two whales on raw counts and lose decisively on stake.
+which can differ from the stake-weighted result: a hundred small addresses outnumber two large
+holders on raw counts while the large holders carry the stake.
 
-When `stake_weighted_results` is `null`, the governance backend has no result for that poll.
-Do not fall back on raw counts.
+When `stake_weighted_results` is `null`, the governance backend has not computed a result for
+that poll. Wait for it rather than falling back on raw counts.
 
 ## The data model
 
@@ -49,14 +48,14 @@ Poll.metadata = { title       : string
 | `author` | Whoever deployed the poll. Carries no special power over it. |
 | `spec_ref` | An optional hash reference to an off-chain specification. Superhero's creation paths leave it unset. |
 
-Nothing is editable after deployment. There is no `change_metadata`, no way to add an option,
-and no way to extend or shorten `close_height`. The only remedy for a mistake is a new poll.
+Every field is fixed at deployment: metadata, options and `close_height`. A correction is a
+new poll.
 
 The contract validates the metadata lengths in `init`: the title must be at most 50
 characters (`TITLE_STRING_TO_LONG`) and the description at most 300
 (`DESCRIPTION_STRING_TO_LONG`). The link, `spec_ref`, the option labels, the number of options
-and the close height are not validated on-chain. A poll deployed with a close height already
-in the past is born closed.
+and the close height are left to the client to validate. Set the close height ahead of the
+current height; a poll deployed with a past close height is born closed.
 
 ### On the registry
 
@@ -138,9 +137,8 @@ poll is closed, and your own current vote.
 ```
 
 `total_stake` and `option_stake` are in aettos; divide by `10^18` for AE.
-`percent_of_total_supply` is how much of all AE in existence took part, which is the closest
-thing this system has to a turnout figure. There is **no quorum**: a poll with 0.1%
-participation still produces a result.
+`percent_of_total_supply` is how much of all AE in existence took part; it is the system's
+turnout figure. Every closed poll produces a result, whatever the participation.
 
 ### Poll entrypoints
 
@@ -175,12 +173,12 @@ and account stakes at that height.**
 - Delegation chains resolve transitively: a delegatee who has themselves delegated passes the
   weight along. See [Delegation](/governance/delegation).
 
-An open-ended poll (`close_height` set to `None`) has no snapshot. It never closes, so its
-result is a running figure computed against the current state. Treat it as continuous
-sentiment, not a decision.
+An open-ended poll (`close_height` set to `None`) never closes, so its result is a running
+figure computed against the current state. Use it for continuous sentiment; set a close height
+for a decision.
 
-None of this is computed on-chain. The `Poll` contract cannot see AE balances or the
-`Registry`'s delegation map, which is why the official figure comes from the backend.
+The weighting is computed off-chain: the official figure comes from the governance backend,
+which reads AE balances and the `Registry`'s delegation map.
 
 ## The governance API
 
@@ -202,8 +200,8 @@ The governance backend indexes the contracts and computes the stake-weighted res
 | `POST contractEvent` | Nudge the backend to re-index after a vote or delegation, with a topic and an optional poll |
 
 The app calls `contractEvent` immediately after every vote, revoke and delegation so the
-backend re-indexes promptly. If your own client skips it, expect a lag before your vote shows
-up in the stake-weighted figures.
+backend re-indexes promptly. Call it from your own client too, so your vote shows up in the
+stake-weighted figures promptly.
 
 `pollOverview` carries a `stakesAtHeight` array with one entry per voting account:
 `account`, `option`, `stake`, `balance`, `delegated`, `delegators` and a `delegationTree`.
@@ -211,8 +209,7 @@ Look there when a result does not match your expectation: it separates an accoun
 balance from the weight it received by delegation.
 
 The agent skill's CLI defaults to `https://governance-server-mainnet.prd.aepps.com` for
-mainnet, overridable with `AE_GOVERNANCE_BACKEND_URL`. If one host does not answer, try the
-other.
+mainnet, overridable with `AE_GOVERNANCE_BACKEND_URL`.
 
 ### Through the Superhero backend
 

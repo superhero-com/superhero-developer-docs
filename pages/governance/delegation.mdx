@@ -16,13 +16,13 @@ AE stays in your wallet, spendable, the entire time.
 | --- | --- |
 | Scope | Global. One delegation applies to every poll, present and future. |
 | Cardinality | **One delegation out** per account; any number in. |
-| Duration | Until you change or revoke it. Nothing expires it. |
+| Duration | Until you change or revoke it. |
 | Override | Voting on a poll yourself overrides your delegation **for that poll only**. |
 | Transitivity | Chains resolve, to any depth. A delegatee who has themselves delegated passes the weight along. |
 | Custody | None. No coins move, nothing is locked, no allowance is needed. |
 | Counting | Delegations and balances are read at the poll's close height (or live, if the poll has not closed). |
 | Self-delegation | Rejected on chain: `CALLER_IS_DELEGATEE_DISALLOWED`. |
-| Cycles | Not prevented on chain. Broken off-chain at tally time, so each balance counts at most once. |
+| Cycles | Allowed on chain; resolved at tally time, so each balance counts at most once. |
 
 ## The entrypoints
 
@@ -36,9 +36,9 @@ Delegation lives on the `Registry`, not on individual polls, which is why it is 
 | `delegators(account)` | The accounts delegating **directly** to this one |
 | `delegations()` | The full delegation map, `map(address, address)` |
 
-`delegate` on an account that already has a delegation replaces it. There is no need to
-revoke first, and no way to have two. The registry stores `delegations` as a plain
-address-to-address map, which is why one account can have only one outgoing delegation.
+`delegate` on an account that already has a delegation replaces it, so you can switch
+delegatee in one transaction. The registry stores `delegations` as a plain address-to-address
+map, which is why one account has one outgoing delegation.
 
 Two events record every change: `Delegation(delegator, delegatee)` and
 `RevokeDelegation(delegator)`.
@@ -86,14 +86,14 @@ calls:
 node scripts/superhero-governance.mjs delegatee ak_your_delegatee...
 ```
 
-`delegators(account)` returns only **direct** delegators, meaning the accounts pointing straight at
-that address. It does not include accounts further up a chain whose weight also reaches them.
-The app's account screen counts delegators from the flattened delegation tree returned by the
-governance API, which is why that number can exceed the direct count from the contract.
+`delegators(account)` returns **direct** delegators, the accounts pointing straight at that
+address. For the whole chain, including accounts further up whose weight also reaches that
+address, use the flattened delegation tree from the governance API; that is what the app's
+account screen counts, which is why its number can exceed the direct count from the contract.
 
-## Cycles
+## How delegation resolves
 
-The registry rejects only self-delegation:
+The registry rejects self-delegation:
 
 ```sophia
 stateful entrypoint delegate(delegatee : address) =
@@ -101,12 +101,12 @@ stateful entrypoint delegate(delegatee : address) =
   put(state{ delegations[Call.caller] = delegatee })
 ```
 
-Each call sees one edge, so A→B followed by B→A is two valid transactions, and the delegation
-map ends up holding a two-cycle. Longer rings are equally possible.
+Each call records one edge, so A→B followed by B→A is two valid transactions, and the
+delegation map can hold a ring of any length.
 
-Cycles are broken **off-chain, at tally time**, by the governance backend. The tally walks the
-delegation graph from each voter to the accounts delegating to them, and outward from there,
-and refuses to follow an edge into any of three sets:
+The governance backend resolves rings **at tally time**. The tally walks the delegation graph
+from each voter to the accounts delegating to them, and outward from there, and skips any edge
+into one of three sets:
 
 | Skipped | Why |
 | --- | --- |
@@ -114,14 +114,13 @@ and refuses to follow an edge into any of three sets:
 | Any address already visited on this walk | Closes a ring anywhere else |
 | Any account that voted on the poll itself | An account that voted speaks for itself |
 
-**Each balance is counted at most once per poll.** The cycle is cut at the edge that would
-revisit a node; no balance is double-counted and no balance is dropped for being in a ring;
-it counts for whoever it reaches first along the walk. The third rule is the mechanism behind
-"voting yourself overrides your delegation".
+**Each balance is counted at most once per poll.** A ring is cut at the edge that would
+revisit a node, and every balance counts for the voter it reaches first along the walk. The
+third rule is the mechanism behind "voting yourself overrides your delegation".
 
-There is no depth cap (a chain of any length resolves) and no cap on how much delegated
-weight one account can accumulate. If you and someone else delegate to each other, the walk
-cuts one of the two edges and the outcome depends on which of you votes.
+A chain of any length resolves, and an account can accumulate any amount of delegated weight.
+If you and someone else delegate to each other, the walk cuts one of the two edges and the
+balance follows whichever of you votes.
 
 ## Voting yourself overrides delegation
 
@@ -130,15 +129,14 @@ vote does not. The override is per-poll and lasts only while your vote stands: r
 and your delegation takes effect again for that poll. Delegate once to someone whose judgement
 you trust, then vote yourself on the questions you care about.
 
-To **abstain** from a poll, revoking your vote is not enough: your weight falls back to your
-delegatee. Revoke the delegation as well, or vote for an abstain option if the poll offers one.
+To **abstain** from a poll, revoke the delegation as well as your vote, since a revoked vote
+hands your weight back to your delegatee; or vote for an abstain option if the poll offers one.
 
 ## Before you delegate
 
-A delegation is indefinite, transitive, and applies to polls that do not exist yet, and the
-weight your delegatee votes with grows with your balance. None of this puts your coins at
-risk: a delegatee cannot spend, move or lock your AE, because the registry stores an
-address-to-address mapping and nothing more.
+A delegation is indefinite and transitive, applies to future polls, and the weight your
+delegatee votes with follows your balance. Your coins stay yours: the registry stores an
+address-to-address mapping, so a delegatee has no access to your AE.
 
 ## Delegation history
 
@@ -151,14 +149,13 @@ The Superhero backend indexes delegation transactions, including revoked ones:
 
 Each record carries the delegator, the delegatee, the transaction hash and block height and,
 if it was later revoked, `revoked`, `revoked_hash`, `revoked_block_height` and `revoked_at`.
-Use this when you need the delegation graph at a past height; the contract only holds the
-present state.
+Use this for the delegation graph at a past height; the contract holds the present state.
 
 ## Related
 
 - [Polls](/governance/polls): how delegated weight is folded into the stake-weighted result.
 - [Voting on Polls](/governance/voting): the per-poll override, and what happens when you revoke a vote.
 - [The Governance Registry](/governance/registry): the contract that stores the delegation map, and its addresses.
-- [Governance and Voting](/governance): why community DAOs have no equivalent of this.
+- [Governance and Voting](/governance): how polls compare with community DAO votes.
 - [Manage your delegation](https://superhero.com/voting/account): the live My Account tab.
 - [æternity governance](https://docs.aeternity.com/aeternity-core-concepts/aeternity-governance): the protocol's account of delegative, coin-weighted governance.

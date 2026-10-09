@@ -1,13 +1,13 @@
 ---
 title: "Comments"
-description: "Comments are posts with a parent marker — how threading works, and how to read and write replies from the API and the CLI."
+description: "Comments are posts with a parent marker: how threading works, and how to read and write replies from the API and the CLI."
 ---
 
 # Comments
 
-A comment on Superhero is a post, written through the same contract and entrypoint and just as
-permanent. The only difference is a marker in the `media` list naming the parent. That one convention gives you
-arbitrarily deep threads with no threading support in the contract.
+A comment on Superhero is a post, written through the same contract and entrypoint, with the
+same on-chain record. The difference is a marker in the `media` list naming the parent. That one
+convention gives you arbitrarily deep threads.
 
 ## The convention
 
@@ -23,8 +23,8 @@ Any further media entries after the marker are the comment's own attachments. Th
 records the same `tip_meta` with the author, text and timestamp, and returns a new `tip_id`
 that is itself a valid parent for further replies.
 
-Because the parent is a string in the post body, a comment is as permanent as any other post,
-and a parent can never be deleted, so a thread can never be orphaned.
+Because the parent is a string in the post body and every post stays on chain, a thread always
+keeps its parent.
 
 ## How the indexer reads it
 
@@ -37,23 +37,22 @@ Emit `comment:` plus the id with the `_v3` suffix. That is what the app and the 
 
 ## When the parent is missing
 
-On ingest the indexer looks the parent up, retrying three times with exponential backoff from
-100 ms, because backward sync does not guarantee that a parent is processed before its child.
-If the parent is still missing after the retries, the comment is stored as a standalone
-top-level post: `post_id` is set to null and it is ranked like any other post.
+On ingest the indexer looks the parent up and retries, because backward sync does not guarantee
+that a parent is processed before its child. A comment whose parent is missing after the retries
+is stored as a standalone top-level post: `post_id` is set to null and it is ranked like any
+other post.
 
-A second sweep catches the race the other way round. About ten seconds after boot, one
-`UPDATE` detaches every comment older than one hour whose parent still does not exist, and a
-second `UPDATE` recomputes `total_comments` for every parent whose count is stale, which also
-fixes parents that arrived after their children. The one-hour grace period means a comment
-whose parent is merely running behind in the sync is not detached.
+A later sweep covers the race the other way round: it detaches every comment older than one hour
+whose parent does not exist, and recomputes `total_comments` for every parent whose count is
+stale, which also attaches parents that arrived after their children. The one-hour grace period
+keeps a comment attached while its parent catches up in the sync.
 
-A comment naming a parent that never existed therefore becomes an ordinary post. Nothing
-reverses that later.
+Make sure the parent id exists before you post a comment; a comment naming a parent that never
+existed is stored as an ordinary post.
 
 ## Threading and depth
 
-Nothing limits nesting. `/post/:slug` resolves the post, extracts its parent id, fetches that
+Threads nest to any depth. `/post/:slug` resolves the post, extracts its parent id, fetches that
 post, extracts *its* parent, and repeats, building the full ancestor chain oldest-first before
 rendering. The walk is bounded by a visited set and a limit of 100 hops.
 
@@ -71,7 +70,7 @@ the subtree.
 | Route | Behaviour |
 | --- | --- |
 | `/post/:slug` | The canonical post or comment page, with its ancestor chain |
-| `/post/:slug/comment/:id` | Legacy; redirects to `/post/` plus the comment id |
+| `/post/:slug/comment/:id` | Redirects to `/post/` plus the comment id |
 
 Post ids are stored with a `_v3` suffix and every in-app link strips it. A link built from a
 raw API id still works because the resolver re-adds the suffix.
@@ -115,7 +114,7 @@ node scripts/superhero-comment.mjs get <post_id> 50 2   # limit, page
 wallet. `comment_post_id` is the bare integer. Add `_v3` before you use it as an API id or as
 a parent for a further reply.
 
-A comment pays gas only, the same as a post.
+A comment is one transaction and pays gas at the network's current gas price, the same as a post.
 
 ## Limits
 
@@ -124,14 +123,14 @@ same emoji, GIF and image attachments. The contract applies no limit of its own,
 indexer applies the same 5,000-character truncation and five-media-entry cap it applies to
 posts. See [Posting](/social/posting).
 
-The `comment:` marker is not a URL, so the indexer's media filter drops it from the stored
-`media` array. A comment's API `media` field contains only its own attachments, while `tx_args`
-still carries the marker. Do not look for the parent id in `media` on an API response.
+The `comment:` marker is not a URL, so the indexer's media filter leaves it out of the stored
+`media` array. Read the parent id from `tx_args`, which carries the raw list; a comment's API
+`media` field holds its own attachments.
 
 ## How comments feed ranking
 
-A comment is never ranked as a standalone popular item, because the candidate query requires
-`post_id IS NULL`. Instead the whole reply tree rolls up into the parent's score, counted
+A comment is ranked through its parent rather than as a standalone popular item: the candidate
+query requires `post_id IS NULL`, and the whole reply tree rolls up into the parent's score, counted
 recursively to a depth cap of 50, with replies written by the root post's own author excluded
 and hidden comments pruning their entire subtree. Comments carry the heaviest default weight of
 any signal, 2.5. See [The Feed](/social/feed).

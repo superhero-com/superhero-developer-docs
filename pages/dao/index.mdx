@@ -10,7 +10,7 @@ contract is both the **owner** and the **beneficiary** of that token's sale: it 
 of trading proceeds and holds administrative authority over the sale contract. Token holders
 decide what happens to that money by opening proposals and voting with their tokens.
 
-## Community DAOs are not æternity governance polls
+## Community DAOs and æternity governance polls
 
 The two systems use separate contracts, separate voting power and separate parts of the app.
 
@@ -21,7 +21,7 @@ The two systems use separate contracts, separate voting power and separate parts
 | Voting power | That community's AEX-9 token balance | AE balance, plus delegated AE |
 | Tokens locked while voting | Yes. An AEX-9 allowance locks your stake | No |
 | Ballot shape | Binary: in favour or against | Any list of at least two options |
-| Outcome | Executes an on-chain action | Signalling; no automatic execution |
+| Outcome | Executes an on-chain action | Signalling; acted on off chain |
 | Where in the app | `/trends/daos` and `/trends/dao/:saleAddress` | `/voting` |
 
 For stake-weighted ecosystem polls, delegation, or the `/voting` tab, see

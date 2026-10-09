@@ -1,6 +1,6 @@
 ---
 title: "Hashtags & Topics"
-description: "How a hashtag becomes a topic with its own feed, a row in the trending index, and — when someone launches one — a token."
+description: "How a hashtag becomes a topic with its own feed, a row in the trending index and, when someone launches one, a token."
 ---
 
 # Hashtags & Topics
@@ -16,7 +16,7 @@ treasury, a DAO and a chat room.
 ## Writing a tag
 
 Type `#` followed by a name. The composer offers a picker while you type, and the resulting
-text goes on chain verbatim. There is no separate tag field in the contract.
+text goes on chain verbatim. The tag lives in the post text itself.
 
 Which characters count as part of a tag comes from the community factory's collections: each
 collection publishes an `allowed_name_chars` rule set, and the composer merges every
@@ -25,8 +25,8 @@ through `9` and `A` through `Z`; other collections cover Chinese, Arabic and Rus
 collection added later is picked up automatically. A tag is capped at 50 characters for the
 picker's purposes.
 
-A name containing a character no collection allows (a `.` or a `_`, for example) truncates
-when rendered, so the picker does not offer it.
+Use characters a collection allows. A name containing another character (a `.` or a `_`, for
+example) truncates when rendered, so the picker leaves it out.
 
 Account mentions use the same trigger mechanics but a different storage form: `@name` in the
 composer becomes `[account:ak_…]` on the wire. See [Posting](/social/posting).
@@ -50,7 +50,7 @@ monotonic: tag is a subset of compact, which is a subset of advanced. The `tag` 
 The payload is at most 64 characters and may not contain braces or newlines. The writer is
 permissive and the reader is strict: an unknown key, an unrecognised value, or an unparseable
 payload degrades to the plain tag rather than rendering as literal text, so a post written
-today cannot be made to look broken by a change to the grammar tomorrow.
+today keeps rendering cleanly if the grammar changes later.
 
 ## From tag to link
 
@@ -67,7 +67,7 @@ takes a case-insensitive exact match on the token's name or symbol, and falls ba
 result.
 
 The rendered pill also shows a 24-hour change badge, from the mention's embedded performance or
-from `GET /api/tokens/{address}/performance`. A tag with no matching token still links (the
+from `GET /api/tokens/{address}/performance`. A tag without a matching token links too (the
 token page handles the miss), so a hashtag is always navigable.
 
 ## From tag to topic
@@ -124,7 +124,7 @@ than ageing out.
 The index drives the trending rail beside the feed, the trending pill carousel, and the trend
 cloud at `/trends/visx`, which renders tags sized by score. It also supplies the popular feed's
 `trendingBoost` term, normalised as `min(1, highestTagScoreAmongThePostsTopics / 100)`; see
-[The Feed](/social/feed). A score above 100 adds nothing extra.
+[The Feed](/social/feed). A score of 100 or more gives the full boost.
 
 ## Topics and trending tags are different things
 
@@ -159,7 +159,7 @@ The naming rules come from the collection you create in:
 | Allowed length | The collection's `allowed_name_length` |
 
 Once the token exists, every `#tag` matching its name or symbol in any post, including posts
-written before the token existed, resolves to its page. Nothing rewrites the old posts;
+written before the token existed, resolves to its page. The old posts are untouched;
 resolution starts succeeding.
 
 From there the token layer takes over: price is set by the bonding curve, 1% of every trade
@@ -179,8 +179,8 @@ you type #AENIGHTS in a post
   -> holders get a DAO, a treasury, a chat room and a moderation threshold
 ```
 
-Each arrow is a different system. Only the first is on chain in the social contract; the token
-at the end is on chain in a different one; everything in between is the indexer.
+Each arrow is a different system. The first step is on chain in the social contract, the token
+at the end is on chain in a different one, and everything in between is the indexer.
 
 ## Related
 
