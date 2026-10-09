@@ -10,7 +10,7 @@ provide liquidity and earn fees, wrap AE into its AEX-9 form, and browse every t
 transaction on the exchange.
 
 The DEX is a different market from the bonding curve that community tokens trade on. The two
-prices for the same token are independent, and nothing arbitrages them automatically.
+prices for the same token are independent; check both before you trade.
 
 ## The DEX and the bonding curve
 
@@ -23,11 +23,11 @@ prices for the same token are independent, and nothing arbitrages them automatic
 | Counterparty | The curve contract's reserve | Other liquidity providers |
 | Contracts | `AffiliationBondingCurveTokenSale`, `BondingCurveExponential` | `AedexV2Router`, `AedexV2Factory`, `AedexV2Pair` |
 | Fee | 1% spread, split 0.5% DAO and 0.5% affiliation | 0.3% per swap, to liquidity providers |
-| Can it run out of liquidity | No: the reserve always covers the full supply | Yes: a thin pool gives poor prices or no route |
-| Main risk | Price falls back down the curve | Price impact, no route, and impermanent loss if you provide liquidity |
+| Liquidity | The reserve always covers the full supply | Provided by liquidity providers; depth varies by pool |
+| What to check | Price moves with supply; see [Before You Trade](/tokens/risks) | Pool depth and price impact; impermanent loss if you provide liquidity |
 
-The curve can always buy back its entire supply. A liquidity pool makes no such promise: if the
-liquidity providers leave, there is no price to sell at.
+The curve can always buy back its entire supply. A pool's depth comes from its liquidity providers,
+so check a pair's reserves on the explore pages before a large swap.
 
 ## Routes
 
@@ -43,10 +43,10 @@ liquidity providers leave, there is no price to sell at.
 | `/defi/explore/pools` | Every pair |
 | `/defi/explore/pools/<address>` | One pool's detail page |
 | `/defi/explore/transactions` | Filterable feed of every DEX transaction |
-| `/defi/bridge` | Disabled: redirects to `/defi/swap` |
-| `/defi/buy-ae-with-eth` | Disabled: redirects to `/defi/swap` |
+| `/defi/bridge` | Redirects to `/defi/swap`, where bridged aeETH trades |
+| `/defi/buy-ae-with-eth` | Redirects to `/defi/swap` |
 
-`/swap`, `/pool`, `/explore` and `/pool/add-tokens` still resolve as legacy paths.
+`/swap`, `/pool`, `/explore` and `/pool/add-tokens` also resolve to the same pages.
 
 ## Contract addresses
 
@@ -57,8 +57,8 @@ liquidity providers leave, there is no price to sell at.
 | WAE | `ct_J3zBY8xxjsRr3QojETNw48Eb38fjvEuJKkQ6KzECvubvEcvCa` | `ct_JDp175ruWd7mQggeHewSLS1PFXt9AzThCDaFedxon8mF8xTRF` |
 | aeETH | `ct_ryTY1mxqjCjq1yBn9i6HDaCSdA6thXUFZTA84EMzbWd1SLKdh` | `ct_WVqAvLQpvZCgBg4faZLXA1YBj43Fxj91D33Z8K7pFsY8YCofv` |
 
-At startup the app asks the router for its own `factory()` address and uses the configured
-factory only as a fallback.
+At startup the app reads the factory address from the router's `factory()` entrypoint, with the
+configured address as a fallback.
 
 The app also reads a DEX indexer alongside the chain:
 
@@ -73,9 +73,8 @@ The app also reads a DEX indexer alongside the chain:
   each swap shape, and what slippage and deadline do.
 - [Liquidity Pools](/defi/pools): adding and removing liquidity, LP tokens, the protocol-fee
   switch, and impermanent loss with a worked example.
-- [Wrapped AE](/defi/wrapped-ae): why native AE cannot be a pool reserve, and the wrap and
-  unwrap calls.
-- [Bridging from Ethereum](/defi/bridge): the in-app bridge is currently disabled.
+- [Wrapped AE](/defi/wrapped-ae): how AE becomes a pool asset, and the wrap and unwrap calls.
+- [Bridging from Ethereum](/defi/bridge): trading aeETH on the DEX, and the æternity bridge.
 - [Exploring the DEX](/defi/explore): the three explore views and the `/api/dex/*` endpoints
   behind them.
 - [Buying AE](/defi/buy-ae): where to earn or buy AE.

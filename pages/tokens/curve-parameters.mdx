@@ -7,8 +7,8 @@ description: "The constants, decimals and fixed-point conventions you need to co
 
 Every integer that crosses the boundary between your code and a Superhero contract is scaled. AE
 amounts are in aettos (10^18 to the AE), token counts are in the token's own decimal units (also
-10^18), and the curve formula is written in *whole* tokens and *whole* AE. Mixing those three
-conventions is how implementations end up off by a factor of 10^18.
+10^18), and the curve formula is written in *whole* tokens and *whole* AE. Keep those three
+conventions apart and your figures match the contract to the aetto.
 
 Read [Bonding Curves](/tokens/bonding-curve) first for the formula itself.
 
@@ -42,7 +42,7 @@ otherwise. `minimum_count` is `10^12` token decimal units (`10^12 / 10^18 = 10^-
 millionth of a token), so it only guards against a trade rounding to zero inside the integer
 arithmetic. In practice it fires when you pass a **whole-token** count where the contract expects
 decimal units: sending `5` instead of `5000000000000000000` aborts with `MINIMUM_TOKENS_REQUIRED`
-rather than silently buying five attotokens.
+instead of buying five attotokens.
 
 ### The sell factor
 
@@ -350,9 +350,9 @@ Because the curve is convex, the trapezoidal rule always *overestimates* slightl
 | 10,000,000 tokens from supply 0 | 518.091807565 | 518.092683989 | +1.69 ppm |
 | 100,000,000 tokens from supply 0 | 71,838.182845904 | 71,839.614745042 | +19.9 ppm |
 
-Twenty parts per million on a 70,000 AE trade is about 1.4 AE. That is real money on large orders, though
-far inside any sane slippage tolerance. **Treat every off-chain calculation as an estimate and the
-contract's own return value as the price.** The agent skill uses bisection only to pick a token
+Twenty parts per million on a 70,000 AE trade is about 1.4 AE, well inside a normal slippage
+tolerance. **Treat every off-chain calculation as an estimate and the contract's own return value as
+the price.** The agent skill uses bisection only to pick a token
 count, then calls `calculate_buy_price` on-chain for the amount it attaches.
 
 ## Reading the constants from a deployed curve

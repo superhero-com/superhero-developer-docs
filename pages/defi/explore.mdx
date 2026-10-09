@@ -113,11 +113,11 @@ GET /api/dex/transactions
     &page=<n>&limit=<n>
 ```
 
-The date filters are inclusive on both ends and are not exposed in the UI. Single lookups:
+The date filters are inclusive on both ends and are available through the API. Single lookups:
 `GET /api/dex/transactions/<txHash>` and `GET /api/dex/transactions/pair/<pairAddress>`.
 
-Failed transactions do not appear in the feed. A reverted call emits no events, so there is
-nothing to index; the feed is a record of trades that happened.
+The feed is a record of trades that completed: a reverted call emits no events, so it is not
+indexed.
 
 ## How the figures are computed
 
@@ -134,11 +134,10 @@ AE rate for each supported currency:
 | `price.usd`, `.eur`, `.gbp`, … | That same number × the current AE rate |
 
 The AE rate comes from CoinGecko, refreshed on a schedule and re-read at most every 30 seconds.
-A USD figure moving does not necessarily mean the pool moved; it may only mean AE did.
+Read `price.ae` for the pool's own movement; the fiat figures also move with the AE rate.
 
 **Price change** compares the current price against the earliest in-window ratio of a candidate
-pair, skipping dust-state start ratios from near-empty pools so a single wei of liquidity cannot
-produce a multi-million-percent change.
+pair, skipping dust-state start ratios from near-empty pools.
 
 ## How fresh the data is
 
@@ -148,10 +147,9 @@ produce a multi-million-percent change.
 | Token prices, token summaries, pair summaries | Every 10 minutes by default |
 | AE fiat rates | Re-read at most every 30 seconds |
 
-A swap shows up in the transaction feed promptly, while the token's price, volume and change
-columns can be up to ten minutes behind. The indexer reads the æternity middleware, so the
-middleware's own lag is the floor on all of it. For anything you are about to sign against, read
-the pair contract directly.
+A swap shows up in the transaction feed as soon as the indexer sees it; the token's price, volume
+and change columns follow on the ten-minute schedule. For anything you are about to sign against,
+read the pair contract directly.
 
 ## DEX tokens and community tokens
 

@@ -8,7 +8,7 @@ description: "Everything between the price you see and the price you get: the 1%
 Three different things move the number. The **curve spread** is a fixed 1% of the curve value,
 split between the community DAO and the affiliation system. **Curve slippage** is the cost of your
 own trade size, and depends on how big it is relative to the supply. **Gas** is the æternity network
-fee, and the smallest of the three by a wide margin.
+fee, paid at the network's current gas price.
 
 ## 1. The spread
 
@@ -140,10 +140,10 @@ difference                         0.001052764439 AE
 
 That is **1% of the curve value, and 0.995% of the AE you handed over**; the two differ because the
 fee is added on top of the curve price on the way in. Every position starts about 1% down. See
-[Risks](/tokens/risks).
+[Before You Trade](/tokens/risks).
 
-The spread is charged on value, not on trade count, so ten small round trips cost the same 1% each
-as one large one. There is no fixed component to amortise.
+The spread is charged on value, not on trade count: ten small round trips each pay the same 1% as
+one large one.
 
 ## 2. Curve slippage
 
@@ -164,9 +164,9 @@ Buying from a supply of 10,000,000, where spot is `1.052709e-4 AE`:
 Rule of thumb: **your premium to spot is roughly half the percentage of the supply you are adding**,
 up to about 10%, and worse than that beyond it.
 
-Splitting the order does not help. The curve is path-independent: ten buys of 1,000,000 from a
-rising supply cost exactly the same total as one buy of 10,000,000, because the integral is the same
-area either way. The only levers are trade size and the supply you trade at.
+Splitting the order gives the same total. The curve is path-independent: ten buys of 1,000,000 from
+a rising supply cost exactly the same as one buy of 10,000,000, because the integral is the same area
+either way. The two levers are trade size and the supply you trade at.
 
 Near supply zero the effect is far larger in relative terms, because the `−0.0009999` offset has
 cancelled almost all of the exponential: buying the first 1,000 tokens of a brand-new token costs
@@ -201,14 +201,14 @@ Every transaction pays an æternity network fee in AE, independent of everything
 
 | Action | Transactions | Cost |
 | --- | --- | --- |
-| Create a token | 1 contract call | About 0.001 AE |
-| Buy | 1 contract call | Depends on contract execution |
-| Sell | 2 contract calls: allowance, then sell | Depends on contract execution |
-| Post | 1 contract call | Depends on contract execution |
+| Create a token | 1 contract call | Gas at the network's current gas price |
+| Buy | 1 contract call | Gas at the network's current gas price |
+| Sell | 2 contract calls: allowance, then sell | Gas at the network's current gas price, twice |
+| Post | 1 contract call | Gas at the network's current gas price |
 
 Read the exact fee off any mined transaction in [aeScan](https://aescan.io). Two things hold
 regardless: a **sell costs two transactions**, not one, because of the allowance step; and the web
-app never lets you spend your whole balance. Its "spendable" figure is
+app keeps back a reserve for fees. Its "spendable" figure is
 `balance − balance × (slippage + 1) / 100 − 0.001 AE`, so at the default 1% tolerance it holds back
 2% of your balance plus a flat 0.001 AE for the fee.
 
@@ -236,13 +236,13 @@ AE returning to your wallet
   ( reverts entirely if below minimal_return_required )
 ```
 
-Nothing else is charged. There is no listing fee, no withdrawal fee, no maker or taker fee, and no
-fee for holding.
+That is the complete cost: the spread, your own slippage and gas. Listing, withdrawing, making or
+taking, and holding carry no fee.
 
 ## Related
 
 - [Bonding Curves](/tokens/bonding-curve): the integral behind every fee and slippage figure, worked out by hand
 - [Buying & Selling](/tokens/buying-and-selling): how to set a guard yourself instead of taking the default
-- [Risks](/tokens/risks): what a 1% round-trip spread means for a position you intend to hold
+- [Before You Trade](/tokens/risks): what a 1% round-trip spread means for a position you intend to hold
 - [Affiliation rewards](/rewards/affiliation): where the 0.5% affiliation half of the spread ends up
 - [DAO treasury](/dao/treasury): what the community can do with its half

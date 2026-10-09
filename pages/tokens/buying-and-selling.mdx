@@ -1,14 +1,14 @@
 ---
 title: "Buying & Selling"
-description: "Execute a trade against the curve from the UI, the CLI or the SDK — including the AEX-9 allowance a sell needs and how to set a return floor."
+description: "Execute a trade against the curve from the UI, the CLI or the SDK, including the AEX-9 allowance a sell needs and how to set a return floor."
 ---
 
 # Buying & Selling
 
-Trading a community token means minting or burning it against its bonding curve. There is no order
-book and no counterparty: you send AE and receive newly minted tokens, or you burn tokens and receive
-AE back. A sell needs an AEX-9 allowance first, and `minimal_return_required` is what stands between
-a sell and a bad fill.
+Trading a community token means minting or burning it against its bonding curve. The contract is
+the counterparty: you send AE and receive newly minted tokens, or you burn tokens and receive AE
+back. A sell needs an AEX-9 allowance first, and `minimal_return_required` sets the floor for what a
+sell returns.
 
 ## From the token page
 
@@ -72,9 +72,9 @@ the difference with `Chain.spend` in the same transaction. Attaching less aborts
 `AE_AMOUNT_NOT_SUFFICIENT`. Do not add the affiliation fee on top of `price(count)` yourself. It is
 already included. See [Fees & Slippage](/tokens/fees-and-slippage).
 
-`buy(count)` attributes the affiliation reward to the buyer's own position in the affiliation tree;
-there is no per-transaction referrer argument. Who gets paid is decided by the buyer's inviter
-chain, populated once when the buyer redeems an invitation or calls `register_invitation`. See
+`buy(count)` attributes the affiliation reward through the buyer's own position in the affiliation
+tree, so the call takes no referrer argument. Who gets paid is decided by the buyer's inviter chain,
+populated once when the buyer redeems an invitation or calls `register_invitation`. See
 [Affiliation](/rewards/affiliation).
 
 A successful trade emits `Buy(int, int, int)` or `Sell(int, int)` on the sale contract, plus `Mint`
@@ -85,11 +85,11 @@ the quoted ones.
 ## `minimal_return_required`
 
 `sell(count, minimal_return_required)` takes a floor in aettos. If the AE the curve would pay out is
-below that floor, the call reverts and nothing happens: no tokens burned, no AE moved, gas spent.
+below that floor, the call reverts: no tokens are burned and no AE moves; the transaction pays gas.
 
-**This is your only protection on a sell.** A buy is bounded by the AE you attach, but a sell has no
-equivalent ceiling. Between the moment you read `sell_return(count)` and the moment your transaction
-is included, other people can sell; supply falls, the curve slides down, and your payout shrinks.
+**This is the guard on a sell.** A buy is bounded by the AE you attach; a sell is bounded by this
+floor. Between the moment you read `sell_return(count)` and the moment your transaction is included,
+other people can sell; supply falls, the curve slides down, and the payout moves with it.
 
 ### Choosing a floor
 
@@ -123,7 +123,7 @@ you. On a quiet token that is an enormous margin; on one where a single holder o
 supply it is not. Size the tolerance to the token.
 
 - **Too tight** and your sell reverts on ordinary activity. You pay gas and still hold the position.
-- **Too loose** and you have no protection. A floor of 0 means "fill me at any price", which on a falling curve is exactly what you do not want.
+- **Too loose** and the floor stops protecting you. A floor of 0 means "fill me at any price"; set it from the quote instead.
 
 Your *own* trade's slippage is already in the quote: `sell_return(count)` integrates the curve
 across the tokens you are burning. The tolerance covers only what happens between quote and
@@ -225,7 +225,7 @@ console.log('sell tx', sold.hash);
 
 `omitUnknown: true` tells the SDK to ignore ACI entries it cannot decode rather than throwing.
 
-## Why the executed price differs from the quote
+## Quote versus execution
 
 | Cause | Direction | Typical size |
 | --- | --- | --- |
@@ -234,8 +234,8 @@ console.log('sell tx', sold.hash);
 | The 0.5% affiliation fee on a buy | Against you | 0.5% of the curve value, already inside `price()`, not inside `calculate_buy_price()` |
 | Off-chain estimates using a trapezoidal integral | Overstates by up to ~20 ppm on very large trades | Negligible, but see [Curve Parameters & Units](/tokens/curve-parameters) |
 
-The quote you get from `price()` or `sell_return()` is exact at the supply it was read at.
-Everything that moves it afterwards is other people.
+The quote you get from `price()` or `sell_return()` is exact at the supply it was read at. Trades
+that land after it move the supply, and your tolerance covers that.
 
 What you received is recoverable after the fact. A buy emits
 `Buy(total_price, affiliation_amount, total_supply)` and a sell emits `Sell(return, total_supply)`,

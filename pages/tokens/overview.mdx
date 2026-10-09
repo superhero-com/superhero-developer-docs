@@ -62,15 +62,15 @@ own address, so an allowance is granted to `sale_address` with its `ct_` prefix 
 - **Governance.** Holders at or above the community's `minimum_token_threshold` can open DAO votes; any holder can vote, with voting weight equal to the tokens they lock in the vote contract. Opening a vote costs 555 AE, paid to the DAO. See [DAO voting](/dao/voting).
 - **A treasury you collectively control.** 0.5% of the curve value on every trade accrues to the community's DAO, and holders vote on how it is spent. See [Treasury](/dao/treasury).
 - **Write access and membership.** `CommunityManagement` stores a `minimum_token_threshold` that gates write access in the community for verified accounts, plus the moderator set and mute list. See [Moderators](/dao/moderators).
-- **ProtocolDAO tokens.** Buying a community token also mints you platform-wide ProtocolDAO tokens, proportional to the AE value of the buy. Their governance framework is not yet live. See [ProtocolDAO](/dao/protocol-dao).
+- **ProtocolDAO tokens.** Buying a community token also mints you platform-wide ProtocolDAO tokens, proportional to the AE value of the buy. See [ProtocolDAO](/dao/protocol-dao).
 
-## What it is not
+## What a token represents
 
-- **Not equity.** A community token conveys no ownership of any company, no share of profits, and no claim on anyone's assets other than the AE in its own bonding-curve reserve.
-- **Not a revenue share.** The DAO treasury is spent by vote, not distributed automatically. There is no dividend.
-- **Not a fixed-supply asset.** Anyone can mint more at any time by buying. Your percentage of the supply falls whenever someone else buys, even if your balance does not change.
-- **Not backed by a promise.** The only guarantee is arithmetic: the curve always quotes a sell price, and the reserve can always pay it. Whether that price is higher or lower than what you paid depends on what everyone else does.
-- **Not free to enter and exit.** The 1% spread means an instant round trip returns about 0.995 of what you put in, before gas. See [Risks](/tokens/risks).
+- **A governance and membership stake.** It conveys no ownership of any company and no share of profits; its backing is the AE in its own bonding-curve reserve.
+- **A treasury spent by vote.** Holders decide how the DAO treasury is spent. Nothing is distributed automatically.
+- **An elastic supply.** Anyone can mint more at any time by buying. Your balance stays the same when someone else buys; your percentage of the supply changes.
+- **A guaranteed quote.** The curve always quotes a sell price, and the reserve can always pay it. Whether that price is above or below what you paid depends on the trades since.
+- **A 1% spread.** An instant round trip returns about 0.995 of what you put in, before gas. See [Before You Trade](/tokens/risks).
 
 ## Two token types on the platform
 
@@ -80,7 +80,7 @@ own address, so an allowance is granted to `sale_address` with its `ct_` prefix 
 | Scope | One community | The whole platform |
 | Issuance | Minted on buy against the curve | Minted as a reward on every community-token buy |
 | Price | Bonding curve | Not sold; issued only as a by-product of buying |
-| Utility today | Voting, write threshold, membership | None yet. Issuance is live; governance is in development |
+| Utility | Voting, write threshold, membership | Platform-wide governance stake; see [The ProtocolDAO Token](/dao/protocol-dao) |
 
 Every community-token buy mints ProtocolDAO tokens to the buyer at **1,000×** the AE paid,
 affiliation fee included, after any surplus refund. The `Mint` event on the ProtocolDAO token
@@ -92,5 +92,5 @@ contract carries the exact figure. See [The ProtocolDAO Token](/dao/protocol-dao
 - [Create a Token (Dashboard)](/tokens/create-from-dashboard): launch one from the app in a few minutes
 - [Collections & Naming Rules](/tokens/collections-and-naming): the namespace your token name has to fit into
 - [Community factory contract](/contracts/community-factory): `create_community` and the registry, entrypoint by entrypoint
-- [Risks](/tokens/risks): read before you buy anything
+- [Before You Trade](/tokens/risks): what to know before you buy
 - [AEX-9 standard](https://github.com/aeternity/AEXs/blob/master/AEXS/aex-9.md): the fungible token specification these tokens implement

@@ -19,23 +19,22 @@ no cut beyond the protocol fees described below.
 | Requirement | Detail |
 | --- | --- |
 | A connected wallet | The submit button is replaced by Connect Wallet until one is connected |
-| AE for gas | A small amount, about 0.001 AE for the creation |
+| AE for gas | One transaction, paid at the network's current gas price |
 | AE for the initial buy | Optional. Zero is allowed and creates the token with zero supply |
 | A name no one has taken | Checked live as you type |
 
 ## The name field
 
-The name is the token's identity, its symbol, and its URL: `/trends/tokens/YOURNAME`. It is the
-only field in this form you cannot change later.
+The name is the token's identity, its symbol, and its URL: `/trends/tokens/YOURNAME`. It is fixed
+once the token is created, so choose it with care.
 
 The input uppercases and replaces spaces with dashes on every keystroke, so `my token` becomes
 `MY-TOKEN` as you type. The field is capped at 20 characters, with a counter underneath. Collections
 carry their own casing rules (the English collection accepts `A–Z`, the Russian one accepts `А–Я`),
 and uppercasing is what makes a typed name detectable.
 
-While an IME composition is active (typing Chinese through pinyin, for example), the input holds
-intermediate Latin text that belongs to no collection. Normalisation and the "unsupported" verdict
-are suspended until the composition commits.
+While an IME composition is active (typing Chinese through pinyin, for example), the form waits for
+the composition to commit before normalising the name and checking the collection.
 
 ### The collection chip
 
@@ -43,7 +42,7 @@ To the right of the name, a chip names the collection your token will be created
 from the characters you typed, not chosen up front:
 
 1. Every collection in the factory schema publishes an `allowed_name_chars` rule set. The app turns each into a regular expression and tests your name against all of them.
-2. **No collection matches** → a red **Unsupported** badge appears and the submit button is disabled. A name no collection accepts would only fail on-chain, so the UI refuses it first.
+2. **No collection matches** → a red **Unsupported** badge appears and the submit button is disabled. Adjust the name until a collection accepts it.
 3. **Exactly one matches** → a green chip names it, and there is nothing to choose.
 4. **More than one matches** → the chip becomes a dropdown. Every collection allows `-`, so a name like `A-B` fits several; English is preferred by default.
 
@@ -60,10 +59,10 @@ The chip shows the human label, not the on-chain id: the `WORDS` collection is d
 | Green tick | Available; you can submit |
 | Red cross | Taken. A **Trading live** panel appears with the existing token's price and holder count, and a **BUY TOKEN** button that takes you to its page instead |
 
-When the name is taken, the initial-buy section and the submit button are disabled. The check is an
-index lookup, not a chain read: the factory's on-chain `has_community` check is what rejects a
-duplicate, and a name claimed seconds before yours fails at signing time with
-`NAME_ALREADY_REGISTERED`.
+When the name is taken, the initial-buy section and the submit button are disabled. The live check
+reads the token index; the factory's on-chain `has_community` check has the final word, so a name
+claimed seconds before yours fails at signing time with `NAME_ALREADY_REGISTERED`. Pick another name
+and retry.
 
 ## The initial buy: two input modes
 
@@ -99,10 +98,9 @@ integral multiplied by 1.005 for the 0.5% affiliation fee. Quick-pick buttons of
 | 10,000,000 | 518.091808 | 520.682267 |
 | 100,000,000 | 71,838.182846 | 72,197.373760 |
 
-The AE-mode estimate is computed from the bare curve and does not subtract the affiliation fee,
-while the token-mode estimate adds it, so expect the AE mode to deliver slightly fewer tokens than
-it shows. Both estimates are computed from supply zero, which is correct: the token does not exist
-yet. The same helpers price the trade card of an existing token, fed the live supply instead.
+The AE-mode estimate is computed from the bare curve, while the token-mode estimate includes the
+0.5% fee, so AE mode delivers slightly fewer tokens than it shows. Both estimates are computed from
+supply zero, because the token does not exist yet.
 
 ## What you sign
 
@@ -121,40 +119,41 @@ create_community(
 The attached amount is estimated using the fee percentage read from the factory's own
 `fee_percentage()` and `fee_precision()` entrypoints.
 
-An over-estimate costs you nothing. `create_community` requires
+Any surplus comes back to you. `create_community` requires
 `Call.value >= price(initial_buy_count)` and refunds the difference with
-`Chain.spend(Call.caller, overpaid_refund)` in the same transaction. An under-estimate aborts with
-`VALUE_HAS_TO_BE_GREATER_THAN_BUY_PRICE` and the whole creation fails. Nothing is half-created.
+`Chain.spend(Call.caller, overpaid_refund)` in the same transaction. If the attached amount is below
+the price, the call aborts with `VALUE_HAS_TO_BE_GREATER_THAN_BUY_PRICE` and nothing is deployed;
+retry with the current estimate.
 
 The form returns as soon as the transaction is broadcast and navigates you to
 `/trends/tokens/YOURNAME?created=true&txHash=...` while it is still being mined. Expect
 **2–5 minutes** before the token page populates.
 
-`meta_info` is submitted with fixed placeholder values (`collection: "word"` and empty description,
-website and twitter fields); the form has no inputs for them. The community can change its metadata
-afterwards by DAO vote through `CommunityManagement.change_meta_info`.
+The form submits `meta_info` with default values (`collection: "word"` and empty description,
+website and twitter fields). The community can set its metadata afterwards by DAO vote through
+`CommunityManagement.change_meta_info`.
 
 ## What it costs
 
 | Component | Amount |
 | --- | --- |
-| Gas for `create_community` | Small; about 0.001 AE |
+| Gas for `create_community` | One transaction, paid at the network's current gas price |
 | Initial buy | Whatever you chose, or zero |
 | Affiliation fee on the initial buy | 0.5% of the curve value, included in the attached amount |
 | Creation fee | **None.** `create_community` charges nothing beyond the buy |
-| Ongoing | Nothing. There is no listing fee or rent |
+| Ongoing | **None.** No listing fee and no rent |
 
-Creating a token inside an existing collection is free. Creating a **collection** is not. That is
-`create_collection`, which requires exactly 555 AE and burns it. See
+Creating a token inside an existing collection carries no protocol fee. Creating a **collection**
+with `create_collection` requires exactly 555 AE, which is burned. See
 [Collections & Naming Rules](/tokens/collections-and-naming).
 
 An initial buy also mints you ProtocolDAO tokens at 1,000× the AE you spent, minted directly by the
 factory.
 
-Creating with a zero initial buy is free apart from gas, and leaves the token at supply zero with a
-spot price of `0.0000001 AE`. Anyone, including you, can buy first afterwards.
+Creating with a zero initial buy costs only gas, and leaves the token at supply zero with a spot
+price of `0.0000001 AE`. Anyone, including you, can buy first afterwards.
 
-## When it fails
+## Troubleshooting
 
 | Symptom | Cause | What to do |
 | --- | --- | --- |
@@ -164,8 +163,8 @@ spot price of `0.0000001 AE`. Anyone, including you, can buy first afterwards.
 | "Wallet not connected" / no signature prompt | Wallet session dropped | Reconnect and retry |
 | Nothing on the token page after 5 minutes | Transaction still pending, or it failed | Look up the `txHash` from the URL on [aeScan](https://aescan.io) |
 
-A failed creation costs you gas and nothing else. The whole deployment is one transaction, so no
-partial community is left behind.
+The whole deployment is one transaction, so a failed creation leaves nothing behind and you can
+retry with the same name.
 
 ## After it is mined
 
