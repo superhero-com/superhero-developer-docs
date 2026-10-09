@@ -13,7 +13,7 @@ the default namespace, and a separate authenticated namespace carries notificati
 | Network | URL |
 | --- | --- |
 | Mainnet | `https://api.superhero.com` |
-| Testnet | Not publicly documented |
+| Testnet | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) |
 
 Same origin as the REST API, default namespace, default `/socket.io/` path. No authentication
 and no handshake beyond Socket.IO's own.
@@ -28,8 +28,8 @@ socket.connect();
 The CORS origin is the same value the REST API uses: every origin by default, an allow-list
 when the operator sets `ALLOWED_ORIGINS`. See [Conventions](/api-reference/conventions#cors).
 
-A plain WebSocket client cannot connect: Socket.IO is a protocol layered on Engine.IO, so use a
-Socket.IO client for your language.
+Socket.IO is a protocol layered on Engine.IO, so connect with a Socket.IO client for your
+language.
 
 ## Events
 
@@ -74,12 +74,13 @@ under `data`.
 | `name`, `symbol` | string | from the sale contract's `metaInfo` |
 | `beneficiary_address`, `bonding_curve_address`, `owner_address` | string | from `metaInfo` |
 
-Nothing else is on it. `rank`, `trending_score`, `holders_count`, `tx_count`,
-`collection_info`, `performance` and `created_at` are never pushed. Refetch
-`/api/tokens/{address}/rankings` and the holders endpoint for those, throttled to at most once
-every 15 seconds per `sale_address` so a burst of trades collapses into one refetch.
+That is the full list. For `rank`, `trending_score`, `holders_count`, `tx_count`,
+`collection_info`, `performance` and `created_at`, refetch `/api/tokens/{address}/rankings` and
+the holders endpoint, throttled to at most once every 15 seconds per `sale_address` so a burst
+of trades collapses into one refetch.
 
-A field the chain read failed to return is absent rather than null. Merge, do not replace:
+A field without a fresh value is absent rather than null, so merge the payload into your cached
+row:
 
 ```js
 const newTokenData = { ...currentTokenData, ...message.data };
@@ -137,7 +138,7 @@ const SALE_ADDRESS = 'ct_YOUR_SALE_ADDRESS';
 const socket = io('https://api.superhero.com', { autoConnect: false });
 
 socket.on('connect', () => console.log('connected'));
-socket.on('disconnect', () => console.log('disconnected — refetch on reconnect'));
+socket.on('disconnect', () => console.log('disconnected, refetch on reconnect'));
 
 socket.on('token-history', (message) => {
   if (message.sale_address !== SALE_ADDRESS) return;
@@ -166,7 +167,7 @@ connection model:
 
 ```text
 namespace:  https://api.superhero.com/notifications
-auth:       { token }   — a bearer session token
+auth:       { token }   a bearer session token
 transports: ['polling'] with upgrade: false, forceNew: true
 ```
 
@@ -193,17 +194,17 @@ The server runs four checks in order and disconnects the socket on any failure:
    No token means immediate disconnect.
 3. **Session resolution.** The token is an opaque 32-byte random hex string mapped to its owner
    address, minted by `POST /api/notifications/{address}/feed/session` and valid for **7 days**.
-   It is not a JWT and is revocable server-side. An unknown or expired token means disconnect.
+   It is an opaque token, revocable server-side. An unknown or expired token means disconnect.
 4. **Per-address connection cap.** At most 10 concurrent sockets per address.
 
 On success the socket joins a room named after the proven address, and every emit is addressed
-to that room. The namespace accepts no client-sent messages: read history and mark items read
-over the authenticated REST endpoints.
+to that room. The namespace is push-only: read history and mark items read over the
+authenticated REST endpoints.
 
 `notification` carries a feed item; `unread-count` carries `{ count }`.
 
-The persisted feed is pruned after 90 days and trimmed to the 500 most recent rows per address;
-a feed page is capped at 50 items. The REST side of the same subsystem:
+The persisted feed keeps the 500 most recent rows per address for 90 days; a feed page holds up
+to 50 items. The REST side of the same subsystem:
 
 ```text
 POST /api/notifications/{address}/feed/challenge
@@ -218,11 +219,11 @@ GET  /api/notifications/web-push/vapid-public-key
 The feed page returns `{ items, nextCursor }`; the unread count returns `{ count }`; marking
 read takes an optional array of ids (omit it to mark everything) and returns the new `count`.
 
-## What is not on the WebSocket
+## Other live sources
 
-New posts, comments and tips are not pushed on the token channels, so poll the feed over REST.
-Chat runs on Nostr relays (`wss://relay.superhero.chat` by default), not on this socket. Chain
-events are also absent; for those, watch the middleware.
+For new posts, comments and tips, poll `GET /api/feed` or `GET /api/posts` over REST. Chat runs
+on Nostr relays (`wss://relay.superhero.chat` by default). For chain events, subscribe to the
+middleware WebSocket; see [Node & Middleware](/api-reference/node-and-middleware).
 
 ## Related
 

@@ -19,9 +19,9 @@ with it, and sends every transaction there for you to approve.
 The first two are external custody: the wallet holds the key and Superhero only ever receives a
 signed result. The third is documented in [The Built-In Wallet](/wallets/built-in-wallet).
 
-**None of them is WalletConnect.** The æternity connection path is the AEX-2 `postMessage` RPC from
-`@aeternity/aepp-sdk`, with no project id, pairing URI or relay. If you are writing a wallet to
-connect to superhero.com, implement the AEX-2 side.
+**These paths use AEX-2 rather than WalletConnect.** The æternity connection path is the AEX-2
+`postMessage` RPC from `@aeternity/aepp-sdk`, and it needs no project id, pairing URI or relay. If
+you are writing a wallet to connect to superhero.com, implement the AEX-2 side.
 
 ## The extension handshake
 
@@ -45,10 +45,10 @@ Detection is time-boxed, and the window depends on the surface:
 | Mobile or Safari, not framed in a wallet | 100 ms |
 | Silent reconnect after a page reload | 15 seconds |
 
-The mobile window is short because extensions do not exist there, so the app fails fast to the
-deep-link path. The reconnect window is long because the extension's content script can be
-injected several seconds after the app has booted; the extension re-announces itself to every
-connected page every **three seconds**, so it only has to be there within the window, not at boot.
+The mobile window is short because mobile browsers run without extensions, so the app moves
+straight to the deep-link path. The reconnect window is long because the extension's content script
+can be injected several seconds after the app has booted; the extension re-announces itself to every
+connected page every **three seconds**, so it has to be there within the window rather than at boot.
 
 ## The deep-link path
 
@@ -69,8 +69,8 @@ current page, with `address` and `networkId` placeholders the wallet fills in. O
 validates the address and installs it as a **static account**, a read-only account that lets the
 app show balances and portfolio data.
 
-A static account is not a signing session. Signing still routes through the wallet, and
-address-change events are not delivered, because those only exist over a live RPC connection.
+A static account shows balances and portfolio data. Signing routes through the wallet, and
+address-change events arrive over a live RPC connection.
 
 ## The transaction queue at `/tx-queue/:id`
 
@@ -86,9 +86,9 @@ whose only job is to accept the wallet's result and hand it to whichever tab ask
 
 The route writes the result into the shared transaction queue, then hands off over a broadcast
 channel to the originating tab. If that tab acknowledges within 1.5 seconds, this window closes
-(or navigates to the return path). If nothing acknowledges (Android Chrome sometimes opens the
-callback in a temporary tab), the queue page completes message-signing requests itself and
-refreshes the account and profile caches.
+(or navigates to the return path). If nothing acknowledges (for example when the callback opened in
+a separate tab), the queue page completes message-signing requests itself and refreshes the account
+and profile caches.
 
 Message-signing requests are the ones that travel this way: profile updates, `.chain` name claims,
 and the identity-link proofs for X, bio, website and preferred AENS name. Each is verified against
@@ -96,19 +96,19 @@ the claimed address before submission; a signature that does not verify is rejec
 
 ## What the connection grants
 
-Connecting grants the app the ability to **ask**. It does not grant spending authority:
+Connecting grants the app the ability to **ask**. Spending stays with you:
 
 - The app can read your address, your account list, and your balances.
 - The app can **request** a signature. The wallet decides what to show you and whether to sign.
 - Every value-moving action is a separate request you approve separately.
 
-There is no blanket allowance and no session token. With the built-in wallet, user verification
-runs on *every* signature, with no cached unlock.
+Each signature is approved on its own. With the built-in wallet, user verification runs on *every*
+signature.
 
 ## The same handshake, from Superhero Wallet's side
 
-**Connecting is not the step that prompts you.** The wallet records the æpp's self-description
-against its client id and returns. The dialog you see is triggered one step later, when the æpp
+**The prompt appears at the subscribe step, one step after connect.** The wallet records the æpp's
+self-description against its client id and returns. The dialog you see is triggered when the æpp
 asks to subscribe to an address.
 
 What the wallet sends back about itself:
@@ -145,48 +145,47 @@ storage. Every field starts `false` or `0`:
 | `dailySpendLimit` / `transactionSignLimit` | Sign transactions up to a daily AE ceiling without asking | No |
 | `transactionSignSpent` / `transactionSignFirstAskedOn` | Running total and the 24-hour window it resets in | Bookkeeping |
 
-The checkbox grants exactly one standing permission, a silent reconnect, and leaves everything
-else prompting. The other switches live in **More → Settings → Permissions**, where you can edit a
+The checkbox grants exactly one standing permission, a reconnect without a prompt, and leaves
+everything else prompting. The other switches live in **More → Settings → Permissions**, where you can edit a
 host's record or add one by hand; the wallet's own copy there reads "Use this feature with caution
 and only for platforms you trust."
 
 The standing record maps onto RPC methods one-for-one: `connect` and `subscribeAddress` read
 `address`; `address` (list accounts) reads `addressList`; `signMessage` reads `messageSign`; and
 `sign` runs the daily-limit check. Anything else (`signTypedData`, `signDelegation`,
-`unsafeSign`) has no standing-permission path and always opens a confirmation.
+`unsafeSign`) always opens a confirmation.
 
 Two more guards:
 
-- **A standing spend limit never applies off æternity.** An EVM or Solana transaction always
-  prompts.
-- **A transaction the wallet cannot decode gets a louder dialog.** If the payload is not a
-  transaction type the wallet knows how to render, the modal switches to the raw-sign warning
-  screen rather than a friendly summary.
+- **A standing spend limit applies to æternity.** An EVM or Solana transaction always prompts.
+- **A transaction the wallet does not recognise gets a louder dialog.** If the payload is not a
+  transaction type the wallet renders, the modal switches to the raw-sign warning screen instead of
+  the summary.
 
-### What an æpp cannot ask for
+### Network choice stays with you
 
-**An æpp cannot make Superhero Wallet switch networks.** A network mismatch is only fixable by
-you, in the wallet.
+**You choose the network in Superhero Wallet.** An æpp proposes transactions on the network the
+wallet is on; when the networks differ, switch it in the wallet.
 
 ## Switching accounts
 
 With a live RPC session, the wallet pushes address changes to the app and the active account
-follows your wallet's selection. Without the RPC connection, as in a restored read-only session,
-switching accounts in the extension goes unnoticed by the app; reconnect to fix it.
+follows your wallet's selection. In a restored read-only session, press Connect again so that
+account switches in the extension reach the app.
 
 Per-account caches (balance, AEX-9 balances, recent DEX activity, liquidity positions) are keyed by
 address and pruned to the addresses in the current session, so switching accounts never shows you
 another account's numbers.
 
-## Network mismatch
+## Networks
 
 Superhero builds are pinned to one network at build time through `VITE_NETWORK`, and the app
-offers exactly that network. There is no in-app switcher; change the network in the wallet. See
+offers exactly that network. Change the network in the wallet to match. See
 [Using Testnet](/getting-started/testnet).
 
 ## Disconnecting
 
-Disconnect does all of the following, in order, so that a refresh does not silently reconnect:
+Disconnect does all of the following, in order, so that a refresh starts clean:
 
 1. Removes the persisted session keys from local storage: `account:activeAccount`,
    `wallet:walletInfo`, `wallet:balance`, `dex:recentActivities` and `liquidityPositions`.
@@ -196,13 +195,13 @@ Disconnect does all of the following, in order, so that a refresh does not silen
    per-account cache.
 5. Disconnects the SDK.
 
-Disconnecting is a local action. It does not revoke anything on chain, and it does not remove a
-built-in wallet's vault from the device. That is a separate, deliberate erase.
+Disconnecting is a local action. On-chain permissions stay as they are, and a built-in wallet's
+vault stays on the device; erasing it is a separate, deliberate step.
 
 ## Related
 
 - [Choosing a Wallet](/wallets/choosing-a-wallet): which of these paths you should be on.
-- [The Built-In Wallet](/wallets/built-in-wallet): the case where there is no transport at all.
+- [The Built-In Wallet](/wallets/built-in-wallet): the case where the signer runs in the page.
 - [Troubleshooting](/wallets/troubleshooting): detection windows, stale sessions and read-only reconnects, as symptoms.
 - [Navigating the App](/getting-started/navigating-the-app): which parts of superhero.com need a connected account.
 - [Web Wallet](/wallets/web-wallet): the two transports a hosted wallet has, and the deep-link routes.

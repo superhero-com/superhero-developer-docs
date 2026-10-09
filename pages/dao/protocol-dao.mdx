@@ -6,12 +6,11 @@ description: "The platform-wide AEX-9 token minted to every buyer of a community
 # The ProtocolDAO Token
 
 The ProtocolDAO token is issued automatically to anyone who buys a community token, in
-proportion to the AE they spend. It is one platform-wide token, intended for protocol-level
-governance. Issuance is live; the governance it is named after is not yet built. There is no
-ProtocolDAO contract, no proposal mechanism and no staking.
+proportion to the AE they spend. It is one platform-wide AEX-9 token, intended for
+protocol-level governance, and issuance is live on every buy.
 
-It is not a community token. A community token governs one community's treasury through that
-community's DAO.
+It is separate from community tokens, each of which governs one community's treasury through
+that community's DAO.
 
 ## Properties
 
@@ -23,8 +22,7 @@ community's DAO.
 | Base for the rate | The AE actually paid, affiliation fee included, after any surplus refund |
 | Recipient | The buyer's address, at the time of purchase |
 | Trigger | Buying a community token on the bonding curve, or creating one with an initial buy |
-| Utility today | None implemented |
-| Utility intended | Platform-wide governance, proposal voting, staking |
+| Intended use | Platform-wide governance, proposal voting, staking |
 
 The factory holds the token in its state and exposes two entrypoints:
 
@@ -44,9 +42,9 @@ stateful entrypoint mint_protocol_dao_token(buy_value : int, receiver : address)
   state.protocol_dao_token.mint(receiver, buy_value * protocol_dao_token_multiplier)
 ```
 
-`known_token_sales` is populated by `create_community` and nothing else. There is no owner
-mint and no other issuance path, so ProtocolDAO supply is exactly 1,000 times the AE ever
-spent buying community tokens through the factory.
+`known_token_sales` is populated by `create_community`, and factory-deployed sales are the
+single issuance path, so ProtocolDAO supply is exactly 1,000 times the AE ever spent buying
+community tokens through the factory.
 
 The token contract is an ordinary `FungibleTokenFull` with 18 decimals, so the whole AEX-9
 surface applies: `balance`, `total_supply`, `transfer`, `create_allowance` and the rest. Its
@@ -74,8 +72,8 @@ else ()
 
 `Call.value - overpaid_refund` is the curve price plus the 0.5% affiliation fee, with any
 slippage buffer already refunded. A buy quoted at `1.000 AE` of curve value costs `1.005 AE`
-and mints `1005` ProtocolDAO tokens. Attaching a 3% slippage buffer does not mint 3% more:
-the refund happens first.
+and mints `1005` ProtocolDAO tokens. A slippage buffer is refunded first, so the mint matches
+the amount you paid.
 
 When `create_community` performs an initial buy, the caller of the sale *is* the factory, so
 the sale skips the callback and the factory mints directly, with the same multiplier.
@@ -83,24 +81,20 @@ the sale skips the callback and the factory mints directly, with the same multip
 The `Mint` event on the ProtocolDAO token contract carries the exact amount, and the app reads
 that event to report what you received.
 
-## What does not exist yet
+## How it relates to the other voting systems
 
-- **There is no ProtocolDAO governance contract.** No deployed contract implements
-  platform-wide proposals or voting for this token.
-- **There is no staking.** No staking entrypoint exists on the token or the factory.
-- **The token does nothing in the app.** No screen consumes a ProtocolDAO balance, and no
-  feature is gated on holding one.
-- **It is not the æternity governance system.** The polls at `/voting` are weighted by AE
-  balance and delegation, not by ProtocolDAO tokens. See [Governance and Voting](/governance).
-- **It is not a community DAO token.** Community votes are weighted by that community's own
-  AEX-9 token. See [Voting](/dao/voting).
+The ProtocolDAO token is a standard `FungibleTokenFull`: hold it, transfer it and read it like
+any AEX-9 token. It is a plain AEX-9 token rather than a bonding-curve token, and it sits
+alongside two voting systems with their own weights:
 
-The token is a standard `FungibleTokenFull`, so its transfer entrypoints work; it is not a
-bonding-curve token and has no protocol-native market.
+- **æternity governance** at `/voting` is weighted by AE balance and delegation. See
+  [Governance and Voting](/governance).
+- **Community DAO votes** are weighted by that community's own AEX-9 token. See
+  [Voting](/dao/voting).
 
 ## Related
 
-- [Community DAOs](/dao): the per-community governance that exists today.
+- [Community DAOs](/dao): the per-community governance system.
 - [Governance and Voting](/governance): æternity-wide polls, weighted by AE.
 - [Value flow](/concepts/value-flow): where ProtocolDAO issuance sits in what a buyer pays and receives.
 - [Community Factory contract reference](/contracts/community-factory): the factory entrypoints that mint it.

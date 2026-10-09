@@ -1,6 +1,6 @@
 ---
 title: "Moderators & Write Thresholds"
-description: "How a community controls who can post in it — the CommunityManagement contract, moderator powers, and the minimum token threshold."
+description: "How a community controls who can post in it: the CommunityManagement contract, moderator powers, and the minimum token threshold."
 ---
 
 # Moderators & Write Thresholds
@@ -37,8 +37,8 @@ Chain.create(Call.caller, 10 ^ decimals(), is_private, meta_info) : CommunityMan
 | `meta_info` | Passed through from `create_community` |
 
 `owner` is set to the factory in `init` and immediately reassigned to the DAO with
-`community_management.set_owner(dao.address)`. The creator ends up as the sole moderator but
-not the owner, and cannot change the threshold or appoint anyone else without a vote.
+`community_management.set_owner(dao.address)`. The creator ends up as the first moderator; the
+DAO is the owner, so the threshold and the moderator roster change by vote.
 
 Reach the contract from the DAO with `get_community_management()`, which returns
 `option(CommunityManagement)`.
@@ -57,14 +57,13 @@ Reach the contract from the DAO with `get_community_management()`, which returns
 
 Moderators mute and unmute. Everything structural (who the moderators are, what the
 threshold is, what the community says about itself) is a token-holder decision that goes
-through a proposal and a two-week vote. A moderator cannot appoint another moderator, cannot
-change the threshold, and cannot remove themselves from the set. Muting is
-quick and needs no vote, while changing the moderator roster needs a full proposal.
+through a proposal and a two-week vote. Appointing or removing a moderator, including a
+moderator leaving the set, and changing the threshold are vote subjects. Muting is quick and
+needs no vote, while changing the moderator roster goes through a full proposal.
 
 The `owner` of `CommunityManagement` is the DAO, which is how a passed vote reaches these
-entrypoints. `set_owner` is not one of the seven vote subjects; the only path that calls it
-after creation is a `ChangeDAO` migration, which hands it to the replacement DAO in the same
-transaction. See [Replaceable DAOs](/dao/replaceable-dao).
+entrypoints. `set_owner` is reached through a `ChangeDAO` migration, which hands it to the
+replacement DAO in the same transaction. See [Replaceable DAOs](/dao/replaceable-dao).
 
 ## The minimum token threshold
 
@@ -89,13 +88,12 @@ proposals, requiring the proposer's balance to clear it.
 
 ### Choosing one
 
-- **The token price is not fixed.** The threshold is a token count, and the bonding curve
-  price rises with supply, so a threshold set when the token was cheap becomes expensive later
-  without anyone voting to change it.
+- **The threshold is a token count.** The bonding curve price rises with supply, so the AE cost
+  of meeting the threshold rises as the community grows; revisit it as the token matures.
 - **It gates proposals as well as posts.** Set it high enough to keep out drive-by spam and low
-  enough that more than a handful of accounts can still open a vote.
-- **Changing it is slow and costs 555 AE.** Treat it as a decision you revisit a few times a
-  year, not a dial you tune.
+  enough that a broad set of accounts can open a vote.
+- **Changing it is a two-week vote with a 555 AE contribution.** Treat it as a decision you
+  revisit a few times a year.
 
 ## Moderator powers
 
@@ -110,23 +108,21 @@ Read the set with `muted_user_ids()` and the roster with `moderator_accounts()`.
 
 ### What a mute does
 
-A mute removes the account from the community's token-gated chat room and prevents it being
-re-added, regardless of token balance. A muted holder who clears the threshold is still
-excluded from the room.
+A mute removes the account from the community's token-gated chat room and keeps it out while
+the mute stands, regardless of token balance.
 
-`user_id` is a string; pass the account's `ak_` address. Entries are matched against member
-addresses, so any other string mutes nobody.
+`user_id` is a string; pass the account's exact `ak_` address, since entries are matched
+against member addresses.
 
-A mute does **not** hide or filter content. A muted account's existing posts stay visible
-everywhere they were visible before. It is also separate from the per-user room mute in the
-app, which is a notification preference an account sets for itself.
+A mute is a room-membership control. A muted account's posts stay on chain and visible, as every
+post does. It is separate from the per-user room mute in the app, which is a notification
+preference an account sets for itself.
 
-There is no post deletion, no edit, no ban, no timed mute and no appeal mechanism in the
-contract. Moderation here is membership control, not content control. See
+Moderation here is membership control: a mute stands until a moderator lifts it. See
 [Moderation](/social/moderation).
 
-Muting is not governance. A moderator does not need a vote to mute, and a mute is not
-reversed by vote. Only a moderator's `unmute_user_id` changes it.
+Muting sits with moderators rather than with the vote: a moderator mutes without a vote, and a
+moderator's `unmute_user_id` lifts it.
 
 ## The `is_private` flag
 
@@ -147,12 +143,11 @@ CommunityFactory.create_community(collection_name, name, initial_buy_count,
                                   is_private, meta_info)
 ```
 
-It is fixed at creation. `CommunityManagement` has no `set_is_private` entrypoint, it is not
-in the vote-subject set, and `change_meta_info` only replaces the metadata map. **A community
-cannot become private, or stop being private, after it is created.** The only way to change
-it is a new community.
+It is fixed at creation: the flag sits outside the vote-subject set, and `change_meta_info`
+replaces the metadata map alone. **Choose it deliberately when you create the community**; a
+different setting means a new community.
 
-`is_private` only affects chat-room visibility: a private community's chat requires an
+`is_private` affects chat-room visibility: a private community's chat requires an
 authenticated relay session (a NIP-42 `AUTH` handshake) before history can be read, while the
 room still appears in listings with a private badge. The token, the feed, the trades, the
 holders and all on-chain state stay public, and the write gate is `minimum_token_threshold`
@@ -166,7 +161,7 @@ CommunityManagement.meta_info = map(string, string)
 
 A free-form string map holding the community's descriptive metadata. `change_meta_info`
 replaces it wholesale, through a `ChangeMetaInfo` vote, so a proposal that means to change one
-key must carry every other key unchanged. There is no per-key update entrypoint.
+key carries every other key unchanged.
 
 ## Events
 
@@ -183,8 +178,8 @@ auditable without replaying contract state:
 | `SetOwner` | the new owner address |
 | `ChangedMetaInfo` | no fields |
 
-Every mute in a community's history is a permanent public record, including ones that were
-later undone. See [Contract events](/contracts/events).
+Every mute and unmute in a community's history is a public record anyone can verify. See
+[Contract events](/contracts/events).
 
 ## Related
 

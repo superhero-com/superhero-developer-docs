@@ -105,7 +105,8 @@ validated against `/^[a-z0-9]{1,64}$/i`, so anything with punctuation or a `ct_`
 a 400.
 
 Returns the `Affiliation` row (`id`, `account_address`, `code`, `created_at`) or `null` (a 200
-with a null body, not a 404) when no such pool exists. The child codes are not included.
+with a null body, not a 404) when no such pool exists. The child codes stay private; hand them
+out through the OAuth exchange below.
 
 ### `POST /api/affiliations/invites/{code}/{provider}/{access_code}`
 
@@ -151,8 +152,8 @@ https://superhero.com#invite_code=<secret key>
 ```
 
 Redemption gas is covered by a fixed `0.001 AE` per invite (`10n ** 15n` aettos) on top of the
-gift amount, so the total sent is `(amount + 0.001) * count` plus the call's own gas. Revoking
-takes the invite's **address**, not its secret key.
+gift amount, so the total sent is `(amount + 0.001) * count`; the call itself pays gas at the
+network's current gas price. Revoking takes the invite's **address**, not its secret key.
 
 The creation side can also be read from the middleware:
 
@@ -162,8 +163,8 @@ GET {middlewareUrl}/v3/transactions?contract=ct_2GG42rs2FDPTXuUCWHMn98bu5Ab6mgNx
 
 Filter to `tx.function === 'register_invitation_code'`, read the invitee addresses from argument
 0 and the per-invite amount from argument 2 (in **aettos**; divide by 1e18), and follow
-`response.next` to page. Use it only for an invite the indexer has not caught;
-`GET /api/invitations?inviter=...` answers the same question in one call.
+`response.next` to page. `GET /api/invitations?inviter=...` answers the same question in one
+call; use the middleware form to cross-check against the chain.
 
 ## Referral analytics
 
@@ -231,16 +232,16 @@ total_amount_ae                   sum of amount as inviter, in AE
 total_received_invitation_count   registered as invitee
 ```
 
-An **invitee node carries only `total_received_invitation_count`**; its other counters are 0
-even when that address is itself an inviter. To walk deeper, look the invitee's address up as a
-`sender_address` in the same `items` array. The structure is a flat list of one-level fans.
+An **invitee node carries `total_received_invitation_count`**; its other counters are 0 on that
+node. To walk deeper, look the invitee's address up as a `sender_address` in the same `items`
+array, where its own invites are listed. The structure is a flat list of one-level fans.
 
 `meta` carries `unique_inviters`, `unique_invitees`, `total_registered`, `total_redeemed`,
 `total_revoked` and `total_amount_ae`.
 
-Only invitations with **both** a `sender_address` and an `invitee_address` are counted as edges,
-so pending and revoked invites that were never redeemed contribute to `meta.total_revoked` but
-not to any node's invitee list.
+An edge is an invitation with **both** a `sender_address` and an `invitee_address`, so a node's
+invitee list holds redeemed invites. Pending and revoked invites that were never redeemed are
+counted in `meta.total_revoked`.
 
 ## Related
 

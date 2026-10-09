@@ -107,8 +107,8 @@ entrypoint is_closed() : bool = Chain.block_height >= state.close_height
 Note the `>=`: the vote is closed *at* `close_height`, not after it.
 
 `init` caps the proposal text with `require(String.length(metadata.description) =< 300,
-"DESCRIPTION_STRING_TOO_LONG")`. A description over 300 characters makes `DAO.add_vote`
-abort, taking the whole 555 AE transaction with it. `link` is unchecked.
+"DESCRIPTION_STRING_TOO_LONG")`. Keep `description` to 300 characters or fewer: a longer one
+makes `DAO.add_vote` abort, so the vote is not created. `link` is free text.
 
 ## The allowance you need before voting
 
@@ -137,7 +137,7 @@ await vote.vote(true, amount, { omitUnknown: true });
 
 `allowance` returns `option(int)`, so a never-granted allowance decodes to `undefined` and
 needs `create_allowance`; an existing one is adjusted with `change_allowance`, which takes a
-**delta**. A missing allowance is the most common reason a `vote` call reverts.
+**delta**. If a `vote` call reverts, check the allowance first.
 
 Locking is what makes the tally meaningful: the tokens cannot be transferred, sold back to the
 curve, or used in another concurrent vote while they are held here.
@@ -177,8 +177,8 @@ To add to an existing position, revoke first.
 `has_withdrawn(voter)` returns `option(bool)`: `None` if that address never voted or has
 revoked, `Some(false)` if they voted and have not withdrawn, `Some(true)` if they have.
 
-Tokens stay locked in the vote contract until you call `withdraw`; nothing returns them
-automatically.
+Call `withdraw` after the close height to get your tokens back; they stay locked in the vote
+contract until you do.
 
 ## `current_vote_state` versus `final_vote_state`
 

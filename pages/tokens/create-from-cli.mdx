@@ -22,7 +22,7 @@ the skill's root. It signs with an in-memory account built from `AE_PRIVATE_KEY`
 
 ## Pre-flight
 
-1. Confirm you have AE for gas (about 0.001 AE for creation, plus whatever you intend to pre-buy):
+1. Confirm you have AE for gas at the network's current gas price, plus whatever you intend to pre-buy:
 
    ```bash
    node scripts/superhero-wallet.mjs balance
@@ -102,8 +102,9 @@ attached = ceil( calculate_buy_price(0, count) × 1.05 )
 
 `calculate_buy_price` returns the **bare curve integral**; the sale contract also charges a 0.5%
 affiliation fee, so roughly a tenth of the buffer covers the fee. A new token is created at supply
-zero by definition, so there is no curve drift between quote and execution for a creation. The
-same buffer pattern is reused for ordinary buys, where drift is real.
+zero by definition, so the quote and the execution price match for a creation. The same buffer
+pattern is reused for ordinary buys, where other trades can move the supply between quote and
+execution.
 
 **The remainder comes back.** `create_community` requires `Call.value >= buy_price` rather than
 equality, then refunds the difference in the same transaction:
@@ -145,7 +146,7 @@ with the same name fails on-chain once the first one lands, and you pay gas twic
 | `AE_PRIVATE_KEY environment variable is not set...` | 1 | No signing key in the environment. Required by `create`, `check` and `info` alike |
 | `Usage: node scripts/superhero-token-create.mjs create <name> [buy_ae]` | 1 | `create` called with no name |
 | `{"error":"Insufficient balance","balance_ae":"…","required_ae":"…"}` | 1 | `buy_ae` greater than zero and wallet balance below `buy_ae + 0.01` |
-| `ERROR: Could not get collection from Superhero factory API` | 1 | `GET /api/factory` returned no usable `collections` object. Usually the API being down |
+| `ERROR: Could not get collection from Superhero factory API` | 1 | `GET /api/factory` returned no usable `collections` object. Retry in a moment |
 | `{"error":"Token already exists","collection":"…","name":"…"}` | 1 | `has_community` returned true |
 | `Usage: node scripts/superhero-token-create.mjs check <name>` | 1 | `check` called with no name |
 | `Usage: node scripts/superhero-token-create.mjs info <sale_address>` | 1 | `info` called with no address |
@@ -234,8 +235,8 @@ non-English collection, substitute its id at step 1.
 
 Mainnet community factory: `ct_25cqTw85wkF5cbcozmHHUCuybnfH9WaRZXSgEcNNXG9LsCJWTN`
 
-Resolve it from `GET /api/factory` in anything long-lived, so that a redeployment does not leave a
-hardcoded address pointing at an abandoned registry.
+Resolve it from `GET /api/factory` in anything long-lived, so that your integration follows any
+factory redeployment.
 
 ## Related
 

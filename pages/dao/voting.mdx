@@ -22,9 +22,8 @@ DAOVote.vote_option = bool   -- true = in favour, false = against
 DAOVote.amount      = int    -- tokens staked, in the token's smallest unit
 ```
 
-The ballot is **binary**. There is no abstain option and no multi-choice ballot. For a
-multi-option poll, use an [æternity governance poll](/governance/polls), which is a different
-system.
+The ballot is **binary**: in favour or against. For a multi-option poll, use an
+[æternity governance poll](/governance/polls), which is a separate system.
 
 Voting power is **linear in tokens staked**. The contract keeps one running total per side:
 
@@ -33,7 +32,7 @@ DAOVote.vote_state = map(DAOVote.vote_option, DAOVote.amount)
 ```
 
 Your `amount` is added to the total under `true` or `false`. Ten times the tokens is ten
-times the weight. There is no quadratic discount, cap, time-weighting or minimum.
+times the weight, from the first token up, with no cap.
 
 The per-voter record is:
 
@@ -63,8 +62,8 @@ transactions, and your weight is out of the tally in between.
 This is the opposite of an [æternity governance poll](/governance/voting), where calling
 `vote` again overwrites your choice.
 
-`amount` is not checked against your balance directly; the `transfer_allowance` call fails if
-you stake more than you hold or more than you have approved.
+The `transfer_allowance` call enforces `amount`: it fails if you stake more than you hold or
+more than you have approved.
 
 ## The allowance step
 
@@ -143,16 +142,16 @@ holding the community token, and choose **Vote Yes** or **Vote No**. Your wallet
 sign the allowance and then the vote.
 
 **The app votes with your entire token balance.** It passes your full balance as the
-`amount`; there is no partial-stake option in the UI. To vote with part of your holdings, call
-`vote(option, amount)` yourself with the amount you intend.
+`amount`. To vote with part of your holdings, call `vote(option, amount)` yourself with the
+amount you intend.
 
 ## Locking
 
 Once `vote` succeeds, the tokens are held by the vote contract. Until you revoke or withdraw
-them you cannot transfer them, sell them back to the bonding curve, or use them in another
-vote. This prevents one balance being voted repeatedly on the same proposal from different
-addresses, or sold immediately after voting while the vote still counts. The lock has no timer
-of its own; it ends when you end it.
+them, they sit in the vote contract rather than in your wallet, so they are out of reach for
+transfers, bonding-curve sells and other votes. This is what makes each balance count once per
+proposal and keeps voted stake committed while the vote counts. You end the lock yourself, by
+revoking or withdrawing.
 
 ## Revoke versus withdraw
 
@@ -174,10 +173,9 @@ reverts, and you must call `withdraw()` instead. Do not leave a revoke to the la
 
 **Revoking is a governance action**: it pulls your weight out of the tally, so a proposal that
 was passing can stop passing. **Withdrawing is housekeeping**: the outcome is settled and
-`final_vote_state()` returns it, and taking your tokens back cannot change it. Withdrawal does
-not depend on how the vote went or whether the subject was ever applied, and nothing does it
-for you. Tokens left in a closed vote contract stay locked until their owner calls
-`withdraw`.
+`final_vote_state()` returns it, and taking your tokens back leaves it as it is. Withdrawal is
+available whatever the outcome and whether or not the subject was applied. Call `withdraw` to
+bring the tokens back to your wallet.
 
 ## Reading a vote
 
@@ -212,18 +210,19 @@ contract state. See [Contract events](/contracts/events).
 
 ## Before you vote
 
-- **Your tokens are illiquid while locked.** A two-week vote is two weeks you cannot sell into
-  the bonding curve; revoking is the only early exit.
-- **Voting power is plain token weight.** A single holder above 55% of participating stake
-  decides any vote they show up for. The 10% quorum limits capture by tiny minorities only.
+- **Your tokens are committed while locked.** They stay in the vote contract for the two-week
+  vote; revoke to take them back early.
+- **Voting power is plain token weight.** Approval needs 55% of participating stake, and
+  participation needs 10% of supply.
 - **The allowance persists** until you reset it. It is scoped to one vote contract.
-- **Nothing reminds you to withdraw.** Closed votes do not return tokens automatically.
+- **Withdraw after the close.** Call `withdraw()` to bring your tokens back once the vote
+  closes.
 
 ## Related
 
 - [Quorum and Thresholds](/dao/quorum-and-thresholds): what your stake has to add up to for a proposal to pass.
 - [Proposals and Vote Subjects](/dao/proposals): what you are voting on, and how to read a subject.
 - [How DAOs Work](/dao/overview): where voting sits in the lifecycle.
-- [Voting on governance polls](/governance/voting): the other system, where nothing is locked.
+- [Voting on governance polls](/governance/voting): the other system, where your AE stays liquid.
 - [AEX standards](/aeternity/aex-standards): the AEX-9 allowance mechanism this depends on.
 - [AEX-9 specification](https://github.com/aeternity/AEXs/blob/master/AEXS/aex-9.md): the fungible-token standard, including the allowance entrypoints.

@@ -16,8 +16,8 @@ looking at before you cache it.
 | --- | --- | --- | --- |
 | Preferred AENS name | `AddressLink`, provider `prefaens` | `link_principal`, which calls `AENSv2.lookup` inside the contract | **Yes**: ownership is checked on chain |
 | Chain name | `chain_name` on the account | Resolved from the middleware, refreshed on an hourly sweep and on a stale read | Yes, by resolution rather than by claim |
-| X handle | `AddressLink`, provider `x` | `link` after an OAuth check the backend performs | Off chain only; see [X verification](/identity/x-verification) |
-| Legacy username | `profile.username` | Read-only legacy field | No |
+| X handle | `AddressLink`, provider `x` | `link` after an OAuth check the backend performs | Off chain, by the backend's OAuth check; see [X verification](/identity/x-verification) |
+| Username | `profile.username` | Read-only profile field | No |
 
 ## How a public name is resolved
 
@@ -34,7 +34,7 @@ A linked preferred name overrides the middleware-resolved one on purpose: an add
 several AENS names, and the middleware returns the first. Linking one says which.
 
 The resolved value is `public_name` on `GET /api/profile/{address}` and
-`GET /api/accounts/{address}`. There is no per-account preference that changes the order.
+`GET /api/accounts/{address}`.
 
 ### How the chain name stays fresh
 
@@ -43,8 +43,8 @@ and `GET /api/accounts/{address}` also refreshes on read when the cached value i
 than the staleness window, writing the new value back asynchronously. An expired or transferred
 AENS name therefore drops out of the profile within about an hour.
 
-`chain_expires_at` in the profile aggregate is a legacy field and is not refreshed. To check
-whether a name is live, resolve it through AENS.
+To check whether a name is live, resolve it through AENS; `chain_expires_at` in the profile
+aggregate is a read-only field from earlier profile records.
 
 ## Reverse resolution
 
@@ -76,18 +76,18 @@ A verified badge is rendered when an `x` link exists for the account. See
 | --- | --- |
 | Client | `normalizeName(value) = value.trim().toLowerCase()`; `normalizeChainNameLabel` additionally strips a trailing `.chain` |
 | Backend, on read | `links.x` is trimmed, lowercased and has a leading `@` stripped; `links.bio`, `links.site` and `links.prefaens` are trimmed only |
-| Backend, on write | The value must be at most 200 characters and must not contain a `:`, because the signed message is colon-delimited |
+| Backend, on write | The value is at most 200 characters and contains no `:`, because the signed message is colon-delimited |
 
 The `site` provider also strips the scheme (`https://example.com/blog` is stored as
-`example.com/blog`) and rejects a port.
+`example.com/blog`) and stores the hostname and path without a port.
 
 The contract stores the value string verbatim, so whatever the backend normalized is what is
 on chain.
 
 ## Worked examples
 
-**Link a `.chain` name.** Claim the AENS name first, because the identity layer does not claim it for
-you. Then run the claim-sign-submit flow at `/api/address-links/prefered-aens-name/`. The
+**Link a `.chain` name.** Claim the AENS name first, then run the claim-sign-submit flow at
+`/api/address-links/prefered-aens-name/`. The
 signed message puts the name in the subject slot rather than your address:
 
 ```text
@@ -95,8 +95,8 @@ link:hero.chain:prefaens:hero.chain:0
 ```
 
 The backend calls `link_principal`, and the contract verifies with `AENSv2.lookup` that you own
-the name. `PRINCIPAL_NOT_FOUND` means the name is not registered; `PRINCIPAL_MISMATCH` means
-you do not own it.
+the name. `PRINCIPAL_NOT_FOUND` means the name is not registered yet; `PRINCIPAL_MISMATCH`
+means the name is owned by a different address.
 
 **Link an X handle.** Complete the OAuth leg, sign `link:ak_…:x:yourhandle:<nonce>`, and
 submit with the verification token. The handle is stored lowercased.
@@ -104,8 +104,8 @@ submit with the verification token. The handle is stored lowercased.
 **Change which name shows.** Link a different `.chain` name, or unlink `prefaens` to fall back
 to the middleware-resolved name.
 
-**Remove a name.** `unclaim` then `unclaim/submit` on the matching provider path. Only your
-own signature is required, with no OAuth or AENS check.
+**Remove a name.** `unclaim` then `unclaim/submit` on the matching provider path. Your own
+signature is all that is required.
 
 ## Related
 

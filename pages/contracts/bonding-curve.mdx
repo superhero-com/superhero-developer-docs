@@ -36,8 +36,8 @@ The `BondingCurve` interface declares the same eight computational entrypoints w
 arguments (`_1`, `_2`), which is why the sale contract's ACI shows them that way.
 
 `calculate_buy_price` and `buy_price` take a **supply**, not a count. The token sale's
-`price(count)` takes a count and reads the current supply for you. Mixing them up produces
-prices that are wrong by many orders of magnitude.
+`price(count)` takes a count and reads the current supply for you. Keep the two apart when you
+quote.
 
 Use `calculate_buy_price` and `calculate_sell_return` for quotes.
 
@@ -124,9 +124,8 @@ Two things bound the series:
   truncates to zero makes every later term zero too. At realistic supplies this fires long
   before the iteration cap.
 
-The approximation error is negligible: the on-chain result and the closed form agree to within
-2e-16 AE at supply 0 and 1.4e-12 AE at supply 10,000,000, far below one aetto of a per-token
-price. Quote the closed form for explanation; call `calculate_buy_price` for money.
+The on-chain result and the closed form agree to well below one aetto of a per-token price.
+Quote the closed form for explanation; call `calculate_buy_price` for money.
 
 `calculate_price` carries the only `require` on the curve: a `count` below `minimum_count`
 (10^12 aettos) aborts with `MINIMUM_TOKENS_REQUIRED`. That applies to `calculate_buy_price` and
@@ -135,7 +134,7 @@ price. Quote the closed form for explanation; call `calculate_buy_price` for mon
 `buy_curve` and `sell_curve` are a separate code path. They call `exp_helper` with the full
 series from `i = 1`, including the constant term (`exp_helper(x_exponent, decimals, decimals,
 1, decimals)`), and return a `Frac.frac` rather than an integer. They give you the
-instantaneous curve value for charting; they are not what a trade is priced from.
+instantaneous curve value for charting; trades are priced through `calculate_price`.
 
 ## The `Frac.frac` type
 
@@ -152,8 +151,8 @@ const value = await curve.buy_curve(supply).then((r) => r.decodedResult);
 // { Pos: [ 123456789n, 1000000000000n ] }   or   { Zero: [] }   or   { Neg: [ n, d ] }
 ```
 
-Keep it as a ratio of BigInts until the last possible moment. Never build a JavaScript
-`Number` out of either half, because both can exceed 2^53:
+Keep it as a ratio of BigInts until the last possible moment, and build a `BigNumber` from the
+string form of each half rather than a JavaScript `Number`, because both can exceed 2^53:
 
 ```javascript
 import BigNumber from 'bignumber.js';
@@ -194,12 +193,12 @@ console.log({
 
 ## Practical notes
 
-- **Price is a pure function of supply.** There is no time component, no oracle and no
-  liquidity provider. Two buys of the same size at the same supply cost the same.
+- **Price is a pure function of supply.** Two buys of the same size at the same supply cost the
+  same, with no time component, oracle or liquidity provider involved.
 - **`minimum_count` is 10^12 base units.** With 18-decimal tokens that is 0.000001 of a token.
-  Quotes below it are not meaningful.
+  Quote at or above it.
 - **The curve is steep by design.** It is calibrated so the price rises noticeably from the
-  very first buys; only 10–20% of the nominal supply is expected to be reached.
+  very first buys.
 
 ## Related
 

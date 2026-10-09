@@ -93,7 +93,7 @@ resolves the `dependencies` field like any Node project.
 | Runtime | Frontmatter fields it uses |
 | --- | --- |
 | OpenClaw / ClawHub | The `metadata.openclaw` block: `requires.env`, `primaryEnv` and `install` |
-| GitHub Copilot | `name`, `description`, `allowed-tools`, and its own `metadata` keys. No environment declaration |
+| GitHub Copilot | `name`, `description`, `allowed-tools`, and its own `metadata` keys. You set the environment variable yourself |
 | Claude Code | `name` and `description` for discovery. Permissions come from its own settings |
 
 Set `AE_PRIVATE_KEY` yourself before the first run on every runtime, and ask for
@@ -183,7 +183,7 @@ creation, and the autonomous-versus-manual question.
 
 3. **Add a `help` case.** It is the only interface an unfamiliar agent has to your script.
 4. **Add a row to the capabilities table in `SKILL.md`,** and a guide in `guides/` if the task
-   needs more than one command. The agent will not find a script that is not in the table.
+   needs more than one command. The agent finds scripts through that table.
 5. **Drop any new ACI into `contracts/`.** See [Calling contracts](/contracts/calling-contracts).
 
 Only `superhero-governance.mjs` reads an `AE_NODE_URL` override; the other scripts use

@@ -77,8 +77,8 @@ All four render the same Governance view; the path selects the tab.
 | `/defi/explore/pools/:poolAddress` | One pool's detail | No |
 | `/defi/explore/transactions` | Recent DEX transactions | No |
 | `/defi` | Redirects to `/defi/swap` | n/a |
-| `/defi/bridge` | Currently redirects to `/defi/swap` | n/a |
-| `/defi/buy-ae-with-eth` | Currently redirects to `/defi/swap` | n/a |
+| `/defi/bridge` | Redirects to `/defi/swap` | n/a |
+| `/defi/buy-ae-with-eth` | Redirects to `/defi/swap` | n/a |
 
 ## Wallet, utility and reference
 
@@ -113,8 +113,8 @@ Old links keep working:
 | `/buy-ae` | `/get-ae` |
 | `/swap` | `/defi/swap` |
 
-Legacy DEX paths that still render their own view rather than redirecting: `/pool`, `/explore`,
-`/explore/tokens/:id`, `/explore/pools/:id` and `/pool/add-tokens`.
+The DEX paths `/pool`, `/explore`, `/explore/tokens/:id`, `/explore/pools/:id` and
+`/pool/add-tokens` also render their own views.
 
 Anything else renders the not-found page.
 

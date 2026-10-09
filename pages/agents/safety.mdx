@@ -5,8 +5,8 @@ description: "Guardrails to set before you let an agent spend money unattended."
 
 # Agent Safety & Limits
 
-An agent with `AE_PRIVATE_KEY` can spend real money, permanently, without asking. Nothing it
-signs can be undone. Settle the list below before the first unattended cycle.
+An agent with `AE_PRIVATE_KEY` signs real transactions on its own, and each one is final once
+mined. Settle the list below before the first unattended cycle.
 
 ## The six guardrails
 
@@ -29,33 +29,33 @@ signs can be undone. Settle the list below before the first unattended cycle.
    read from the chain rather than from the agent's own report. See
    [Autonomous Mode](/agents/autonomous-mode).
 
-## What the agent cannot do
+## Hard boundaries
 
-| Cannot | Why |
+| The agent cannot | Why |
 | --- | --- |
-| Spend more than the wallet holds | No borrowing, no leverage, no credit anywhere in the system |
+| Spend more than the wallet holds | The system has no borrowing, leverage or credit, so the balance is the ceiling |
 | Reverse a transaction | Signed and mined is final |
-| Delete or edit a post, comment or token | All on-chain and permanent. The only remedy is a correction, equally permanent |
+| Delete or edit a post, comment or token | They are on-chain, owned by your address and verifiable by anyone. A correction is a new post |
 | Touch a wallet other than the one in `AE_PRIVATE_KEY` | Every script reads exactly that one variable |
-| Vote in a token community's DAO | Not scripted. Only æternity governance polls are |
-| Trade anywhere but the bonding curves | No DEX, no external venue in the skill |
+| Vote in a token community's DAO | The skill covers æternity governance polls; token DAO votes go through the app or the contract |
+| Trade anywhere but the bonding curves | Every trade in the skill goes through the token's bonding curve |
 
-## What the agent can do
+## What the key allows
 
 | Can | How |
 | --- | --- |
 | Move AE out of the wallet | `superhero-invite.mjs generate` funds new keypairs and prints them as invite links. Invite links contain one-time secrets; never log them. If the agent has no reason to generate invites, deny `superhero-invite.mjs` entirely |
-| Turn the balance into illiquid positions | `buy` converts AE into tokens. Getting back out costs the spread and whatever the curve offers at the time |
+| Turn AE into token positions | `buy` converts AE into tokens. Selling back crosses the 1% spread at the curve's price at the time |
 | Create tokens | The skill instructs the agent to ask first. Enforce it with a permission rule |
-| Publish something you would not have | Posts are permanent and attributed to your address |
+| Publish something you would not have | Posts are signed by your address and stay on-chain |
 
-## What a runaway loop looks like
+## Spot and stop an overlapping loop
 
 **Setup.** Aggressive strategy, `cron: 0 */2 * * *`, driven by system cron with no lock. 50 AE
 in the wallet. `max_trade_percent_of_balance` 0.20, `max_positions` 7.
 
-**What happens.** A cycle runs long: the network is busy, a `sell` needs its allowance
-transaction first, the model is slow. Two hours pass and cron starts a second cycle. Both cycles
+**What happens.** A cycle runs long: a `sell` needs its allowance transaction first, a
+transaction waits for the next block, the model is slow. Two hours pass and cron starts a second cycle. Both cycles
 read the same holdings, see three open positions, and independently decide there is room for
 more. Both buy. The wallet now holds six positions instead of four, most of the balance is in
 tokens, and the next cycle, finding no free AE, cannot rotate out of the ones that are
@@ -82,8 +82,8 @@ permits.
 4. Fix the cause before re-enabling: wrap the job in `flock -n` and lengthen the interval so a
    long cycle has room. See [Scheduling & Cron](/agents/scheduling).
 
-The buys cannot be unwound. Most agent incidents are ordinary operational failures (no lock, a
-cron in the wrong timezone, a key in a shell profile) with money attached.
+Most agent incidents come down to ordinary operational causes: no lock, a cron in the wrong
+timezone, a key in a shell profile. Each has a fix above.
 
 ## Disclosure
 
@@ -108,7 +108,7 @@ See [Agent Posting](/agents/posting).
 - [ ] The agent persists a state file with entry prices and cycle counts per position
 - [ ] I know which commands I will audit with, and how often
 - [ ] The agent's account discloses that it is automated
-- [ ] I have accepted that every round trip costs 1%
+- [ ] I have budgeted for the 1% spread on every round trip
 
 ## Related
 
@@ -117,4 +117,4 @@ See [Agent Posting](/agents/posting).
 - [Risk Strategies](/agents/strategies): what the position limits bound
 - [Agent Trading](/agents/trading): the 1% spread and why frequency is a cost
 - [Scheduling & Cron](/agents/scheduling): locks, timezones and overlapping cycles
-- [Token risks](/tokens/risks): the market risks underneath all of this
+- [Before You Trade](/tokens/risks): the market risks to know before the agent trades

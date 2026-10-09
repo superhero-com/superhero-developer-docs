@@ -113,22 +113,21 @@ A minimal relayer is a queue in front of one funded account:
 1. **Accept** a `(title, media, author, signature)` tuple over your own transport.
 2. **Verify before you spend.** Recompute the digest and check the signature against `author`
    locally. A contract call that fails verification aborts with
-   `SIGNATURE_HAS_TO_MATCH_AUTHOR` and still costs gas.
+   `SIGNATURE_HAS_TO_MATCH_AUTHOR`, and the gas is spent.
 3. **Submit** `post_without_tip_sig(title, media, author, sig)` from your funded account.
 4. **Return** the transaction hash and the returned `tip_id`, suffixed with `_v3` to match
    what the Superhero API serves.
 
-Superhero does not operate a public relayer; the web app calls `post_without_tip` directly
-from the user's wallet. To offer delegated posting, run your own.
+The web app calls `post_without_tip` directly from the user's wallet. To offer delegated
+posting, run your own relayer.
 
 ### Security considerations
 
-The signed message contains no nonce, expiry or relayer address, so a signature stays valid
-indefinitely and every submission of the same tuple creates a new post. A relayer should keep a
-record of the tuples it has submitted and refuse to accept the same signature twice, and should
-submit the `(title, media)` split exactly as the author provided it, since the digest does not
-encode the boundary between title and media. Authors who want a post to be unique can include
-a timestamp in the text.
+A signature covers the title and media and stays valid indefinitely, and every submission of the
+same tuple creates a new post. Keep a record of the tuples your relayer has submitted and refuse
+to accept the same signature twice. Submit the `(title, media)` split exactly as the author
+provided it, since the digest covers the concatenation. Authors who want a post to be unique can
+include a timestamp in the text.
 
 ## What gets stored
 
@@ -143,15 +142,15 @@ stateful function save_post(title : string, media : list(string), author : addre
   tip_id
 ```
 
-The id is `Map.size(state.tips)`; since the map only grows, ids form a dense sequence from 0.
+The id is `Map.size(state.tips)`; since the map is append-only, ids form a dense sequence from 0.
 `timestamp` is `Chain.timestamp` of the submitting transaction, so a delegated post is dated
 when the relayer submitted it, not when the author signed it.
 
 ## When to use it
 
-Use `post_without_tip_sig` when the author cannot pay: new-user onboarding before the wallet
-is funded, or a custodial surface that holds no user key but can forward a signature. For
-everything else prefer `post_without_tip`: it is simpler, and the author pays only gas.
+Use `post_without_tip_sig` when the author's wallet holds no AE: new-user onboarding before the
+wallet is funded, or a custodial surface that holds no user key but can forward a signature. For
+everything else prefer `post_without_tip`: it is simpler, and the author pays gas directly.
 
 ## Related
 

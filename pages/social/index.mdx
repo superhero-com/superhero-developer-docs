@@ -5,20 +5,20 @@ description: "Posting, commenting, tipping, hashtags, chat, notifications and mo
 
 # Social
 
-Posts and comments are written to the `Tipping` v3 contract, so they are permanent and
-attributable. Chat is off chain by design and runs over Nostr relays for realtime messaging, so check
-which layer you are using before you publish anything.
+Posts and comments are written to the `Tipping` v3 contract, so they are owned by their author,
+attributable and verifiable by anyone. Chat is off chain by design and runs over Nostr relays for
+realtime messaging. Pick the layer that fits what you are publishing.
 
 ## On chain or not
 
 | Surface | Where it lives | Permanent? |
 | --- | --- | --- |
-| Posts | `Tipping` v3 contract, one entry per `tip_id` | Yes. No edit, no delete |
+| Posts | `Tipping` v3 contract, one entry per `tip_id` | Yes. Final once published |
 | Comments | The same contract, with a `comment:` media prefix | Yes |
 | Tips | A plain AE transfer with a payload naming the post | Yes. It is a transaction |
 | Hashtags and topics | Derived by the indexer from post content | Follow the posts |
 | Trending tags | The Superhero API's trending index | No |
-| Chat messages | Nostr relays, off chain | No. Relay-dependent |
+| Chat messages | Nostr relays, off chain | No. Held by the relays |
 | Notifications | The Superhero API, delivered over a socket and web push | No |
 | Moderation state | `CommunityManagement.aes` per community | Yes; it gates chat rooms |
 

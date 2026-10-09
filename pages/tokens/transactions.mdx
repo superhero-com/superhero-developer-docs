@@ -1,6 +1,6 @@
 ---
 title: "Transaction History"
-description: "Query trades — yours, a token's, an account's, or the whole market — with the exact response fields, and verify any of them on-chain."
+description: "Query trades, yours, a token's, an account's, or the whole market, with the exact response fields, and verify any of them on-chain."
 ---
 
 # Transaction History
@@ -70,7 +70,7 @@ Each row carries these fields:
 | `unit_price` | price object | `amount / volume`, the average price you actually got |
 | `previous_buy_price` | price object | Unit price before this trade |
 | `buy_price` | price object | Unit price after this trade |
-| `sell_price` | price object | Legacy field; do not rely on it |
+| `sell_price` | price object | Kept for compatibility; read the spot sell price from the token record instead |
 | `total_supply` | numeric string | Token supply after this trade, in whole tokens |
 | `market_cap` | price object | `buy_price × total_supply` at the time of the trade |
 | `created_at` | timestamp | Block time |
@@ -107,8 +107,8 @@ exactly like a buy. Anything counting purchases must include it; the backend's o
 count `tx_type IN ('buy', 'create_community')`. A creation with no initial buy emits no
 `PriceChange` event and is stored with zeroes.
 
-The unfiltered feed is scoped to the **current factory**: with no `token_address`, tokens from a
-superseded factory deployment do not appear.
+The unfiltered feed is scoped to the **current factory**. Pass a `token_address` to query a specific
+token's rows.
 
 ### What the CLI prints
 
@@ -139,26 +139,24 @@ function formatTx(tx) {
 node scripts/superhero-transactions.mjs token ct_<sale_address> 30
 ```
 
-Many small buyers suggests organic momentum; one large buyer suggests a pump with higher exit risk.
-On a bonding curve this distinction is sharper than on an order book: a single large buy
-*permanently* moves the price for everyone, because the supply genuinely increased. The elevated
-price sits there until someone sells, whether or not anyone else wanted the token at that level. A
-chart that has gapped up on one transaction is telling you about one person's position, not about
-demand.
+Many small buyers suggests broad demand; one large buyer suggests a single position. On a bonding
+curve the distinction matters: a single large buy moves the price for everyone, because the supply
+increased, and the price stays there until someone sells. A chart that has gapped up on one
+transaction shows you one person's position.
 
 Three things to count in the output:
 
 1. **Distinct accounts.** Thirty trades from four addresses is four opinions, not thirty.
-2. **Buy-to-sell ratio.** A wall of buys with no sells can mean conviction, or it can mean nobody has been able to exit yet.
-3. **Clustering in time.** Trades evenly spread over days look different from trades in one minute, and the second pattern often has one account behind it.
+2. **Buy-to-sell ratio.** A run of buys with no sells can mean conviction, or that no one has sold yet.
+3. **Clustering in time.** Trades spread evenly over days look different from trades in one minute, and the second pattern often has one account behind it.
 
 Cross-check whatever you conclude against the holders tab. See
 [Reading a Token Page](/tokens/token-page).
 
 ## Verifying a transaction on-chain
 
-Every row carries a `tx_hash`. Superhero's indexer is convenient but it is not the chain; to verify a
-trade independently, open the hash in [aeScan](https://aescan.io). What to check:
+Every row carries a `tx_hash`. The chain is the system of record; to verify a trade independently,
+open the hash in [aeScan](https://aescan.io). What to check:
 
 - The **contract called** is the sale address you expected.
 - The **caller** is the account the indexer attributed it to.
@@ -170,22 +168,6 @@ deployed code and call its read-only entrypoints directly.
 
 ## Diagnosing a failed trade
 
-`GET /api/debug/failed-transactions` is a diagnostic endpoint with no UI behind it. It takes no
-parameters, is not scoped to an account, and returns at most **500 rows, newest first**:
-
-| Field | Meaning |
-| --- | --- |
-| `hash` | The transaction hash the indexer could not process |
-| `retries` | How many times it has been retried |
-| `error` | The error message |
-| `error_trace` | The stack trace |
-| `created_at` | When it first failed |
-
-**These are transactions the indexer failed to ingest, not transactions that failed on-chain**. A
-reverted buy never reaches it. A retry job runs every 30 minutes and drops a row once it succeeds or
-once `retries` passes 10, so the table is a rolling backlog rather than a history. If your trade is
-on aeScan but missing from `/api/transactions`, this is where to look for it.
-
 First steps when a trade did not go through:
 
 | Symptom | Abort reason to look for | Likely cause |
@@ -195,7 +177,7 @@ First steps when a trade did not go through:
 | Buy reverted | `AE_AMOUNT_NOT_SUFFICIENT` | Attached AE below `price(count)` after the curve moved; tolerance too tight |
 | Buy or sell reverted | `MINIMUM_TOKENS_REQUIRED` | `count` below `10^12`, almost always whole tokens passed where decimal units were expected |
 | Nothing in your transaction list, nothing on-chain | None | The transaction was never signed or never broadcast. Check the wallet |
-| On-chain but not in the list | None | Indexer lag, or an ingest failure. Check `/api/debug/failed-transactions` |
+| On-chain but not in the list | None | The indexer is still catching up. Request `GET /api/transactions/by-hash?tx_hash=...`, which pulls a mined trade into the index |
 
 See [Buying & Selling](/tokens/buying-and-selling) for the allowance and slippage mechanics behind
 the first two rows.

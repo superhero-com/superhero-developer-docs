@@ -3,3 +3,4 @@ node_modules
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
+out/

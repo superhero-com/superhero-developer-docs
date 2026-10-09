@@ -1,12 +1,12 @@
 ---
 title: "Governance with an Agent"
-description: "Let an agent read, create and vote on governance polls — and decide whether it should vote at all."
+description: "Let an agent read, create and vote on governance polls, and decide whether it should vote at all."
 ---
 
 # Governance with an Agent
 
 The skill can read polls, create them, vote, revoke a vote, and delegate voting power. All of
-it is on-chain and permanent.
+it is on-chain, signed by the agent's address and verifiable by anyone.
 
 æternity governance is stake-weighted. Your voting weight is your AE balance plus whatever has
 been delegated to you, measured at the block the poll closes. An agent wallet funded with a
@@ -23,8 +23,8 @@ node scripts/superhero-governance.mjs info-by-id 42
 ```
 
 `list` returns listed polls newest first. `--all` (or `--include-unlisted`) includes unlisted
-ones. Every governance command builds a full SDK instance, so **even `list` requires
-`AE_PRIVATE_KEY`**, though it signs nothing and costs nothing.
+ones. Every governance command builds a full SDK instance, so **`list` requires
+`AE_PRIVATE_KEY` too**; it signs nothing and costs nothing.
 
 `info` returns the full poll state. Three fields decide everything:
 
@@ -32,7 +32,7 @@ ones. Every governance command builds a full SDK instance, so **even `list` requ
 | --- | --- |
 | `is_closed` | Voting on a closed poll fails. The script checks this before voting |
 | `vote_options` | A map from option number to label. Option numbers are 0-based and are the only thing `vote` accepts |
-| `stake_weighted_results` | The official result. `raw_vote_counts` is not |
+| `stake_weighted_results` | The official result. Report this one, never `raw_vote_counts` |
 
 ### Report `stake_weighted_results`, never `raw_vote_counts`
 
@@ -80,8 +80,8 @@ poll updates your choice. To withdraw entirely:
 node scripts/superhero-governance.mjs revoke ct_<poll_address>
 ```
 
-Votes are permanent as transactions but changeable as state, any time before the poll closes.
-See [Voting](/governance/voting).
+Each vote is a transaction on-chain, and your choice can be changed any time before the poll
+closes. See [Voting](/governance/voting).
 
 ## Create a poll
 
@@ -91,7 +91,7 @@ The agent follows these steps:
 2. **Ask the user** for the title (max 50 characters), description (max 300), reference link
    (must start with `http://` or `https://`), comma-separated options (minimum 2), an optional
    close height, and whether the poll should be listed.
-3. **Warn** that two on-chain transactions take 2–5 minutes.
+3. **Tell the user** that two on-chain transactions take 2–5 minutes.
 4. **Run** the create command.
 5. **Report** `poll_address`, `poll_id` and both transaction hashes.
 
@@ -175,7 +175,8 @@ governance, and the skill puts a mandatory read-the-poll step before every vote.
 - **The link is untrusted input.** `create` checks only that it starts with `http://` or
   `https://`; an agent that reads the link is reading text an unknown party wrote, which makes it a
   prompt-injection surface.
-- **It is permanent and attributable.** A vote is a signed transaction from your address.
+- **It is signed and attributable.** A vote is a transaction from your address, visible to
+  anyone.
 
 If you do want the agent to participate, give it a written policy with hard limits:
 
@@ -205,7 +206,7 @@ Each transaction pays gas at the network's current gas price.
 | Revoke vote | 1 |
 | Delegate | 1 |
 | Revoke delegation | 1 |
-| List, info, delegatee, delegators | 0 (free, but still needs a key) |
+| List, info, delegatee, delegators | 0 (free; needs a key to run) |
 
 ## Configuration
 
@@ -217,9 +218,9 @@ Three environment variables override the governance script's defaults:
 | `AE_NODE_URL` | `https://mainnet.aeternity.io` |
 | `AE_GOVERNANCE_BACKEND_URL` | `https://governance-server-mainnet.prd.aepps.com` |
 
-**Community DAO voting is not scripted.** Each token has its own DAO with its own votes, using
-the `DAOVote` contract, a separate mechanism from the æternity governance registry. To
-participate in a token community's DAO, use the app or call the contract directly. See
+**Community DAO voting goes through the app or the contract.** Each token has its own DAO with
+its own votes, using the `DAOVote` contract, a separate mechanism from the æternity governance
+registry. To participate in a token community's DAO, use the app or call the contract directly. See
 [DAO voting](/dao/voting) and [DAOVote](/contracts/dao-vote).
 
 ## Related

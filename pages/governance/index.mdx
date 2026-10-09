@@ -9,7 +9,7 @@ description: "æternity-wide stake-weighted polls, delegation, and the /voting s
 with each poll deployed as its own `Poll` contract and weighted by AE balance and delegation.
 Superhero surfaces the whole system at [superhero.com/voting](https://superhero.com/voting).
 
-## Not the same thing as a community DAO
+## Governance polls and community DAOs
 
 Two different systems, two different contract sets, two different sources of voting power.
 
@@ -19,17 +19,17 @@ Two different systems, two different contract sets, two different sources of vot
 | Scope | The æternity ecosystem as a whole | One community token's treasury |
 | Voting power | AE balance at the poll's close height, plus delegated AE | That community's AEX-9 token balance |
 | Tokens locked while voting | **No** | **Yes**: an AEX-9 allowance locks your stake |
-| Delegation | Yes, global and transitive | No |
+| Delegation | Yes, global and transitive | Direct voting with locked stake |
 | Ballot | Any list of at least two options | Binary: in favour or against |
-| Outcome | Signalling. Nothing executes automatically. | Executes an on-chain action via `apply_vote_subject` |
-| Cost to open | Two transactions, roughly 0.02 AE | 555 AE, non-refundable |
-| Duration | Whatever close height the author sets, or never | Fixed at two weeks |
+| Outcome | Signalling; acted on off chain | Executes an on-chain action via `apply_vote_subject` |
+| Cost to open | Two transactions, gas at the network's current gas price | 555 AE, paid to the DAO treasury |
+| Duration | Whatever close height the author sets, or open-ended | Fixed at two weeks |
 | Where in the app | `/voting` | `/trends/daos` |
 
-**A governance poll does not lock your tokens and does not execute anything.** It records
-stake-weighted opinion at a block height; acting on that result is an off-chain process. A
-community DAO vote locks your stake and, if it passes, moves real money on-chain. For
-community treasuries and payout proposals, see [Community DAOs](/dao).
+**A governance poll leaves your AE liquid and records stake-weighted opinion at a block
+height.** Acting on that result is an off-chain process. A community DAO vote locks your stake
+and, if it passes, executes an on-chain action. For community treasuries and payout proposals,
+see [Community DAOs](/dao).
 
 ## How a poll works
 
@@ -42,8 +42,8 @@ community treasuries and payout proposals, see [Community DAOs](/dao).
    each option.
 5. The governance backend computes and publishes the stake-weighted result.
 
-**The official result is `stake_weighted_results`.** Raw vote counts are address counts and
-are not the outcome; see [Polls](/governance/polls).
+**The official result is `stake_weighted_results`.** Raw vote counts are address counts; see
+[Polls](/governance/polls).
 
 ## In this section
 

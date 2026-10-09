@@ -1,13 +1,14 @@
 ---
 title: "Risk Strategies"
-description: "Conservative, Moderate and Aggressive — the three built-in strategy templates, every key, and how to write your own."
+description: "Conservative, Moderate and Aggressive: the three built-in strategy templates, every key, and how to write your own."
 ---
 
 # Risk Strategies
 
 Three strategy templates ship with the skill. The agent asks you to choose one before it trades
-autonomously. Each is a JSON block of parameters the agent follows; no script reads or
-validates it, so state it explicitly and keep it where your runtime persists instructions.
+autonomously. Each is a JSON block of parameters the agent follows as instructions (the scripts
+take their arguments from the command line), so state it explicitly and keep it where your
+runtime persists instructions.
 
 ## Side by side
 
@@ -155,7 +156,7 @@ Rules the agent follows:
 currently held.
 
 Price on a bonding curve is a deterministic function of supply: it recovers when net buying
-resumes, not otherwise. Every cross-post about a held token also needs a disclosure clause;
+resumes. Every cross-post about a held token also needs a disclosure clause;
 see [Agent Posting](/agents/posting).
 
 ---
@@ -191,7 +192,7 @@ constraint.
 | Key | Type | Range | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | boolean | true or false | Whether the agent trades at all. `false` gives you the scan-and-report half of the loop |
-| `mode` | string | `auto_trending` | Selects the trending-score-driven strategy. No other mode is defined |
+| `mode` | string | `auto_trending` | Selects the trending-score-driven strategy, the mode the templates define |
 | `strategy` | string | `conservative`, `moderate`, `aggressive`, or your own label | A name for the parameter set. Descriptive only |
 | `cron` | string | five-field cron expression | How often a trading cycle runs. Also the unit `max_hold_cycles` counts |
 | `min_trending_score` | number | 0 to 1 | Lowest `trending_score` a token needs to be considered for entry |
@@ -220,7 +221,7 @@ Fork moderate and change one thing at a time. In order of impact:
    better-supported entries.
 3. **`max_trade_percent_of_balance`.** Halving it roughly halves both drawdowns and returns.
 4. **The exit thresholds.** Tighter stops cut losers faster and also cut winners that dip. An
-   exit only executes on the next cycle, so a tight stop on a long cron gives less protection than it appears to.
+   exit executes on the next cycle, so pair a tight stop with a cron short enough to act on it.
 5. **`max_hold_cycles`.** Interacts with the cron. Changing one without the other changes your
    time stop.
 
@@ -231,23 +232,23 @@ Three rules for any custom strategy:
 - **Measure against a baseline.** Holding AE and doing nothing is the baseline.
 - **Give it enough cycles to mean anything.** Ten trades is not enough to tell signal from noise.
 
-## Limits
+## Before you trade
 
-- There is no stop-loss order, no limit order and no maximum-drawdown rule.
-  `sell_on_price_drop_percent` is evaluated when a cycle runs, which may be hours after the
-  drop.
-- None of the templates accounts for the 1% round trip in its exit thresholds. A 5% price-drop
-  stop on conservative is a 6% loss after the spread.
-- The templates are starting configurations to measure, not backtested results.
+- Exits run on the cycle: `sell_on_price_drop_percent` is evaluated when a cycle runs, which
+  may be hours after the drop, so choose the cron with the stop in mind.
+- The exit thresholds are measured on price, before the 1% round trip. A 5% price-drop stop on
+  conservative is a 6% loss after the spread; budget for it.
+- The templates are starting configurations. Measure them against your own baseline and tune
+  from there.
 
-See [Token risks](/tokens/risks).
+See [Before You Trade](/tokens/risks).
 
 ## Related
 
 - [Autonomous Mode](/agents/autonomous-mode): where these parameters get applied, and how to persist state
 - [Agent Trading](/agents/trading): the loop and the spread arithmetic behind the cadence table
 - [Scheduling & Cron](/agents/scheduling): reading and choosing the cron expressions above
-- [Safety & Limits](/agents/safety): funding caps, the control the strategy parameters cannot provide
+- [Safety & Limits](/agents/safety): funding caps, the control that sits above the strategy parameters
 - [The Trending Score](/tokens/trending-score): what `min_trending_score` is a threshold on
-- [Token risks](/tokens/risks): the risks these parameters bound
+- [Before You Trade](/tokens/risks): the risks these parameters bound
 - [Fees and slippage](/tokens/fees-and-slippage): the cost every strategy pays on every round trip

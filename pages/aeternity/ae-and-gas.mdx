@@ -6,8 +6,8 @@ description: "The native coin, the 10^18 aetto conversion, and what a transactio
 # AE & Gas
 
 AE is æternity's native coin. It pays for gas, it is the base currency of every bonding curve,
-and it is what a tip is denominated in. Most integration bugs in this ecosystem are unit bugs, so
-start here.
+and it is what a tip is denominated in. Getting units right is the foundation of every
+integration, so start here.
 
 ## 1 AE = 10^18 aettos
 
@@ -24,10 +24,9 @@ format.
 
 ### Convert safely
 
-Never use JavaScript floating point for this. `10^18` is past `Number.MAX_SAFE_INTEGER` (about
-`9.007 × 10^15`), so a balance held as a `Number` silently loses precision. Use `BigNumber` or
-`BigInt` for every value you send or receive, and divide by `1e18` with a plain `Number` only for
-display.
+Use `BigNumber` or `BigInt` for every value you send or receive: `10^18` is past
+`Number.MAX_SAFE_INTEGER` (about `9.007 × 10^15`), so a balance held as a `Number` loses
+precision. Divide by `1e18` with a plain `Number` only for display.
 
 ```js
 import BigNumber from 'bignumber.js';
@@ -54,8 +53,8 @@ The SDK's `toAe` helper does the same job in one call.
 
 ### Community tokens have their own decimals
 
-Do not assume a token balance shares AE's exponent. AEX-9 tokens declare `decimals` in their
-`meta_info`; read it from the contract rather than hardcoding it. Superhero community tokens use
+AEX-9 tokens declare `decimals` in their `meta_info`; read it from the contract rather than
+assuming AE's exponent. Superhero community tokens use
 18, matching the bonding curve's `supported_decimals`. Scale token amounts by the token's own
 `decimals`, and only AE amounts by 18.
 
@@ -68,10 +67,9 @@ An æternity transaction has two separate charges:
 | `fee` | Every transaction | Size- and type-dependent base fee; the SDK computes it |
 | gas | Contract create and contract call transactions | `gasLimit` × `gasPrice`, charged on top of `fee` |
 
-Gas is charged on top of `fee`, up to the limit in the transaction. At a routine 5M gas limit
-that ceiling is around thirty times the fee, so the Superhero wallet shows a separate
-"Gas, at most" row, computed as `gasLimit × gasPrice`. When you approve a contract call, that
-row, not "Network fee", is your worst case.
+Gas is charged on top of `fee`, up to the limit in the transaction, so the Superhero wallet
+shows a separate "Gas, at most" row, computed as `gasLimit × gasPrice`. When you approve a
+contract call, that row, not "Network fee", is your worst case.
 
 ### Gas price
 
@@ -80,26 +78,16 @@ the consensus minimum the node reports as the floor and `1e9` aettos (1 Gaetto) 
 the fallback when the node does not report one. Under load, the same call costs more for the same
 `gasUsed`.
 
-Worked example at the floor price, for a contract deploy:
-
-```text
-gasLimit  76 000
-gasPrice   1 000 000 000 aettos
-max gas = 76 000 × 1e9 = 7.6e13 aettos = 0.000076 AE
-```
-
-A contract call typically carries a `gasLimit` of 5 000 000.
-
-Superhero does not override the SDK's gas defaults: no contract call in the web app sets
-`gasPrice` or `gasLimit`, so a call that runs out of gas does so at the SDK's default limit.
+A contract call typically carries a `gasLimit` of 5 000 000. Superhero's web app uses the SDK's
+default `gasPrice` and `gasLimit` for every contract call.
 
 ### Running out of gas
 
 Gas is debited up front: the protocol subtracts `gas × gas_price` from the caller before
 execution, then refunds the unused portion and pays the used portion to the miner. A call that
 exhausts its `gasLimit` refunds nothing: the transaction is still mined, the state change is
-rolled back, and you pay the full limit. A generous `gasLimit` costs nothing when the call
-succeeds and everything when it does not.
+rolled back, and you pay the full limit. A generous `gasLimit` costs nothing extra when the call
+succeeds, since unused gas is refunded.
 
 ## Transactions per Superhero action
 
@@ -127,7 +115,7 @@ let minimum_redemption_fee_cover = 10 ^ 15 // minimal amount to cover redemption
 require(redemption_fee_cover >= minimum_redemption_fee_cover, "MINIMUM_REDEMPTION_AND_FEE_NOT_MEET")
 ```
 
-`10^15` aettos is 0.001 AE, about five times the measured cost of the redemption call.
+`10^15` aettos is 0.001 AE.
 
 ## Getting AE
 

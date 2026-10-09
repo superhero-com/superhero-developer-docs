@@ -1,27 +1,27 @@
 ---
 title: "Create an Account"
-description: "Get a Superhero account with a passkey, a recovery phrase or an existing wallet — there is no signup form."
+description: "Get a Superhero account with a passkey, a recovery phrase or an existing wallet: your keypair is your account."
 ---
 
 # Create an Account
 
-Superhero has no signup form, no email verification and no password reset. Your account **is** a
-keypair on the æternity blockchain: a public address that starts with `ak_` and a private key that
-only you hold. Creating an account means generating that keypair; logging in means proving you
-still have it.
+Your Superhero account **is** a keypair on the æternity blockchain: a public address that starts
+with `ak_` and a private key that only you hold. Creating an account means generating that keypair;
+logging in means proving you still have it. You own it outright, with nothing to sign up for and
+nobody else holding a copy.
 
 ## What self-sovereign means
 
-| There is no… | So instead… |
+| You own | What that means |
 | --- | --- |
-| Email address on the account | Your address is your identity; a `.chain` name makes it readable |
-| Password to reset | You keep a recovery phrase, or a passkey, or both |
-| Anyone who can restore access for you | Your backup is the only restore path; see [Backup & Recovery](/wallets/backup-and-recovery) |
-| Account deletion | Posts and transactions are permanent on chain |
-| Server that stores your key | Nothing leaves your device |
+| Your identity | Your address is your identity; a `.chain` name makes it readable |
+| Your access | You keep a recovery phrase, or a passkey, or both; they take the place of a password |
+| Your recovery | Your backup is the restore path; see [Backup & Recovery](/wallets/backup-and-recovery) |
+| Your history | Posts and transactions are permanent on chain and verifiable by anyone |
+| Your key | Nothing leaves your device |
 
 Nobody can freeze the account, nobody can post as you, and no company sits between you and the
-chain. The trade is not reversible, so do not skip the backup step.
+chain. Your backup is what keeps that control in your hands, so do the backup step first.
 
 ## Three ways to get an account
 
@@ -44,13 +44,14 @@ agent setup.
 Choose **Use a passkey**. One ceremony does everything: Face ID, Touch ID, a fingerprint or your
 device PIN, and a wallet exists.
 
-There is no seed-phrase screen because the phrase is **derived** from the passkey's own output at a
-fixed salt, so it can be re-derived on any device the passkey reaches. The app then takes you
-straight to the mandatory **recovery code** screen.
+The phrase is **derived** from the passkey's own output at a fixed salt, so it can be re-derived on
+any device the passkey reaches, and the app skips the seed-phrase screen. It takes you straight to
+the mandatory **recovery code** screen.
 
-This is a real backup **only if your passkey syncs** (iCloud Keychain, Google Password Manager). A
-device-bound credential such as Windows Hello dies with its device, and the app has no phrase
-reveal or export screen.
+Use a passkey that **syncs** (iCloud Keychain, Google Password Manager): on this path the passkey is
+your backup, and a synced one reaches every device you sign in on. A device-bound credential such as
+Windows Hello stays with its device, so if that is what your device offers, choose the recovery
+phrase path instead.
 
 If the option is greyed out, this device or browser cannot create a platform passkey; use a
 recovery phrase instead. If tapping it does nothing at all, see
@@ -65,8 +66,8 @@ device, with or without biometrics.
 2. **The phrase is verified.** You re-enter the words. Nothing is stored until this passes.
 3. **You set a passphrase.** It encrypts the wallet on this device. The app scores it locally and
    requires a genuinely unguessable one, so a numeric PIN is rejected. Take the **generated
-   five-word passphrase** unless you have a reason not to. The passphrase cannot be changed later;
-   changing it means recreating the wallet from the phrase.
+   five-word passphrase** unless you have a reason not to. The passphrase is fixed for this
+   wallet; to change it, recreate the wallet from the phrase.
 4. **The wallet is created** and your first address is derived.
 5. **A device passkey is offered.** Optional. With it you stop typing the passphrase for every
    signature.
@@ -76,12 +77,12 @@ device, with or without biometrics.
 
 ### Import an existing wallet
 
-Offered **only in the installed app** (Add to Home Screen / installed PWA). In a plain browser tab,
-the answer to "I already have a wallet" is **Connect**, which hands signing to your extension or
-wallet app and never asks for your secret.
+Offered **in the installed app** (Add to Home Screen / installed PWA). In a plain browser tab, use
+**Connect** instead, which hands signing to your extension or wallet app and never asks for your
+secret.
 
 Imported phrases are checked against the BIP39 wordlist **and checksum** before anything is stored,
-so a mistyped word is rejected rather than silently creating a different, empty wallet.
+so a mistyped word is caught before it can create a different, empty wallet.
 
 ### Restore a passkey wallet on a new device
 
@@ -94,8 +95,8 @@ passkey. Details in [Backup & Recovery](/wallets/backup-and-recovery).
 
 If this device already has a wallet, Connect shows either *"Your wallet is ready"* or *"Finish
 setting up your wallet"*. The second appears when the recovery code was never enrolled, for
-example after a reload mid-flow. Finish it: on a passkey wallet that code is the only factor that
-survives a passkey rekey.
+example after a reload mid-flow. Finish it: on a passkey wallet, that code is what gets you back in
+after a passkey rekey.
 
 ## Create in Superhero Wallet
 
@@ -110,8 +111,8 @@ if you will use other æternity æpps.
 
 ### Back up the seed phrase on day one
 
-Superhero Wallet does not show the seed phrase during onboarding. A "Please backup your seed
-phrase!" notification reappears until the phrase is marked backed up. Before funding anything:
+Superhero Wallet reminds you with a "Please backup your seed phrase!" notification until the phrase
+is marked backed up. Do it before funding anything:
 
 1. **Settings → Seed phrase → Show seed phrase.** Revealing it requires re-authentication:
    biometrics on the mobile app, your password on the extension and web, or an explicit
@@ -143,16 +144,13 @@ Use a dedicated account funded with a capped amount. See
 ## If you clear browser storage
 
 An account created in the Superhero app lives encrypted in this browser's IndexedDB for the
-superhero.com origin. **Clearing site data deletes it.** So does Safari's tracking prevention after
-roughly seven days without interaction. Once it is gone:
+superhero.com origin. **Clearing site data removes that copy**, and so does Safari's tracking
+prevention after roughly seven days without interaction. The passphrase, the recovery code and a
+device passkey on a *phrase-created* wallet all belong to that stored copy.
 
-- your **passphrase** opens nothing,
-- your **recovery code** opens nothing,
-- a passkey belonging to a *phrase-created* wallet opens nothing.
-
-What survives is the written recovery phrase or, on a passkey-created wallet, a passkey that
-syncs. The full matrix is in
-[The Built-In Wallet](/wallets/built-in-wallet#what-clearing-site-data-destroys).
+What gets you back in is the written recovery phrase or, on a passkey-created wallet, a passkey that
+syncs. Keep one of those safe. The full matrix is in
+[The Built-In Wallet](/wallets/built-in-wallet#site-data-and-your-backup).
 
 Accounts held in Superhero Wallet or in an agent's environment variable are unaffected.
 

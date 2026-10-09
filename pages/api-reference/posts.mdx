@@ -122,13 +122,13 @@ letters, digits and `. _ ~ : -`, up to 128 characters; anything else is a 400.
 
 A slug is the first 60 characters of the content, lowercased, with everything that is not a
 letter, digit, `.`, `_`, `~` or `-` collapsed to a single `-`, then the first
-underscore-delimited segment of the post id. Slugs are not guaranteed unique; prefer the id.
+underscore-delimited segment of the post id. Use the id as the stable key; slugs can repeat.
 
 ## `GET /api/posts/{id}/comments`
 
-Paginated thread under a post. Takes `order_direction` (`ASC` or `DESC`), `limit` and `page`;
-there is no `order_by`; comments are ordered by time. Comments are posts, so items follow the
-`PostDto` shape.
+Paginated thread under a post. Takes `order_direction` (`ASC` or `DESC`), `limit` and `page`.
+Comments are ordered by time, with `order_direction` choosing oldest or newest first. Comments
+are posts, so items follow the `PostDto` shape.
 
 ## `GET /api/feed`
 
@@ -162,7 +162,7 @@ Each item is a discriminated union:
 | `trade` | A transaction row, as on `/api/transactions` |
 
 `next_cursor` is `null` on the last page; pass it straight back as `cursor` and do not parse it.
-A cursor minted under one `sort` is ignored by the other, so switching sort restarts from the top.
+Each `sort` mints its own cursors, so start from the top (no `cursor`) when you switch sort.
 
 ## Topics
 

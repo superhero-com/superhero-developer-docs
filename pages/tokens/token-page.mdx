@@ -1,6 +1,6 @@
 ---
 title: "Reading a Token Page"
-description: "Market cap, charts, holders and transactions — what each panel on a token page tells you, and how to read market cap on a bonding curve."
+description: "Market cap, charts, holders and transactions: what each panel on a token page tells you, and how to read market cap on a bonding curve."
 ---
 
 # Reading a Token Page
@@ -58,18 +58,17 @@ They come from different places and can legitimately disagree:
 | `total_supply` | `total_supply()` on the AEX-9 contract, read directly |
 | `circulating_supply` | æternity middleware's AEX-9 `event_supply`, tracked from the token's `Mint` / `Burn` / `Transfer` event log |
 
-`circulating_supply` is `null` until the middleware has indexed the token's events, which is
-the case on a new token or when the middleware is behind. The two converge; use `total_supply` for anything that has
-to be right, including the 10% DAO participation quorum.
+`circulating_supply` is `null` until the middleware has indexed the token's events, for example on a
+new token. The two converge; use `total_supply` for anything that has to be exact, including the 10%
+DAO participation quorum.
 
-**DAO balance is the most under-read number on the page.** It is cumulative spread, so it measures
-how much value has actually traded through the token since launch. It is much harder to fake than a
-price, and not resettable by a single large buy.
+**DAO balance is worth reading first.** It is cumulative spread, so it measures how much value has
+traded through the token since launch, and a single large buy moves it only by its own spread.
 
 ## Market cap, precisely
 
-Market cap for a bonding-curve token is **not** the amount of money in the token, and it is **not**
-what holders would receive if they all sold. The backend computes it as
+Market cap for a bonding-curve token is today's price applied to every token minted. It is a
+different number from the AE in the reserve, worked out below. The backend computes it as
 
 ```text
 market_cap = total_supply × price
@@ -100,11 +99,10 @@ On a rising convex curve the rectangle is always bigger than the area:
 | 100,000,000 | 171,838.20 | 71,838.18 | 71,478.99 | 2.40× |
 
 A token showing a 1,000 AE market cap is backed by roughly 500 AE of reserve, and the gap widens as
-the curve steepens. Unlike most assets, the reserve is a number you can check on-chain.
+the curve steepens. The reserve is a number you can check on-chain.
 
-**Market cap is a ranking signal, not a valuation.** The trending list defaults to sorting by it so
-that larger communities surface first, and for that job it is fine. Do not read it as money that
-exists.
+**Market cap is a ranking signal.** The trending list defaults to sorting by it so that larger
+communities surface first. For the AE in the token, read the DAO balance and the reserve.
 
 ## The chart
 
@@ -120,8 +118,8 @@ The interval is passed to the API in **seconds** (300 for 5m, 86400 for D). The 
 to live transaction events, so the rightmost candle updates as trades land rather than waiting for a
 refetch.
 
-On a thin token, a 5-minute candle chart is mostly noise: two buys an hour apart produce a chart
-that looks like a trend. Widen the interval to D or W before drawing conclusions from shape.
+On a token with few trades, widen the interval to D or W before reading the chart's shape: two buys
+an hour apart fill a 5-minute chart on their own.
 
 ### The `performance` object
 
@@ -147,9 +145,9 @@ Three consequences:
 
 Holders shows the top addresses and their balances. What to look for:
 
-- **Concentration.** If the top one or two addresses hold most of the supply, the price you see is set by whoever is smallest, and their exit would walk the curve down past everyone below them. Compare the top holder's balance against `total_supply`.
-- **The creator's share.** Pre-buys at creation happen at the very bottom of the curve: the first 437,000 tokens cost 1 AE. A creator holding a large share got them far cheaper than anyone buying now; that asymmetry is why the curve is steep at the start.
-- **Holder count versus supply.** A high `holders_count` with a small supply is a community. A low holder count with a large supply is one person's position with a price attached.
+- **Concentration.** Compare the top holder's balance against `total_supply`. If one or two addresses hold most of the supply, their exit would walk the curve down past every holder below them.
+- **The creator's share.** Pre-buys at creation happen at the very bottom of the curve: the first 437,000 tokens cost 1 AE. A creator holding a large share bought far below the current price.
+- **Holder count versus supply.** A high `holders_count` with a small supply is a community. A low holder count with a large supply is a single position.
 
 ## Reading the Transactions tab
 
@@ -157,11 +155,11 @@ Transactions lists recent buys and sells with amounts, unit prices, timestamps a
 hashes. Every hash links out to [aeScan](https://aescan.io), where you can verify it independently
 of Superhero's indexer.
 
-Many small buyers suggests organic momentum; one large buyer suggests a pump with higher exit risk.
-Two refinements:
+Many small buyers suggests broad demand; one large buyer suggests a single position. Two
+refinements:
 
-- **Look at the ratio of distinct accounts to transactions.** Twenty trades from three addresses is not twenty people.
-- **Look at what follows a spike.** A large buy with no follow-through is a position, not a trend; the curve holds its new price until someone sells, so an elevated price proves nothing about demand.
+- **Look at the ratio of distinct accounts to transactions.** Twenty trades from three addresses is three people.
+- **Look at what follows a spike.** The curve holds its new price after a large buy until someone sells, so check whether other buyers followed.
 
 You can pull the same data outside the UI, filtered by token, by account, or both, with the
 transactions script or the API. See [Transaction History](/tokens/transactions).
@@ -175,7 +173,7 @@ Before buying, in the order the page makes them available:
 3. **Transactions**: distinct accounts, or one address round-tripping?
 4. **Feed**: is there a community here, or just a ticker?
 5. **Your own slippage**: how big is your trade relative to `total_supply`? Check it against the table on [Fees & Slippage](/tokens/fees-and-slippage).
-6. **Price and market cap**: last, and with the caveat above firmly in mind.
+6. **Price and market cap**: last, read as described above.
 
 ## Related
 

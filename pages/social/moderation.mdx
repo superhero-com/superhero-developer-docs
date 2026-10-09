@@ -5,10 +5,10 @@ description: "Community moderation on Superhero: the CommunityManagement contrac
 
 # Moderation
 
-Content on Superhero cannot be removed. The `Tipping` contract has no delete and no update
-entrypoint, so every post and comment ever published stays in the contract's state. Moderation
-happens at the **community application layer**, through token-holder governance, and what it
-controls is access to a community's chat room and the threshold for opening a DAO vote.
+Posts and comments on Superhero belong to their authors and stay on chain, where anyone can
+verify them. Moderation happens at the **community application layer**, through token-holder
+governance: moderators control access to a community's chat room, and token holders set the
+threshold for writing in the community and for opening a DAO vote.
 
 ## CommunityManagement.aes
 
@@ -89,8 +89,8 @@ The creator gets the first moderator seat, and the DAO gets everything else.
 `ChangeDAO` vote subject, which moves the token sale's beneficiary and owner to a replacement
 DAO and then calls `community_management.set_owner(new_dao_address)`. It first requires that
 the replacement references the same `CommunityManagement` instance
-(`NEW_DAO_HAS_TO_REFERENCE_SAME_COMMUNITY_MANAGEMENT`), so a `ChangeDAO` vote cannot point a
-community at somebody else's moderation contract.
+(`NEW_DAO_HAS_TO_REFERENCE_SAME_COMMUNITY_MANAGEMENT`), so a `ChangeDAO` vote always keeps the
+community's own moderation contract.
 
 ## Who can do what
 
@@ -104,8 +104,8 @@ community at somebody else's moderation contract.
 | Change community metadata | Token holders | A `ChangeMetaInfo` DAO vote |
 | Replace the owner | Token holders | A `ChangeDAO` vote, which reassigns `set_owner` |
 
-Moderators act unilaterally within their mandate; the mandate itself is granted and revoked
-only by a vote.
+Moderators act directly within their mandate; the mandate itself is granted and revoked by
+vote.
 
 ### The vote that appoints a moderator
 
@@ -127,10 +127,10 @@ DAO whether or not the vote passes.
 
 Appointing a moderator therefore takes two weeks and 555 AE.
 
-The app offers five of the seven vote subjects in its create-vote UI: payout, change DAO,
-change the minimum token threshold, add moderator, delete moderator. The two it omits need
-richer input than the form supports: a payout of a specific amount takes two fields, and
-changing the metadata takes a map.
+The app's create-vote form covers five of the seven vote subjects: payout, change DAO, change
+the minimum token threshold, add moderator, delete moderator. Open a `VotePayoutAmount` or
+`ChangeMetaInfo` proposal through the SDK or a direct contract call; see
+[Proposals and Vote Subjects](/dao/proposals).
 
 ## What a mute does
 
@@ -142,20 +142,18 @@ pipeline enforces it:
    address. The relay's admin and role lists are derived from the same read.
 2. Eligibility for the room is `balance >= min_token_threshold AND NOT muted`, where the muted
    check compares the member's æternity address against that list.
-3. A muted member is removed from the relay group with a kind-9001 event, and the sync refuses
-   to publish a kind-9000 add for any member currently muted, so a mute is not undone by a
-   later re-sync.
+3. A muted member is removed from the relay group with a kind-9001 event, and the sync skips
+   the kind-9000 add for any member currently muted, so a mute holds across re-syncs.
 
 Mute a holder and they become ineligible for that community's chat room regardless of balance,
 until the mute is lifted.
 
-A mute affects chat-room eligibility only. Posts, comments, topic feeds and the popular ranking
-are not filtered by `muted_user_ids`: a muted account's existing posts stay visible, and it can
-keep posting.
+A mute governs chat-room eligibility. Posts, comments, topic feeds and the popular ranking are
+independent of `muted_user_ids`: a muted account's posts stay visible, and it can continue to
+post.
 
-The per-room mute in the chat app is a different thing: it is a *notification* preference that
-silences your own alerts and changes nothing for anyone else. See
-[Notifications](/social/notifications).
+The per-room mute in the chat app is a *notification* preference: it silences your own alerts
+for that room. See [Notifications](/social/notifications).
 
 ## The write threshold
 
@@ -166,10 +164,10 @@ silences your own alerts and changes nothing for anyone else. See
 | Opening a DAO vote | `DAO.add_vote` | `token.balance(Call.caller) >= minimum_token_threshold`, else `ADD_VOTE_TOKEN_HOLDER_MISSMATCH` |
 | Entering the community chat room | The rooms eligibility check | raw balance `>=` raw threshold, and not muted |
 
-It starts at one whole token (`10 ^ 18`) and moves only by a `ChangeMinimumTokenThreshold`
+It starts at one whole token (`10 ^ 18`) and changes through a `ChangeMinimumTokenThreshold`
 vote. The same value surfaces in the chat rooms API as `min_token_threshold`, alongside the
-room's `is_private` flag. A room a holder is not eligible for does not appear in their room
-list, and the composer shows a "hold the token" gate. See [Chat](/social/chat).
+room's `is_private` flag. A holder's room list shows the rooms they are eligible for, and the
+composer shows a "hold the token" gate for the rest. See [Chat](/social/chat).
 
 ## The privacy flag
 
@@ -178,28 +176,24 @@ list, and the composer shows a "hold the token" gate. See [Chat](/social/chat).
 out of `get_state()` unchanged. The community's on-chain privacy flag and the chat room's are
 the same value, chosen once at creation.
 
-## What moderation cannot do
+## The scope of a mute
 
-- **It cannot delete a post.** The bytes stay in contract state.
-- **It cannot delete a comment.** Comments are posts.
-- **It cannot prevent republication.** Anyone can post the same content again.
-- **It does not hide anything the muted account posted.** A mute is a chat-room exclusion, not
-  a content filter.
-- **It does not reach other clients.** A different frontend reading the same contract is free
-  to ignore every mute; a different relay would enforce nothing.
-- **It is per-community.** There is no global mute list; each `CommunityManagement` instance
-  holds its own.
+- **A mute is a chat-room membership control.** It is held per community, in that community's
+  own `CommunityManagement` instance.
+- **It applies to the muted account's room access.** Posts and comments are on-chain records
+  owned by their authors; they stay in place and anyone can verify them.
+- **The Superhero API and the relay it controls enforce the list** for the community's room.
 
 ## Hiding your own post
 
-The only post-visibility flag is `is_hidden`, and the indexer sets it from the post's own media
-list. Any entry whose text contains `hidden` marks the post hidden at index time, which removes
-it from the feeds and from popular ranking. It is a convention an author applies to their own
-post, not a moderator action, and it does not remove the post from the chain.
+To hide one of your own posts from the feeds, include a media entry whose text contains
+`hidden`. The indexer sets `is_hidden` from the post's media list at index time, which removes
+the post from the feeds and from popular ranking. It is a convention an author applies to their
+own post; the post stays on chain.
 
 ## Related
 
-- [Posting](/social/posting): why there is nothing to delete in the first place.
+- [Posting](/social/posting): the on-chain record a post creates.
 - [Chat](/social/chat): the relay-side membership control, the other half of community
   moderation.
 - [Moderators](/dao/moderators): the governance view of appointing and removing them.

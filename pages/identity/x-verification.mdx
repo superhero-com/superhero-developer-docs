@@ -32,11 +32,11 @@ browser                    superhero backend              æternity chain
 
 Two secrets are involved:
 
-- The **user's æternity signature** over the claim `message`. This goes on chain, and it is the
-  only cryptographic material the contract checks.
+- The **user's æternity signature** over the claim `message`. This goes on chain and is what
+  the contract checks.
 - The **verification token**, an HMAC-SHA256 tag the backend issues at claim time and verifies
-  at submit time. It never goes on chain. It ensures a caller can only submit a handle the
-  backend observed an OAuth session for.
+  at submit time. It stays off chain and ties the submit to a handle the backend observed an
+  OAuth session for.
 
 ## Step 1: the OAuth leg (PKCE)
 
@@ -53,19 +53,19 @@ The client runs a standard OAuth 2.0 authorization-code flow with PKCE.
 | `code_challenge` | base64url of SHA-256 over the verifier |
 | `code_challenge_method` | `S256` |
 
-The verifier is 32 random bytes, base64url-encoded. The scopes are exactly what the backend
-needs to call X API v2's `/2/users/me`, and nothing that can post on your behalf.
+The verifier is 32 random bytes, base64url-encoded. The scopes cover the backend's call to
+X API v2's `/2/users/me`; they grant read access.
 
-The entry point is gated on `X_OAUTH_CLIENT_ID` (set from `VITE_X_OAUTH_CLIENT_ID` at build
-time). When that value is empty the **Connect X** control is hidden.
+The **Connect X** control appears when `X_OAUTH_CLIENT_ID` is set (from
+`VITE_X_OAUTH_CLIENT_ID` at build time).
 
 Before redirecting, the client stores `state`, `codeVerifier`, `address` and `redirectUri`
 under the key `superhero_x_oauth_pkce` in both `sessionStorage` and `localStorage`, with a
 `createdAt` timestamp and a 15-minute time-to-live. A read falls back from session to local,
 and both are cleared on read.
 
-Keep the app and the callback on the same host. Switching between `localhost` and `127.0.0.1`
-mid-flow loses the wallet session along with the PKCE record.
+Keep the app and the callback on the same host, for example `localhost` throughout, so the
+wallet session and the PKCE record are both available when the callback runs.
 
 ## Step 2: the callback
 
@@ -87,8 +87,8 @@ Content-Type: application/json
 { "address": "ak_…", "x_code": "…", "x_code_verifier": "…", "x_redirect_uri": "https://…/profile/x/callback" }
 ```
 
-The backend exchanges the code for an access token itself, so the token never touches the
-browser. A second body shape is accepted for callers that already hold a token:
+The backend exchanges the code for an access token itself, so the token stays server side. A
+second body shape is accepted for callers that already hold a token:
 
 ```text
 { "address": "ak_…", "x_access_token": "…" }
@@ -104,7 +104,7 @@ The response is a claim:
 | `verification_token` | A base64url HMAC token binding address, provider, value and expiry |
 
 The username is taken from the X profile as `username || name`, then `.trim().toLowerCase()`.
-A profile the backend cannot extract a username from is a `400`.
+If the X profile carries no username, the claim returns `400`.
 
 ### The verification token
 
@@ -114,24 +114,22 @@ token   = base64url( JSON.stringify(payload) + "." + HMAC_SHA256(payload, ADDRES
 ```
 
 `expiry` is `Date.now() + ADDRESS_LINK_VERIFICATION_TTL_SECONDS * 1000`, which is **five minutes** by
-default. The token is not encrypted, only unforgeable. Verification recomputes the HMAC and
-compares it in constant time. The HMAC key is `ADDRESS_LINK_SECRET_KEY`, the same value used as
-the provider wallet's private key.
+default. The token is signed rather than encrypted. Verification recomputes the HMAC and
+compares it in constant time. The HMAC key is `ADDRESS_LINK_SECRET_KEY`.
 
 ## Step 4: the user's signature
 
-Sign `claim.message` verbatim with `signMessage`. Do not reconstruct it locally and do not
-pre-hash it: `signMessage` applies the æternity personal-message framing that the contract
-reproduces internally, and any deviation fails as `INVALID_SIGNATURE`.
+Sign `claim.message` verbatim with `signMessage`, which applies the æternity personal-message
+framing that the contract reproduces internally. Pass the string as received: a message that
+is reconstructed locally or pre-hashed returns `INVALID_SIGNATURE`.
 
 The client verifies the result locally with the SDK's `verifyMessageSignature` before sending
 it, and normalizes it to lowercase hex: an `sg_…` signature is decoded to bytes and
-hex-encoded, a `0x` prefix is stripped. The backend rejects anything that is not exactly 128
-hex characters.
+hex-encoded, a `0x` prefix is stripped. The backend expects exactly 128 hex characters.
 
-Trigger the signing prompt from an explicit user click. Browsers and pop-up blockers suppress
-a wallet window opened from an effect rather than a gesture, so the callback screen shows a
-confirm button and re-enables it on failure.
+Trigger the signing prompt from an explicit user click, because browsers open a wallet window
+reliably from a gesture. The callback screen shows a confirm button and re-enables it if
+signing is cancelled.
 
 ## Step 5: submit
 
@@ -159,8 +157,9 @@ invalidates the profile query so the verified badge appears once the backend has
 
 ## Unlinking
 
-Unlinking is symmetrical and also signed, but requires no X proof: possession of the æternity
-key is sufficient to remove your own link, so there is no verification token.
+Unlinking is symmetrical and also signed: possession of the æternity key is sufficient to
+remove your own link, so the request carries the signature alone, with no X proof or
+verification token.
 
 ```text
 POST /api/address-links/x/unclaim          → { "message": "unlink:ak_…:x:1", "nonce": 1 }
@@ -174,9 +173,9 @@ per-provider work is a verifier that turns your proof into a `value` plus a veri
 
 ## Contract-side verification
 
-The contract checks one thing: that the 64-byte signature verifies against the subject address
-over the personal-message digest of the `message` string. That check, plus the nonce and the
-provider-owner rule, is the whole of it.
+The contract checks that the 64-byte signature verifies against the subject address over the
+personal-message digest of the `message` string, together with the nonce and the
+provider-owner rule.
 
 ```text
 digest = Blake2b-256( prefix(28 bytes) || Blake2b-256(message) )
@@ -186,17 +185,15 @@ ok     = Crypto.verify_sig(digest, addr, sig)
 The prefix string `aeternity Signed Message:` plus the newline is 26 bytes. The SDK's personal
 message encoding writes a length byte before the prefix and a length byte before the body, so
 the header is 1 + 26 + 1 = 28 bytes. The body is the 32-byte Blake2b digest of the message,
-giving 28 + 32 = 60 bytes hashed a second time. The framing makes an address-link signature
-unusable as a raw transaction signature.
+giving 28 + 32 = 60 bytes hashed a second time. The framing keeps an address-link signature
+distinct from a transaction signature.
 
 `Crypto.verify_sig(msg, pubkey, sig)` is the Sophia standard-library entrypoint for Ed25519
-verification. On compiler version 8 and later it accepts a message of any length; earlier
-compilers restrict it to 32 bytes, which is why the scheme hashes down to a digest before
-verifying.
+verification. The scheme hashes down to a 32-byte digest before verifying, which works on every
+compiler version; version 8 and later also accept a message of any length.
 
-Replay is prevented by the nonce, which is the contract's own `nonce_seq[addr]` and advances on
-every link and unlink. A captured `link:…:x:…:0` signature is unusable once any link for that
-address lands.
+The nonce prevents replay: it is the contract's own `nonce_seq[addr]` and advances on every
+link and unlink, so each signature is valid for one write.
 
 ## What an X link proves
 
@@ -205,14 +202,12 @@ provider owner submitted it. That is a statement of consent by the address holde
 associated with that handle.
 
 **Off chain:** the backend saw a valid X OAuth session for that handle, five minutes or less
-before submission. That evidence stays inside the backend, sealed in the HMAC token, and is not
-published.
+before submission. That evidence is held by the backend, sealed in the HMAC token.
 
-The trust anchor is therefore the provider wallet: whoever holds `ADDRESS_LINK_SECRET_KEY` owns
-the `x` namespace and is the only party that can write into it. A third party reading the chain
-can confirm that the address consented to the handle string, and relies on Superhero's backend
-for the OAuth check. The namespace owner is readable on chain as
-`AddressLink.get_provider_owner("x")`.
+The trust anchor is therefore the provider wallet, which owns the `x` namespace and writes
+into it. A third party reading the chain confirms that the address consented to the handle
+string, and relies on Superhero's backend for the OAuth check. The namespace owner is readable
+on chain as `AddressLink.get_provider_owner("x")`.
 
 ## Related
 

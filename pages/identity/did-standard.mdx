@@ -1,14 +1,13 @@
 ---
 title: "Identity and DIDs"
-description: "How a SuperheroID — an æternity address plus AddressLink providers — maps onto the concepts in W3C DID Core."
+description: "How a SuperheroID, an æternity address plus AddressLink providers, maps onto the concepts in W3C DID Core."
 ---
 
 # Identity and DIDs
 
 A SuperheroID is an æternity address plus the provider links attached to it in the
-`AddressLink` contract. There is no separate identifier scheme: the `ak_…` address is the
-identifier, the Ed25519 key it encodes is the verification material, and the links are the
-claims. For readers who know
+`AddressLink` contract. The `ak_…` address is the identifier, the Ed25519 key it encodes is
+the verification material, and the links are the claims. For readers who know
 [Decentralized Identifiers (DIDs) v1.0](https://www.w3.org/TR/did/), the model maps onto DID
 Core concepts like this:
 
@@ -22,9 +21,9 @@ Core concepts like this:
 | Verifiable data registry | `AddressLink` state plus AENS |
 | Update and deactivate | `link` and `unlink`, per provider |
 
-Superhero does not define a DID method, DID syntax, DID document or resolver. If you need a DID
-for interoperability with an external system, derive a `did:key` from the account's Ed25519 key
-or publish a `did:web` document yourself. `AddressLink` also exposes a DID-keyed namespace
+For a DID that interoperates with an external system, derive a `did:key` from the account's
+Ed25519 key or publish a `did:web` document for the address. `AddressLink` also exposes a
+DID-keyed namespace
 (`link_did`, `resolve_did_controller` and friends) in which the `did` is an opaque string; see
 [AddressLink](/identity/address-link).
 

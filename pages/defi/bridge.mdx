@@ -1,37 +1,37 @@
 ---
 title: "Bridging from Ethereum"
-description: "The in-app Ethereum bridge is disabled; aeETH still trades on the DEX, and æternity runs a bridge of its own."
+description: "Trade bridged aeETH on the DEX, and move ETH to æternity through the æternity bridge."
 ---
 
 # Bridging from Ethereum
 
-The in-app Ethereum bridge is disabled: `/defi/bridge` and `/defi/buy-ae-with-eth` both redirect
-to `/defi/swap`.
+Bridging runs through æternity's own Ethereum bridge. Inside Superhero, `/defi/bridge` and
+`/defi/buy-ae-with-eth` take you to `/defi/swap`, where bridged aeETH trades.
 
 ## aeETH on the DEX
 
-aeETH is the AEX-9 representation of bridged ETH on æternity. It remains a tradeable DEX asset:
-if you hold aeETH, swap it at [`/defi/swap`](/defi/swap) like any other token, typically through
-the aeETH/WAE pair.
+aeETH is the AEX-9 representation of bridged ETH on æternity. It trades on the DEX: if you hold
+aeETH, swap it at [`/defi/swap`](/defi/swap) like any other token, typically through the aeETH/WAE
+pair.
 
 | Network | aeETH contract |
 | --- | --- |
 | Mainnet | `ct_ryTY1mxqjCjq1yBn9i6HDaCSdA6thXUFZTA84EMzbWd1SLKdh` |
 | Testnet | `ct_WVqAvLQpvZCgBg4faZLXA1YBj43Fxj91D33Z8K7pFsY8YCofv` |
 
-aeETH is a claim on ETH held by the bridge on Ethereum, not ETH itself. [WAE](/defi/wrapped-ae),
-by contrast, is backed by AE held in one contract on one chain.
+aeETH represents ETH held by the bridge on Ethereum. [WAE](/defi/wrapped-ae) is backed by AE held
+in one contract on æternity.
 
-## Bridging outside Superhero
+## Moving ETH to æternity
 
 æternity operates its own Ethereum bridge, documented on the
 [æternity docs hub](https://docs.aeternity.com/aeternity-user-tools-and-services/aerc-bridge).
-To get AE from ETH without bridging at all, use one of the swap aggregators listed under
-[Buying AE](/defi/buy-ae).
+Bridge ETH to aeETH there, then swap it for AE on the DEX. To buy AE directly, use an exchange
+listed under [Buying AE](/defi/buy-ae).
 
 ## Related
 
-- [Buying AE](/defi/buy-ae): exchanges and ETH-to-AE swap aggregators.
+- [Buying AE](/defi/buy-ae): where to earn or buy AE.
 - [Swapping](/defi/swap): trade aeETH you already hold.
 - [Wrapped AE](/defi/wrapped-ae): the DEX's wrapper for native AE.
 - [DeFi & DEX overview](/defi): the full route map and contract addresses.

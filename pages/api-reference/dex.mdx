@@ -59,7 +59,7 @@ All paths are relative to `https://api.superhero.com`. Reads need no authenticat
 | `is_ae` | boolean | Whether this token is AE itself |
 | `listed` | boolean | Officially listed or featured by the DEX |
 | `price` | `PriceDto` | Current price, all nine currencies. An object, not a string |
-| `summary` | `DexTokenSummaryDto` or null | Aggregated volume and change across all pools. Null when not computed |
+| `summary` | `DexTokenSummaryDto` or null | Aggregated volume and change across all pools. Null until a summary is computed |
 
 `decimals` is a **number** here and a **string** on the bonding-curve `TokenDto`; `price` is a
 **`PriceDto` object** here and a **decimal string** there. Do not share a parser between the two.
@@ -145,8 +145,8 @@ swap_exact_ae_for_tokens
 swap_ae_for_exact_tokens
 ```
 
-The `tx_type` filter is exact-match, so `?tx_type=swap` matches nothing; to select all swaps,
-make six requests or filter client-side on the `swap_` prefix. `PairMint` and `PairBurn` are the
+The `tx_type` filter is exact-match. To select all swaps, request each of the six swap
+entrypoints or filter client-side on the `swap_` prefix. `PairMint` and `PairBurn` are the
 pair contract's event names and appear only inside `pair_mint_info.type`: `add_liquidity*`
 carries a `PairMint`, `remove_liquidity*` a `PairBurn`.
 
@@ -173,7 +173,7 @@ paths. An empty array means no route exists.
 | `token0` / `token1` | string | The two token addresses |
 | `liquidityInfo` | object | Reserve information for quoting |
 
-A route containing an unsynchronized pair is not quotable, so check `synchronized` on every hop.
+Check `synchronized` on every hop: a route is quotable when every pair on it is synchronized.
 
 ```bash
 curl -s "https://api.superhero.com/api/dex/swap-routes/ct_FROM_TOKEN/ct_TO_TOKEN"
@@ -225,8 +225,8 @@ The same computation with its working shown:
 token's price against itself returns `"1"`. A token with no path at all is a 404
 (`No price paths found for token ...`).
 
-A wide spread between `price`, `medianPrice` and `liquidityWeightedPrice` means the quote rests
-on one shallow pool.
+Compare `price`, `medianPrice` and `liquidityWeightedPrice`: the closer they are, the more pools
+back the quote.
 
 ## `PATCH /api/dex/tokens/{address}/listed`
 
@@ -239,10 +239,10 @@ missing or wrong key is a `401`. Every other write in the API uses a wallet sign
 
 ## Pagination on `/api/dex/*`
 
-`limit` defaults to 100 and is capped at 100. Unlike the rest of the API, exceeding the cap does
-not error: `limit=500` is silently clamped to 100, `page=0` to 1, and a non-numeric `limit` falls
-back to 100. Read `meta.itemsPerPage` rather than assuming your `limit` was honoured, and never
-infer "no more results" from getting fewer rows than you asked for.
+`limit` defaults to 100 and is capped at 100. Out-of-range values are clamped: `limit=500`
+becomes 100, `page=0` becomes 1, and a non-numeric `limit` falls back to 100. Read
+`meta.itemsPerPage` for the effective page size and `meta.totalPages` to know when you have
+reached the end.
 
 ## Related
 

@@ -1,6 +1,6 @@
 ---
 title: "The Built-In Wallet"
-description: "How Superhero's in-app wallet stores your seed, how it unlocks, how to back it up, and what clearing site data destroys."
+description: "How Superhero's in-app wallet stores your seed, how it unlocks, how to back it up, and how site data relates to your backup."
 ---
 
 # The Built-In Wallet
@@ -17,10 +17,10 @@ standalone extension and mobile app, though both hold the same kind of `ak_...` 
 | Surface | Create a wallet | Import an existing seed | In-page signing |
 | --- | --- | --- | --- |
 | Installed PWA (Add to Home Screen) | Yes | Yes | Yes |
-| Plain browser tab | Yes | No, use Connect instead | Not installed as the signer |
+| Plain browser tab | Yes | Use Connect | Signing goes through the connected wallet |
 
 Creating a wallet (passkey or a fresh recovery phrase) is offered on every surface. Pasting a seed
-phrase or private key is offered **only in the installed app**: in a browser tab, "I already have a
+phrase or private key is offered **in the installed app**. In a browser tab, "I already have a
 wallet" means Connect, which hands signing to the extension or the wallet app and never asks for
 your secret.
 
@@ -43,10 +43,9 @@ One encrypted vault record per device. Every secret inside it is ciphertext; not
 Superhero server.
 
 Factors form an **OR-set**: any single enrolled factor unwraps the same DEK and opens the whole
-vault. That is what makes "passkey or passphrase" work, and it is also the security ceiling: **the
-vault is only as strong as its weakest enrolled factor.** A weak passphrase is not made safe by
-also having a passkey. The last factor can never be removed, because a vault with no factors is
-permanently unopenable.
+vault. That is what makes "passkey or passphrase" work, and it is why **every factor you enroll
+should be a strong one**: each of them opens the vault on its own. A vault always keeps at least one
+factor.
 
 ## The unlock factors
 
@@ -63,33 +62,32 @@ The passphrase is scored locally with zxcvbn, with no network call. The rules:
 - Minimum zxcvbn score **3** of 4 ("safely unguessable").
 - A numeric-only string is rejected as a PIN.
 - The generator offers **five words from the BIP39 English list**, about 55 bits.
-- If the estimator fails to load, Create stays disabled and you are offered a retry; there is no
-  fallback to a length rule.
+- If the estimator has not loaded, Create waits and you are offered a retry.
 
-The passphrase cannot be changed after creation. To change it, recreate the wallet from the
-recovery phrase. See [Backup & Recovery](/wallets/backup-and-recovery).
+To change the passphrase, recreate the wallet from the recovery phrase. See
+[Backup & Recovery](/wallets/backup-and-recovery).
 
 ### Recovery code
 
 A 128-bit code shown **once** at enrollment, rendered as eight dash-separated groups of four
 uppercase hex characters. Parsing tolerates case, spaces and dashes.
 
-The recovery code is **passkey-independent, not device-independent.** It unwraps the DEK inside
-this device's vault record. If that record is gone, the code opens nothing.
+The recovery code is **passkey-independent**: it unwraps the DEK inside this device's vault record,
+so it unlocks the wallet on the device where it was created. For a new device, use the written
+phrase or a syncing passkey.
 
 ### Passkey
 
 The passkey factor uses the WebAuthn **PRF extension**, which yields a stable 32-byte secret for a
 given credential. The ceremony requires user verification and a resident (discoverable) credential.
 
-Some security keys report PRF support but return no result; those are treated as **unsupported**.
-If the first ceremony returns no PRF output, the app runs a follow-up assertion to obtain it, which
-is why you may see two prompts.
+The passkey factor needs a PRF result from the authenticator. If the first ceremony returns no PRF
+output, the app runs a follow-up assertion to obtain it, which is why you may see two prompts.
 
-The Relying Party ID is pinned at build time from `VITE_WEBAUTHN_RP_ID`, defaults to
-`superhero.com`, and is never derived from the page's own host. A bundle served from another host
-cannot use your Superhero passkey. When that value does not match the origin, the passkey option
-fails with no OS prompt at all. See [Troubleshooting](/wallets/troubleshooting).
+The Relying Party ID is pinned at build time from `VITE_WEBAUTHN_RP_ID` and defaults to
+`superhero.com`, so a bundle served from another host has no access to your Superhero passkey. If
+that value does not match the origin, the passkey option stops before the OS prompt. See
+[Troubleshooting](/wallets/troubleshooting).
 
 ## Two ways a wallet is created
 
@@ -101,25 +99,25 @@ device passkey is offered after that and is optional.
 
 Import follows the same path minus the show/verify screens. The phrase is normalized (trimmed,
 whitespace collapsed, lowercased) and checked against the BIP39 wordlist **and checksum** before a
-vault is created, so a typo cannot seal a wrong seed.
+vault is created, so a typo is caught before anything is stored.
 
 ### From a passkey
 
 One ceremony does everything. The passkey is enrolled, and the BIP39 mnemonic is **derived from its
-PRF output** at a fixed, public salt, so there is no phrase screen. The seed derivation and the
+PRF output** at a fixed, public salt, so creation completes in one step. The seed derivation and the
 key that wraps the DEK use separate derivations, so neither can be computed from the other.
 
 The salt is fixed rather than random so that the seed can be re-derived on any device the passkey
-reaches, even after the vault is gone. That makes the passkey a real backup **only if it syncs**
-(iCloud Keychain, Google Password Manager). A device-bound platform credential such as Windows
-Hello dies with its device, and **there is no phrase reveal or export screen in the app**, so for
-those users the passkey is the only copy.
+reaches, even after the vault is gone. That makes a **syncing** passkey (iCloud Keychain, Google
+Password Manager) a real backup. A device-bound platform credential such as Windows Hello stays on
+its device, and **the passkey is the copy of the seed for this wallet**, so choose a syncing
+credential and enroll the recovery code.
 
 **Restoring on a new device** runs a discoverable assertion, derives the wallet the credential
 implies, and shows you the derived address **before persisting anything**. The confirm screen also
-checks whether that address has on-chain activity: a pristine account is a warning that you picked
-the wrong passkey, because a phrase-created wallet's device passkey evaluated at the seed salt
-derives a valid but empty different wallet.
+checks whether that address has on-chain activity: an account with no activity is a sign that you
+picked a different passkey, because a phrase-created wallet's device passkey evaluated at the seed
+salt derives a different, empty wallet. Go back and choose again.
 
 ## Key derivation
 
@@ -130,7 +128,7 @@ derives a valid but empty different wallet.
 
 The æternity path uses the SDK's own account factory, so an account created here is
 **byte-identical** to importing the same phrase into the Superhero Wallet extension or the native
-app at the same index. There is nothing proprietary to be stranded in.
+app at the same index. You can move between them freely.
 
 ## Signing
 
@@ -141,10 +139,9 @@ Every signature runs the same sequence, with no fast path:
 3. Check that the derived key produces the advertised address. If not, **refuse to sign**.
 4. Sign, then drop every reference.
 
-There is no cached unlock and no session-cached seed. The vault record is reloaded from storage on
-every signature, so adding a factor takes effect immediately. If no confirmation prompt is mounted,
-a signing request is rejected immediately rather than left hanging, and only one prompt renders at
-a time.
+Nothing is cached between signatures: the vault record is reloaded from storage on every signature,
+so adding a factor takes effect immediately. One prompt renders at a time, and a signing request
+that arrives with no confirmation prompt mounted is answered immediately with a rejection.
 
 **The chat identity is the one cached key.** The Nostr chat key is derived through the same unlock
 path and then cached in memory for a **rolling 30-minute idle window**; chat activity resets the
@@ -156,11 +153,10 @@ mnemonic, the DEK or the æternity spending key.
 
 The transaction is decoded into named rows, with two deliberate behaviours:
 
-- **Decode, never re-encode.** The bytes signed are always the original string. A decoding bug can
-  mislead; it cannot alter what gets signed.
+- **Decode, never re-encode.** The bytes signed are always the original string, so what you
+  approve is what is sent.
 - **Fail closed.** If the envelope, a contract call's arguments, or a wrapped inner transaction
-  cannot be decoded, the prompt **refuses to offer approval at all**. There is no "show raw bytes
-  and approve anyway".
+  does not decode, the prompt **withholds approval**, so you sign what you can read.
 
 Recognised calls are named in plain language: publish a post, buy tokens, sell tokens, create a
 community, transfer, the four AEX-9 allowance operations, add and remove liquidity, wrap and
@@ -170,13 +166,12 @@ contract call with every argument rendered raw.
 
 Two rows to read every time:
 
-- **"Gas, at most"**: gas is charged on top of the network fee, so a prompt showing only the fee
-  understates what a contract call can cost.
+- **"Gas, at most"**: gas is charged on top of the network fee, so read both rows for the full cost
+  of a contract call.
 - **"Name price"**: on a name claim this is the largest amount by far.
 
-Token amounts are shown in **raw base units, not scaled by decimals**: decimals are a per-token
-on-chain fact the decoder does not look up, and inventing a scale would misstate what you are
-approving.
+Token amounts are shown in **raw base units, not scaled by decimals**, so the figure matches the
+on-chain call exactly. Count the digits against the token's decimals.
 
 ## Where the key material lives
 
@@ -187,41 +182,38 @@ approving.
 | Mnemonic, DEK, derived keys | Memory, inside one unlock-to-sign scope | n/a |
 | Anything at all | A Superhero server | Nothing is sent |
 
-## What clearing site data destroys
+## Site data and your backup
 
-**Clearing site data (or "Cookies and site data") for superhero.com deletes the IndexedDB vault.**
-Once the vault record is gone:
+**The vault record lives in the site data for superhero.com, and clearing site data (or "Cookies
+and site data") removes it.** The passphrase, the recovery code and, on a *phrase-created* wallet,
+the device passkey each unwrap a key inside that record, so they unlock the wallet on this device
+while the record is present. For restoring anywhere, keep the written phrase or a syncing passkey.
 
-- Your **passphrase** opens nothing, because there is no wrapped DEK left to unwrap.
-- Your **recovery code** opens nothing, for the same reason.
-- Your **passkey** still exists in your authenticator, but for a *phrase-created* wallet it only
-  wrapped a DEK that is now gone, so it opens nothing either.
+Browsers can also evict IndexedDB on their own; Safari's Intelligent Tracking Prevention can do so
+after roughly seven days without interaction. Treat the written phrase or the syncing passkey as
+the backup, and the vault as the copy on this device.
 
-The same loss happens without you touching anything: IndexedDB is evictable, and Safari's
-Intelligent Tracking Prevention can evict it after roughly seven days without interaction. A
-successful save is **never** a durable backup.
+What restores the wallet after the vault is gone:
 
-What survives a wiped vault:
-
-| You have | Survives? | Why |
+| You have | Restores? | Why |
 | --- | --- | --- |
 | The written 12/24-word phrase | **Yes** | Standard BIP39 on the standard path, so it re-imports anywhere. |
 | A **syncing** passkey on a passkey-created wallet | **Yes** | The seed re-derives from the PRF output at the fixed public salt. |
-| A device-bound passkey (e.g. Windows Hello) on a passkey-created wallet | Only on that device | It cannot leave the device, and there is no export screen. |
-| A passkey on a **phrase-created** wallet | No | It wraps a DEK; it does not derive the seed. |
-| The recovery code alone | No | It unwraps a DEK; it does not derive the seed. |
-| The passphrase alone | No | Same. |
+| A device-bound passkey (e.g. Windows Hello) on a passkey-created wallet | On that device | It stays on the device it was created on. |
+| A passkey on a **phrase-created** wallet | No | It wraps a DEK rather than deriving the seed. |
+| The recovery code alone | No | It unwraps a DEK rather than deriving the seed. |
+| The passphrase alone | No | It unwraps a DEK rather than deriving the seed. |
 
-Losing only `localStorage` is survivable: unlock once and the app rebuilds the manifest by
-re-deriving addresses from index 0 upward.
+If only `localStorage` is cleared, unlock once and the app rebuilds the manifest by re-deriving
+addresses from index 0 upward.
 
-Erasing the wallet deliberately is available from the "this device already has a wallet" screen,
-and takes two taps because for a passkey wallet it is unrecoverable.
+Erasing the wallet deliberately is available from the "this device already has a wallet" screen and
+takes two taps. Confirm your written phrase or syncing passkey before you erase.
 
 ## Related
 
 - [Backup & Recovery](/wallets/backup-and-recovery): what to write down and how to verify it.
-- [Troubleshooting](/wallets/troubleshooting): the passkey RP-ID failure, plus storage and signing faults.
+- [Troubleshooting](/wallets/troubleshooting): passkey, storage and signing symptoms, with fixes.
 - [Connecting a Wallet](/wallets/connecting): how an external wallet is discovered instead.
 - [Security Best Practices](/wallets/security): what the OR-set property means for your passphrase.
 - [Accounts and Keys](/aeternity/accounts-and-keys): what an `ak_...` address is at the protocol level.

@@ -1,6 +1,6 @@
 ---
 title: "Swapping"
-description: "Trade any pair through the DEX router — routing, quoting, price impact, slippage and the entrypoints behind each swap."
+description: "Trade any pair through the DEX router: routing, quoting, price impact, slippage and the entrypoints behind each swap."
 ---
 
 # Swapping
@@ -9,9 +9,9 @@ description: "Trade any pair through the DEX router — routing, quoting, price 
 `AedexV2Router` contract. You pick two tokens, the app finds a route, quotes it against the
 router, and submits one of six swap entrypoints depending on whether native AE is on either side.
 
-This is not the bonding curve. Buying a community token on its own page mints new supply against
-a fixed formula; swapping here moves tokens between pool reserves. The two prices for the same
-token are unrelated; see [the comparison table](/defi).
+The DEX is a separate market from the bonding curve. Buying a community token on its own page mints
+new supply against a fixed formula; swapping here moves tokens between pool reserves. The two prices
+for the same token are independent; see [the comparison table](/defi).
 
 ## The form
 
@@ -23,10 +23,8 @@ token are unrelated; see [the comparison table](/defi).
 | Price impact | Computed from pool reserves, when the indexer supplied them. |
 | Settings | Slippage tolerance and transaction deadline. |
 
-Quotes are debounced 300 ms after you stop typing, and every quote carries a sequence number so a
-slow response from an earlier keystroke cannot overwrite a newer one. Below the form sit a
-candlestick chart for the selected pair and a Recent Activity list of your own swaps, wraps and
-unwraps.
+Quotes refresh 300 ms after you stop typing. Below the form sit a candlestick chart for the selected
+pair and a Recent Activity list of your own swaps, wraps and unwraps.
 
 ## Slippage and deadline
 
@@ -37,8 +35,8 @@ Open **Settings** on the swap card.
 | Slippage tolerance | **5%** | 0.1, 0.5, 1.0 | 0 to 50 | `dex:slippage` in local storage |
 | Transaction deadline | **30 minutes** | 10, 20, 30 | 1 to 60 | `dex:deadline` in local storage |
 
-The 5% default applies to every swap until you change it. Set it deliberately: on a thin pool it
-is the difference between a bad fill and a rejected transaction.
+The 5% default applies to every swap until you change it. Set it to match the pool: a tighter
+tolerance protects the fill, a looser one lets the trade through on a thin pool.
 
 - **Slippage** sets the protective bound, not the price. For an exact-in swap the app computes
   `amountOutMin` by subtracting your tolerance from the quoted output. For exact-out it queries
@@ -63,11 +61,11 @@ is the difference between a bad fill and a rejected transaction.
 4. **Fall back to the chain.** If the indexer is unreachable or returns nothing, the app asks the
    factory for a direct pair via `get_pair`. If there is none, and neither token is WAE, it tries
    a two-hop path through WAE.
-5. **No path, no quote.** If all of that fails, the quote errors with "No route found".
+5. **Report the result.** If no path exists, the form shows "No route found".
 
 Routes are at most two pairs long: direct, or through a single intermediate token. The on-chain
-fallback has the same ceiling: direct, or one hop through WAE. If two tokens are only reachable
-through three pools, the swap form reports no route; make the intermediate swap yourself.
+fallback has the same ceiling: direct, or one hop through WAE. For two tokens connected through
+three pools, swap to the intermediate token first, then on to the target.
 
 ## How the quote is produced
 
@@ -95,9 +93,9 @@ executionPrice = amountIn / receivedOut
 priceImpact    = (executionPrice − marketPrice) × −100 / executionPrice
 ```
 
-The simulation uses the raw constant product without the swap fee, so the figure is a pure depth
-measure, not a full cost estimate. It is only available when the indexer supplied reserves; if
-the route came from the on-chain fallback, no price impact is shown.
+The simulation uses the constant product without the swap fee, so the figure measures depth; the
+router quote carries the full cost. Price impact is shown when the indexer supplied reserves for the
+route.
 
 **Liquidity ceiling.** The app also checks your input against the first hop's input-side reserve.
 If you are trying to spend more than that reserve holds, it flags the swap as exceeding available
@@ -136,8 +134,8 @@ require(
 
 The post-trade product of reserves, with 0.3% of each input deducted, must be at least the
 pre-trade product; a swap that tried to pay less fee aborts with
-`AedexV2Pair: INSUFFICIENT_BALANCE`. There is no per-pair fee setting: the factory's
-`create_pair` takes only `min_liquidity` and `debug_time`.
+`AedexV2Pair: INSUFFICIENT_BALANCE`. The fee is the same on every pair: the factory's
+`create_pair` takes `min_liquidity` and `debug_time`, with no fee parameter.
 
 A sixth of the fee can be diverted to a protocol-fee collector if the factory's `fee_to_setter`
 switches it on. That switch is off by default and is described under
@@ -145,8 +143,8 @@ switches it on. That switch is off by default and is described under
 rather than deducted from your trade.
 
 Because the fee is inside the invariant, it is already reflected in the router's
-`get_amounts_out` answer and is not a separate line item. On top of it you pay the ordinary
-æternity transaction fee, plus a second transaction fee if an allowance approval is needed.
+`get_amounts_out` answer and is not a separate line item. On top of it, each transaction pays gas at
+the network's current gas price: one for the swap, and one more if an allowance approval is needed.
 
 ## Approvals
 
@@ -195,7 +193,7 @@ unspent AE to you in the same transaction.
 
 Router and factory addresses for both networks are in the [deployment table](/defi).
 
-## What can go wrong
+## Troubleshooting
 
 | Symptom | Cause |
 | --- | --- |
@@ -218,8 +216,8 @@ When the revert comes from the chain, the abort string names the check that fail
 | `AedexV2Router: INVALID_PATH_FIRST` / `INVALID_PATH_LAST` | An AE entrypoint was called with a path that does not start or end at WAE |
 | `AedexV2Pair: INSUFFICIENT_BALANCE` | The pair's own invariant check failed: the input never arrived, or the fee was short |
 
-The first three are the ordinary ones and mean the market moved. The last is a contract-level
-safety net you should not normally reach through the app.
+The first three mean the market moved between quote and execution; retry with a fresh quote. The
+last is the pair's own invariant check.
 
 ## Swap from a script
 
@@ -238,7 +236,7 @@ entrypoints, so you can quote without holding anything:
 | `quote(amount_a, reserve_a, reserve_b)` | The fee-free ratio: for liquidity math, not for swaps |
 
 `quote` is `amount_a * reserve_b / reserve_a` with no fee applied, because it prices the second
-side of a liquidity deposit. Do not use it to predict a swap.
+side of a liquidity deposit. Use `get_amount_out` to predict a swap.
 
 ## Related
 

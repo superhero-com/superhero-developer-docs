@@ -17,15 +17,14 @@ registration, ownership and expiry are consensus state.
 | 12 characters or fewer | Goes to auction |
 
 An auction runs until it times out with no higher bid, and each new bid must beat the previous
-one by at least 5%. Neither the Superhero app nor the agent-skill CLI implements bidding, and the
-CLI refuses a short name outright:
+one by at least 5%. To bid on a short name, use a wallet that supports `NameClaimTx` bidding.
+The Superhero app and the agent-skill CLI register names of 13 characters or more; the CLI
+reports a shorter name like this:
 
 ```text
 Error: "ae.chain" is 2 characters — names with 12 or fewer characters require an auction.
 Choose a name with 13+ characters for instant registration.
 ```
-
-Use a wallet that supports `NameClaimTx` bidding if you want a short name.
 
 ## Registration is preclaim, then claim
 
@@ -36,8 +35,8 @@ AENS registration is two transactions, to stop front-running:
 2. **Claim.** Reveal the name and the salt. The protocol checks the commitment.
 
 The two transactions must land in **different blocks**. After the claim, **update** the name's
-pointers so it resolves to your address. A name with no `account_pubkey` pointer resolves to
-nothing.
+pointers so it resolves to your address: the `account_pubkey` pointer is what makes the name
+resolve.
 
 ## The sponsored claim in the app
 
@@ -65,10 +64,11 @@ Validation before you can submit:
 - No leading or trailing hyphen.
 - More than 12 characters before `.chain`.
 
-When a name is not sponsorable the app reports the estimated cost, so you can see what you
-would pay from your own wallet. Failure cases: the name is taken, the name is currently being
-claimed by someone else, you already have a sponsored claim in progress, or this wallet has
-already used its one sponsored name.
+If a name falls outside the sponsorship, the app shows the cost of claiming it from your own
+wallet. If the check returns a `reason`, it is one of: the name is taken, the name is currently
+being claimed by someone else, you already have a sponsored claim in progress, or this wallet
+has already used its one sponsored name. Pick another name, or wait for the claim in progress
+to finish.
 
 ## The CLI lifecycle
 
@@ -85,12 +85,12 @@ node scripts/superhero-name.mjs lookup <address>     # address -> names owned
 node scripts/superhero-name.mjs list                 # names owned by your own wallet
 ```
 
-- `register` appends `.chain` if you left it off, lowercases the whole thing, then refuses
-  names of 12 characters or fewer.
+- `register` appends `.chain` if you left it off, lowercases the whole thing, and accepts
+  names of 13 characters or more.
 - `register` waits for a new key-block between preclaim and claim, polling the node's top
-  header every 30 seconds. Expect minutes, not seconds.
-- `update` passes `extendPointers: true`, so repointing the account pointer does not wipe other
-  pointers you have set. The CLI only ever sets the `account_pubkey` pointer.
+  header every 30 seconds. Expect the command to take a few minutes.
+- `update` passes `extendPointers: true`, so repointing the account pointer keeps the other
+  pointers you have set. The CLI sets the `account_pubkey` pointer.
 - `lookup` and `list` read the middleware: `/v3/names?owned_by=<address>&state=active`.
   `resolve` and `available` read name state from the node and pick the `account_pubkey`
   pointer.
@@ -107,18 +107,18 @@ protocol parameters too; the
 [AENS protocol specification](https://github.com/aeternity/protocol/blob/master/AENS.md) is the
 reference.
 
-If a name expires, it stops resolving and becomes available again. On Superhero:
+Extend a name before its expiry height to keep it. When a name expires it becomes available to
+register again. On Superhero:
 
 - The cached `chain_name` is refreshed from the middleware on an hourly sweep, and on any stale
-  read of `GET /api/accounts/{address}`, so a lapsed name disappears from profiles within about
-  an hour.
-- A `prefaens` address link naming it does **not** self-clear. The link is contract state and
-  stays until you unlink it. Because `prefered_aens_name` sits at the top of the
-  [name resolution ladder](/identity/names), a lapsed linked name keeps being displayed as your
-  public name until you unlink it.
+  read of `GET /api/accounts/{address}`, so profiles reflect the change within about an hour.
+- A `prefaens` address link is contract state and stays until you unlink it. Because
+  `prefered_aens_name` sits at the top of the [name resolution ladder](/identity/names), unlink
+  a lapsed name, or link a current one, to update your public name.
 
-`chain_expires_at` in the profile aggregate is a legacy field and is not refreshed; resolve the
-name through AENS to check whether it is live.
+To check whether a name is live, resolve it through AENS, which reads the current expiry from
+the chain; `chain_expires_at` in the profile aggregate is a read-only field from earlier
+profile records.
 
 ## Linking a name to your SuperheroID
 
@@ -134,9 +134,10 @@ puts the **name** in the subject slot rather than your address:
 link:hero.chain:prefaens:hero.chain:0
 ```
 
-The contract verifies ownership itself with `AENSv2.lookup` before accepting it. It fails with
-`PRINCIPAL_NOT_FOUND` if the name is not registered, `PRINCIPAL_MISMATCH` if you do not own it.
-See [AddressLink](/identity/address-link).
+The contract verifies ownership itself with `AENSv2.lookup` before accepting it. It returns
+`PRINCIPAL_NOT_FOUND` if the name is not registered yet and `PRINCIPAL_MISMATCH` if the name is
+owned by a different address; register or repoint the name first. See
+[AddressLink](/identity/address-link).
 
 ## Related
 

@@ -106,7 +106,7 @@ also when the node lookup fails. Re-run if you expected a balance.
 | --- | --- |
 | `"<message>" [link...]` | Publish an on-chain post with optional media links |
 
-There is no subcommand. The first argument is the post body; every remaining argument becomes
+This script takes the post body directly as its first argument; every remaining argument becomes
 an entry in the media-links array. Posts go through the `Tipping_v3` contract at
 `ct_2Hyt9ZxzXra5NAzhePkRsDPDWppoatVD7CtHnUoHVbuehwR8Nb` via the `post_without_tip`
 entrypoint.
@@ -132,8 +132,8 @@ entrypoint.
 All four read the æternity middleware at `https://mainnet.aeternity.io/mdw/v3/transactions`,
 filtered to the Tipping contract and one account, keeping only `post_without_tip` calls.
 
-`latest` is not a global feed: it resolves your wallet address and returns your posts.
-`search` is likewise scoped to your own posts.
+`latest` resolves your wallet address and returns your own posts, and `search` is scoped to
+your own posts in the same way. For a network-wide feed, read the [Posts API](/api-reference/posts).
 
 ```json
 // my-posts, latest — a bare array
@@ -234,7 +234,7 @@ parameters, so the response covers the server default range: `start_date` ten da
 `end_date` tomorrow. Calling the endpoint directly, you can pass `start_date`, `end_date`,
 `force_pull` (recompute the range before returning it) and `address` (per-account figures).
 The cache refreshes hourly, re-pulling the last seven days. `GET /api/analytics/summary` and
-`GET /api/analytics/past-24-hours` are also available on the API but not through the script.
+`GET /api/analytics/past-24-hours` are also available on the API; call them directly.
 
 ---
 
@@ -248,8 +248,8 @@ The cache refreshes hourly, re-pulling the last seven days. `GET /api/analytics/
 | `sell <sale_address> <amount>` | Sell, handling the allowance, with a 3% slippage floor |
 
 **`amount` is a whole number of tokens, not an amount of AE.** It is parsed with `parseInt`
-and must be greater than zero; fractional sizes are not expressible. `buy ct_... 5` buys five
-tokens, and `price ct_... 5` tells you what that costs.
+and must be a whole number greater than zero. `buy ct_... 5` buys five tokens, and
+`price ct_... 5` tells you what that costs.
 
 `lookup` tries `GET /api/tokens/{query}` first. On a miss it fetches 100 tokens and
 substring-matches `name` and `symbol`, so the output shape depends on which path hit:
@@ -318,7 +318,8 @@ describing the WORDS collection.
 ```
 
 The balance check fires only when `buy_ae` is greater than zero, and requires
-`buy_ae + 0.01` AE. With no initial buy, the transaction fails on-chain if you cannot pay gas.
+`buy_ae + 0.01` AE. With no initial buy, run `superhero-wallet.mjs balance` yourself first so
+the wallet can pay gas.
 
 `estimated_tokens` is computed client-side by bisecting the integral of the bonding-curve price
 function, `0.001 * exp(0.00000001 * x) - 0.0009999`. The AE attached is the on-chain quote for
@@ -421,8 +422,8 @@ JSON when the backend does not supply them. See
 | `list` | All active names owned by your wallet |
 
 `.chain` is appended if you omit it, and the whole name is lowercased. Names of **12
-characters or fewer** (before `.chain`) require an auction, which this script does not
-implement, so `register` refuses them.
+characters or fewer** (before `.chain`) go to auction; `register` covers direct claims, so give
+it a name of 13 characters or more.
 
 ```json
 // available — free
@@ -462,9 +463,9 @@ implement, so `register` refuses them.
 
 `resolve` does the same with `{ "name": "...", "resolved": false, "error": "name_not_found" }`.
 
-`register` is the slowest command in the skill. It preclaims, polls until that transaction is
+`register` is a multi-step command. It preclaims, polls until that transaction is
 mined, then waits for a new block (polling the node's top header every 30 seconds) before
-claiming, because a preclaim and its claim cannot share a block. Then it polls the claim and
+claiming, because a preclaim and its claim go in separate blocks. Then it polls the claim and
 sends a pointer update. Three transactions, typically a minute or more. The returned `tx_hash`
 is the claim transaction. See [AENS](/aeternity/aens).
 
@@ -590,8 +591,8 @@ Three environment variables override the defaults:
 }
 ```
 
-`poll_id` and `is_listed` are `null` when you call `info` with a poll address directly. Only
-`info-by-id` resolves them from the registry.
+`poll_id` and `is_listed` are `null` when you call `info` with a poll address directly. Use
+`info-by-id` to have them resolved from the registry.
 
 `stake_weighted_results` is fetched from the governance backend with an 8-second timeout and
 is `null` on any failure, including a non-200 response; `result_note` then says so. Never

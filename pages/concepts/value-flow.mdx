@@ -1,6 +1,6 @@
 ---
 title: "Where the Money Goes"
-description: "The exact split of every AE spent on a community token buy — and what comes back on a sell."
+description: "The exact split of every AE spent on a community token buy, and what comes back on a sell."
 ---
 
 # Where the Money Goes
@@ -28,8 +28,8 @@ Buyer also receives:
   └── ProtocolDAO tokens = 1,000 × AE value of the buy
 ```
 
-The 1% total spread is the difference between the buy curve and the sell curve. It is not
-charged as a separate fee; it is built into the two curves. See
+The 1% total spread is the difference between the buy curve and the sell curve. It is built into
+the two curves rather than charged as a separate fee. See
 [Bonding Curves](/tokens/bonding-curve) for the math.
 
 ## The exact split
@@ -118,10 +118,10 @@ treasury cannot block a buy.
 
 ## The sell side
 
-Selling is not the buy flow in reverse.
+Selling has its own flow.
 
-**It is two transactions, not one.** AEX-9 has no transfer-from without prior approval, so you first
-grant the sale contract an allowance over your tokens, then call sell:
+**It is two transactions.** AEX-9 requires an approval before another contract can move your tokens,
+so you first grant the sale contract an allowance over your tokens, then call sell:
 
 ```text
 1. create_allowance(sale_account, count)      on the community AEX-9 token
@@ -143,7 +143,7 @@ return = integral of sell(x) dx, from supply - amount to supply
        = 0.995 * (integral of buy(x) dx over the same interval)
 ```
 
-**Nothing is deducted at sell time.**
+**You receive the full sell-curve payout.**
 
 | Destination on a sell | Amount |
 | --- | --- |
@@ -152,8 +152,8 @@ return = integral of sell(x) dx, from supply - amount to supply
 | Affiliation chain | nothing |
 | ProtocolDAO tokens minted | none |
 
-The 0.5% gap relative to the buy curve is not a sell fee. It was taken when those tokens were
-bought. The reserve grows by `0.995 * C` per buy, which is exactly the sell-curve integral over the
+The 0.5% gap relative to the buy curve was collected when those tokens were bought, so a sell
+carries no fee of its own. The reserve grows by `0.995 * C` per buy, which is exactly the sell-curve integral over the
 same slice, so the reserve at supply `S` is always `integral of sell(x) from 0 to S`: precisely
 enough to redeem the entire supply. Selling the entire supply back to the curve is always possible.
 
@@ -182,8 +182,8 @@ The sale contract's trading entrypoints:
 | `buy` | `buy(count: int) -> unit` | Stateful, payable |
 | `buy_with_affiliation` | `buy_with_affiliation(count: int, affiliation_rewardee: address) -> unit` | Stateful, payable |
 
-There is a `buy_with_affiliation` and no `sell_with_affiliation`: referral rewards accrue on buys
-only. Likewise the factory's `mint_protocol_dao_token(int, address)` is called on buys only. See
+Referral rewards accrue on buys, through `buy_with_affiliation`. Likewise the factory's
+`mint_protocol_dao_token(int, address)` is called on buys. See
 [the contract reference](/contracts/token-sale).
 
 ### Event arguments
@@ -194,8 +194,8 @@ only. Likewise the factory's `mint_protocol_dao_token(int, address)` is called o
 | `Sell` | `return`: AE paid to the seller | `total_supply` **before** the burn | n/a |
 | `PriceChange` | `previous_price` | `next_price` | n/a |
 
-`Buy` and `Sell` omit `count`; take the token amount from the decoded call arguments, not the
-event. Both unit prices in `PriceChange` come from `calculate_unit_price()`, which is `price(10^18)`:
+`Buy` and `Sell` carry the AE figures; take the token amount from the decoded call arguments. Both
+unit prices in `PriceChange` come from `calculate_unit_price()`, which is `price(10^18)`:
 the all-in cost of one whole token at that moment, affiliation fee included.
 
 ## A worked example
@@ -254,8 +254,8 @@ rather than executing below it. See [Fees & Slippage](/tokens/fees-and-slippage)
 
 ## Gas
 
-Gas is a separate line item paid to the network in AE, never to Superhero, and never recoverable.
-Count transactions, not trades:
+Gas is a separate line item paid to the network in AE at the network's current gas price, not to
+Superhero. Count transactions, not trades:
 
 | Action | Transactions |
 | --- | --- |
@@ -272,8 +272,9 @@ Gas for every transaction follows the network's gas price at execution;
 
 ## What "burned" means
 
-When a buyer has no inviter, the affiliation portion is burned. Mechanically, this is **retention
-in a contract with no withdrawal path**, not a transfer to an unspendable address.
+When a buyer has no inviter, the affiliation portion is burned. Mechanically, the AE **stays in the
+affiliation treasury with no ledger entry crediting it to anyone**, rather than moving to an
+unspendable address.
 
 The sale contract forwards the fee as `Call.value` on `record_sale_transaction`, so the AE lands in
 the treasury's balance. `update_inviters` then walks the affiliation tree upward, crediting
@@ -288,30 +289,28 @@ switch(get_direct_inviter(invitee))
     update_inviters(inviter, buyer, transaction_value, remaining_affiliation_fee_percentages)
 ```
 
-No entry is credited for a missing level. The only way AE leaves the treasury is `withdraw()`,
-which pays `get_accumulated_rewards(Call.caller)`, the sum of that caller's own ledger entries.
-There is no owner, no admin entrypoint and no sweep, so uncredited AE stays in the contract balance
-permanently. (Creating a collection, by contrast, sends its 555 AE fee to the burn address
-`ak_11111111111111111111111111111111273Yts`.)
+No entry is credited for a missing level. AE leaves the treasury through `withdraw()`, which pays
+`get_accumulated_rewards(Call.caller)`, the sum of that caller's own ledger entries, so only
+credited rewards are ever paid out. (Creating a collection, by contrast, sends its 555 AE fee to the
+burn address `ak_11111111111111111111111111111111273Yts`.)
 
-Two further amounts burn the same way, both consequences of `withdraw()`:
+Two rules of `withdraw()` decide what you can collect, so plan around them:
 
-- **Rewards older than two payout periods.** `get_accumulated_rewards` sums only the current period
-  and the one before it. A payout period is `Chain.timestamp / 2592000000` (30 days in
-  milliseconds), so anything credited more than roughly 30 to 60 days ago can no longer be
-  withdrawn.
-- **Rewards belonging to an inviter who has not qualified.** `withdraw()` requires
-  `state.unique_invitees[...] == ThresholdReached`, and aborts with
-  `MINIMUM_ACCOUNTS_THRESHOLD_NOT_REACHED` otherwise. Reaching that state needs
+- **Withdraw within two payout periods.** `get_accumulated_rewards` sums the current period and the
+  one before it. A payout period is `Chain.timestamp / 2592000000` (30 days in milliseconds), so
+  withdraw at least once every 30 days to collect everything you have been credited.
+- **Qualify first.** `withdraw()` requires `state.unique_invitees[...] == ThresholdReached`, and
+  aborts with `MINIMUM_ACCOUNTS_THRESHOLD_NOT_REACHED` otherwise. Reaching that state needs
   `unique_invitee_count_threshold` = 4 distinct invitees who have each bought at least
   `unique_invitee_buy_amount_threshold` = 10 AE (`10 * 10^18` aettos), counted cumulatively per
-  invitee. Rewards accrued before qualifying expire on the same 30-day clock.
+  invitee. Rewards credited before you qualify sit on the same 30-day clock, so aim to reach the
+  threshold early.
 
 ## ProtocolDAO tokens
 
 Every buy also mints ProtocolDAO tokens to the buyer (a separate platform-wide AEX-9 token, not the
 community token you bought) at **1,000× the AE value of the buy**, issued to the buyer's address at
-the time of purchase. Its governance functionality is not yet implemented.
+the time of purchase.
 
 The factory holds the multiplier as a single constant:
 
@@ -342,5 +341,5 @@ record.
 - [Fees & Slippage](/tokens/fees-and-slippage): the practical guide to setting tolerance before you trade.
 - [The Affiliation System](/rewards/affiliation): how the four-level chain is recorded and how payouts are claimed.
 - [The Treasury](/dao/treasury): what happens to the DAO's 0.5% once it arrives.
-- [ProtocolDAO Token](/dao/protocol-dao): what the platform token is for, and what it is not yet.
+- [ProtocolDAO Token](/dao/protocol-dao): what the platform token is for.
 - [Buy or sell on superhero.com](https://superhero.com/trends/tokens): the live token list and trade cards.

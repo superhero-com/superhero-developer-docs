@@ -1,14 +1,13 @@
 ---
 title: "Web Wallet (wallet.superhero.com)"
-description: "Use Superhero Wallet in a browser with no install, and understand what you trade for that."
+description: "Use Superhero Wallet in a browser with no install, and see how it fits with the other surfaces."
 ---
 
 # Web Wallet (wallet.superhero.com)
 
 `wallet.superhero.com` is Superhero Wallet running as an ordinary web page. Nothing to install,
-nothing to update, works on any browser including ones that cannot run extensions. It is also the
-fallback superhero.com opens when it cannot find a wallet any other way, so you may meet it without
-having chosen it.
+nothing to update, works on any browser including ones without extension support. It is also where
+superhero.com sends you when no extension answers, so you may meet it that way first.
 
 ## Which build this is
 
@@ -18,8 +17,8 @@ apps, served differently. Three consequences of "it is a web page":
 - Its storage is `localStorage` on the `wallet.superhero.com` origin, with the seed phrase
   encrypted under a key derived from your wallet password. Clearing site data for that origin
   removes the wallet from this browser; your seed phrase brings it back.
-- It is installable as a PWA. Installing it does not change what it can do. An installed PWA is
-  still the web build.
+- It is installable as a PWA. Installing it gives you a home-screen icon; an installed PWA runs the
+  same web build.
 - It is the deep-link endpoint every other Superhero surface points at.
 
 ## When superhero.com sends you there
@@ -48,24 +47,23 @@ bnb, avalanche, polygonPos and dogecoin. In particular you can:
 - **Import a Ledger's æternity accounts** over WebUSB, and sign with the device.
 - **Pair an AirGap Vault** and sign offline.
 
-## What the web build can and cannot do
+## The web build alongside the other surfaces
 
 | Capability | Extension | Web build | Mobile apps |
 | --- | --- | --- | --- |
-| Announce itself to any æpp page automatically | Yes, via a content script | **No** | No |
+| Announce itself to any æpp page automatically | Yes, via a content script | No | No |
 | Be embedded by an æpp in an iframe | Not applicable | **Yes** | No |
 | Be addressed by an æpp over the `x-success` deep-link API | No, an extension has no public URL | **Yes**, this is the canonical endpoint | Yes, via `superhero://` and universal links |
-| Ledger over WebUSB | Chromium only | **Yes** (Chromium only in practice) | No |
+| Ledger over WebUSB | Yes, on Chromium | **Yes**, on Chromium | No |
 | AirGap Vault pairing and signing | Yes | **Yes** | Yes |
-| Unlock with biometrics | No | **No** | Yes |
-| In-app dæpp browser | No | **No** | Yes |
+| Unlock with biometrics | No | No | Yes |
+| In-app dæpp browser | No | No | Yes |
 | Chrome side panel / Firefox sidebar | Yes | n/a | n/a |
 | Storage | Extension-origin `localStorage`, encrypted | **Site `localStorage`, encrypted** | OS keychain |
 
-The first row is the one that matters. **A hosted page cannot inject itself into someone else's
-site.** The extension runs a content script on every page that proxies AEX-2 messages between the
-æpp and the wallet, so an æpp finds the extension by listening. The web build can only be
-reached two ways:
+The first row is the one that matters for æpp developers. The extension runs a content script on
+every page that proxies AEX-2 messages between the æpp and the wallet, so an æpp finds the extension
+by listening. The web build is reached two ways:
 
 - **Embedded as an iframe.** When it detects a parent window, it opens a message connection to the
   parent and re-announces the wallet every three seconds. Confirmation prompts then open as separate
@@ -74,36 +72,29 @@ reached two ways:
   (connect), `/sign-transaction`, `/sign-message` and `/sign-jwt`. This is the path superhero.com
   uses.
 
-Biometric unlock and the dæpp browser are native-only features.
+Biometric unlock and the dæpp browser are features of the native apps.
 
 ### AirGap works here
 
 Cold signing from an AirGap Vault is available in the web build as well as in the installed
 surfaces. Pairing and signing are QR-based, and every screen that shows a QR code also accepts the
 `airgap-wallet://?ur=…` string pasted by hand, so it works in a browser with no camera. Set AirGap
-Vault to **QR code V3**; V2 payloads will not deserialize. AirGap accounts can sign transactions
-but **not messages**.
+Vault to **QR code V3**, the format Superhero Wallet decodes. AirGap accounts sign transactions;
+use another account when an æpp asks for a message signature.
 
-## What you trade for "no install"
+## Staying safe with a hosted wallet
 
-| | Extension | Web wallet |
-| --- | --- | --- |
-| Code delivery | Installed once, updated through a reviewed store channel | Fetched from the server on every visit |
-| Compromise of the host | Does not change code already installed | Serves you new code immediately |
-| Phishing resistance | You open a pinned browser control | You open a URL, which can be typosquatted |
-| Works without an install | No | Yes |
-
-A hosted wallet is only as trustworthy as the origin serving it, and that trust is re-established
-on every load rather than once at install time. So:
+The web wallet is served from `wallet.superhero.com` on every visit, so the domain is what you
+check:
 
 - **Type the domain or use a bookmark.** `wallet.superhero.com`, exactly. Do not reach it from a
   link in a message.
 - **Check the URL before you enter a seed phrase**, not after.
 - **Prefer the extension on desktop and the native app on mobile** for accounts holding real
-  value. Use the web wallet for convenience, for browsers that cannot run extensions, and for
+  value. Use the web wallet for convenience, for browsers without extension support, and for
   one-off actions.
-- Nobody legitimate ever asks for your seed phrase, and the phrase is the only thing that restores
-  the account. See [Wallet Security](/wallets/security) and
+- Nobody legitimate ever asks for your seed phrase. The phrase is what restores the account, so
+  keep it offline. See [Wallet Security](/wallets/security) and
   [Backup & Recovery](/wallets/backup-and-recovery).
 
 ## Web wallet or built-in wallet?
@@ -117,8 +108,8 @@ Both need no install:
   on every signature.
 
 If you want one wallet used by several æpps, take the web wallet. If you want the shortest path
-into Superhero on a device you will keep using, take the built-in wallet, after reading what its
-storage does and does not survive in [The Built-In Wallet](/wallets/built-in-wallet).
+into Superhero on a device you will keep using, take the built-in wallet, after reading how its
+storage and backup work in [The Built-In Wallet](/wallets/built-in-wallet).
 
 ## Related
 

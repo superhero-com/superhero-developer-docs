@@ -1,6 +1,6 @@
 ---
 title: "Notifications"
-description: "The notification feed, browser push, preferences and devices — every type, its channels, and where a click lands."
+description: "The notification feed, browser push, preferences and devices: every type, its channels, and where a click lands."
 ---
 
 # Notifications
@@ -8,7 +8,7 @@ description: "The notification feed, browser push, preferences and devices — e
 Superhero has two independent notification systems. The **bell** is a server-side feed
 (someone replied, someone sent you AE, a room let you in) delivered over REST plus a socket and
 optionally as an OS notification. The **transaction banner** is a purely local progress
-indicator for whatever you are signing right now. They share no code and no delivery path.
+indicator for whatever you are signing right now. They are independent of each other.
 
 ## The bell
 
@@ -45,8 +45,6 @@ On every socket connect and reconnect the client re-fetches the first feed page 
 count and overwrites whatever the live layer accumulated. Without the socket, the bell is
 refresh-driven.
 
-The in-memory list is capped at 200 items.
-
 ### Feed item shape
 
 | Field | Type |
@@ -59,14 +57,13 @@ The in-memory list is capped at 200 items.
 | `read_at` | Timestamp or null |
 | `created_at` | Timestamp |
 
-Everything in `data` is read defensively. A missing field makes a row non-navigable rather than
-throwing.
+Read `data` defensively; a row with a missing routing field renders as non-navigable.
 
 ### Types, channels, and where a click lands
 
 The catalog has six types, and each declares which channels it goes out on. `database` is the
 channel that writes a bell row, so the web bell carries comments and invitation claims; the
-other four types reach mobile push only.
+other four types go to mobile push.
 
 | Type | Channels | Trigger |
 | --- | --- | --- |
@@ -77,8 +74,8 @@ other four types reach mobile push only.
 | `room-membership` | expo only | You are added to or removed from a token-gated room |
 | `room-messages` | expo only | New messages in a room you belong to |
 
-`incoming-transfer` is kept off the web feed because it fires for every transfer on chain to
-the recipient. The client's routing table maps all six, because the same payload also feeds the
+`incoming-transfer` goes to mobile push, since it fires for every transfer on chain to the
+recipient. The client's routing table maps all six, because the same payload also feeds the
 mobile app:
 
 | Type | Destination | Actor field |
@@ -95,20 +92,18 @@ its ancestor chain above it. Post ids are stored as `<id>_v3` and every in-app p
 the suffix, with the resolver re-adding it. The backend ships routing *hints* (a type plus
 ids) rather than a URL, because the mobile app has different routes.
 
-### What suppresses a notification
+### Delivery rules
 
 Every send passes three gates before a channel sees it; `post-comment` shows all three:
 
-1. **Self-action.** You are never notified about your own reply.
-2. **Preference.** The recipient's opt-out is checked before the rate cap, so an opted-out
-   author does not spend their budget silently.
-3. **Per-recipient rate cap.** A fixed Redis window allows `NOTIF_POST_COMMENT_RATE_CAP`
-   comment notifications per `NOTIF_POST_COMMENT_RATE_WINDOW_SEC`, **20 per hour** by default.
-   Past that, further comments are dropped until the window resets. If Redis is unreachable the
-   notification is attempted anyway.
+1. **Self-action.** Your own reply raises no notification to you.
+2. **Preference.** The recipient's opt-out is checked before the rate cap.
+3. **Per-recipient rate cap.** A fixed window allows `NOTIF_POST_COMMENT_RATE_CAP` comment
+   notifications per `NOTIF_POST_COMMENT_RATE_WINDOW_SEC`, **20 per hour** by default. Past
+   that, further comment notifications are dropped until the window resets.
 
 `incoming-transfer` has its own floor, `NOTIF_MIN_AMOUNT_AETTOS`, an anti-dust threshold that
-defaults to `0` (off). A transfer event with no transaction hash is not dispatched.
+defaults to `0` (off).
 
 ## Browser push
 
@@ -132,15 +127,14 @@ The client reports one of five states:
 | `subscribed` | Registered |
 
 One push endpoint belongs to one address. If a second account in the same browser enables push,
-the server re-points the endpoint at it; the client records the owner locally and re-registers
-on start when needed.
+the endpoint is re-pointed at that account.
 
 ### The service worker
 
 Push is handled by a dedicated worker at `/notifications-sw.js`, registered on demand with an
-origin-wide scope. It handles exactly three events (`push`, `notificationclick` and
-`pushsubscriptionchange`) and registers no `fetch` handler, so it cannot intercept requests
-on the origin it shares with the inline wallet.
+origin-wide scope. It handles three events (`push`, `notificationclick` and
+`pushsubscriptionchange`) and has no `fetch` handler, so requests on the origin it shares with
+the inline wallet pass through untouched.
 
 On `push` it reads a JSON payload of `title`, `body` and `data`, accepting the type from either
 the top level or inside `data`, and shows a notification with the 192px PNG app icon as both
@@ -176,14 +170,14 @@ POST /api/notifications/{address}/preferences
   "preferences": [ { "type": "post-comment", "enabled": false } ] }
 ```
 
-Only the types you list are changed; the rest keep their state. Unknown type strings are
-rejected against the catalog. The model is opt-out: a type with no stored row is enabled.
+The types you list are changed; the rest keep their state. Type strings are validated against
+the catalog. The model is opt-out: a type with no stored row is enabled.
 
 ### Devices are the mobile half
 
 `/notifications/devices` registers an **Expo push token**, for the native apps; the web-push
-endpoints register a **VAPID browser subscription**. An expo-only type reaches a registered
-device, and nothing if the account has none. Both registration paths are behind their own
+endpoints register a **VAPID browser subscription**. An expo-only type reaches the account's
+registered devices. Both registration paths are behind their own
 signed challenge, and deregistration binds the signature to both the address and the token.
 
 The per-room mute control lives with chat: it writes `muted` and a tri-state account-wide
@@ -208,18 +202,17 @@ Step 4 of 4 — transferring the name to your wallet
 Others cover token creation, swaps, wrapping and unwrapping AE, liquidity changes, and signing
 a profile update. None of these are recorded in the notification feed.
 
-## No tip notification
+## Tips and notifications
 
-There is no tip type in the catalog. `incoming-transfer` does fire for a tip, since a tip is a
-plain `SpendTx`, but it is expo-only and never reaches the bell. An incoming tip produces a
-mobile push if you have a registered device, and nothing in the web app. See
-[Tipping](/social/tipping).
+An incoming tip is a plain `SpendTx`, so it arrives as an `incoming-transfer` notification.
+That type goes to mobile push: a tip produces a push on your registered device, while the web
+bell carries comments and invitation claims. See [Tipping](/social/tipping).
 
 ## Related
 
 - [Comments](/social/comments): the `post-comment` type is the most common notification, and
   the `_v3` suffix rule explains its deep link.
 - [Chat](/social/chat): `room-membership` and `room-messages`, and the per-room mute control.
-- [Tipping](/social/tipping): an incoming tip arrives as a plain transfer.
+- [Tipping](/social/tipping): an incoming tip arrives as a plain transfer and a mobile push.
 - [Invite links](/rewards/invite-links): what produces an `invitation-claimed` notification.
 - [WebSocket API](/api-reference/websocket): the app's other socket, for token activity.
