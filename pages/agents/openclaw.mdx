@@ -56,8 +56,7 @@ directory. The skill ships an ordinary `package.json` with a committed lockfile:
 `npm install` in the skill directory produces `<skill>/node_modules`, where the scripts' bare
 imports resolve from; `npm ci` gives you the pinned versions. If a script fails with a
 module-resolution error after a ClawHub install, `cd` into the skill directory and run
-`npm install`. The scripts are ES modules (`"type": "module"`) and do not run under a CommonJS
-loader.
+`npm install`. The scripts are ES modules (`"type": "module"`); run them with `node` directly.
 
 ## Where the key lives
 
@@ -130,8 +129,8 @@ From gentlest to bluntest:
 3. **Turn off cron entirely.** `openclaw config set cron.enabled false` stops every scheduled
    job on the Gateway, not just this skill's.
 
-None of these reverses a transaction that has already been signed. The hard stop on losses is
-the balance in the agent's wallet.
+Transactions already signed stay final, so the hard stop on losses is the balance in the
+agent's wallet.
 
 ### Audit what it did
 

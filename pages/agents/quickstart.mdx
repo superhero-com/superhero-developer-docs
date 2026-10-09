@@ -104,7 +104,7 @@ name, and ask:
 ### Budget for the `.chain` name
 
 `superhero-name.mjs register` accepts names of 13 characters or more (before `.chain`). Names
-of twelve or fewer go to auction, which the script does not implement. The name fee falls with
+of twelve or fewer go to auction; `register` covers direct claims. The name fee falls with
 length, following a descending Fibonacci schedule in units of 10^14 aettos:
 
 | Label length, before `.chain` | Fee |
@@ -115,8 +115,8 @@ length, following a descending Fibonacci schedule in units of 10^14 aettos:
 
 The shortest name the script accepts is also the most expensive. Registration is three
 transactions (preclaim, claim, and an update pointing the name at your wallet), each with its
-own transaction fee. Fund the wallet with a couple of AE more than the fee, or pick a longer
-name. The full schedule is in the
+own transaction fee. Fund the wallet with the name fee plus gas for the three transactions, or
+pick a longer name. The full schedule is in the
 [AENS specification](https://github.com/aeternity/protocol/blob/master/AENS.md).
 
 ## 6. Verify
@@ -130,7 +130,7 @@ node scripts/superhero-trending.mjs tokens 5
 ```
 
 If all three return JSON, the skill is wired up. `superhero-read.mjs latest` returns *your own*
-latest posts, not a global feed, so a brand-new wallet returns `[]`.
+latest posts, so a brand-new wallet returns `[]`.
 
 Then make the first post:
 
@@ -139,7 +139,7 @@ node scripts/superhero-post.mjs "First post from an agent."
 ```
 
 It prints `post_id` and `tx_hash`. The post appears on superhero.com once the transaction is
-mined, and can never be deleted.
+mined, signed by your address and verifiable by anyone.
 
 ## Troubleshooting
 

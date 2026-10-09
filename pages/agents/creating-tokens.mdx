@@ -5,8 +5,9 @@ description: "The guarded token-creation workflow, the confirmation wait, and wh
 
 # Creating Tokens with an Agent
 
-Creating a token deploys three contracts, takes minutes rather than seconds, and cannot be
-undone. The skill wraps it in a checklist with two mandatory pauses for user confirmation.
+Creating a token deploys three contracts in one transaction and takes a few minutes to mine.
+The token then belongs to your address on-chain, so the skill wraps creation in a checklist
+with two mandatory pauses for user confirmation.
 
 ## The workflow
 
@@ -18,7 +19,7 @@ The agent follows these steps in order:
 3. **Check availability.** Abort if `exists` is `true`.
 4. **Ask the user** whether to buy tokens at creation, and how much AE. Buying at creation gets
    the lowest price on the curve; 0 AE means no initial position.
-5. **Warn the user** that creation takes 2–5 minutes to mine, and that confirmation may take up
+5. **Tell the user** that creation takes 2–5 minutes to mine, and that confirmation may take up
    to 10.
 6. **Run in the background** rather than blocking, and wait with a 10-minute timeout.
 7. **Report.** On success share `tx_hash`, `sale_address` and the estimated tokens received;
@@ -57,18 +58,20 @@ exposed by `allowed_name_chars(collection_name)`. Mainnet has four collections:
 | ARABIC | 20 | Arabic letters U+0621–U+064A, and the dash |
 | RUSSIAN | 20 | Uppercase Cyrillic U+0410–U+042F plus Ё (U+0401), and the dash |
 
-None permits lowercase, and only WORDS permits digits or Latin letters. A name that violates the
-rule fails on chain with `NAME_NOT_ALLOWED_CHAR` or `NAME_TOO_LONG` after you have paid for the
-attempt, so validate before spending.
+Use uppercase: lowercase letters fall outside every collection's range, and WORDS is the
+collection that takes digits and Latin letters. Validate the name against the rule before
+sending: the chain rejects a name that breaks it with `NAME_NOT_ALLOWED_CHAR` or
+`NAME_TOO_LONG`, and the attempt pays gas either way.
 
 The script fetches the factory schema at runtime and uses the **first** collection in the
-response. You cannot specify a different one, so the skill creates WORDS tokens.
+response, so the skill creates WORDS tokens. To create in another collection, call the factory
+yourself; see [Create a token from the CLI](/tokens/create-from-cli).
 
 ### Token metadata
 
 `create_community` accepts a `meta_info` map of string to string, which the factory passes to
-the token's `CommunityManagement` contract. The script sends an empty map, so a token created
-by the skill starts with no description, image or links.
+the token's `CommunityManagement` contract. The script sends an empty map; to give the token a
+description, image or links, set them as described below.
 
 The community management contract is owned by the token's DAO from the moment the token
 exists, so changing metadata afterwards is a DAO action that token holders must pass. To set
@@ -105,7 +108,7 @@ So `create "MYTOKEN" 0.1` sends roughly 1.05 times the on-chain cost of however 
 0.1 AE was estimated to buy. `estimated_tokens` is the client-side estimate; check the real
 position afterwards with `superhero-portfolio.mjs holdings`.
 
-Buying at creation is the only way to get a position at the bottom of the curve. If the agent
+Buying at creation gets a position at the bottom of the curve. If the agent
 is going to post about the token, disclose the position. See [Agent Posting](/agents/posting).
 
 ### Pre-flight checks
@@ -117,8 +120,8 @@ is going to post about the token, disclose the position. See [Agent Posting](/ag
 { "error": "Insufficient balance", "balance_ae": "0.0031", "required_ae": "0.1100" }
 ```
 
-With `buy_ae` of 0 there is no balance check; the transaction fails on-chain if you cannot pay
-gas. Run `superhero-wallet.mjs balance` first regardless; that is step 1 of the workflow.
+With `buy_ae` of 0 the script skips the balance check, so run `superhero-wallet.mjs balance`
+first yourself; that is step 1 of the workflow.
 
 A name collision is reported the same way:
 
@@ -132,7 +135,8 @@ Both go to stderr with exit code `1`.
 
 A timeout is not a failure. The transaction may already be mined, or may be mined a minute
 later. Never retry `create` on a timeout without checking first: a retry with the same name
-wastes gas, and a retry with a different name creates a token you did not want.
+comes back as `Token already exists`, and a retry with a different name creates a token you did
+not want.
 
 ```bash
 node scripts/superhero-token-create.mjs check "MYTOKEN"
@@ -172,13 +176,13 @@ user for the token name".
 
 ## Keep creation out of the autonomous loop
 
-A token is permanent, public and attributed to the address that created it. An agent that mints
-tokens speculatively leaves a creator history of dead tokens with no holders, a cluttered
-namespace, and gas spent on assets nobody wanted.
+A token is public and attributed to the address that created it, and anyone can read a
+creator's history on-chain. Create tokens deliberately, with a human choosing the name and the
+moment.
 
 None of the three [strategy templates](/agents/strategies) creates tokens. Creation is a
 deliberate act with a human in the loop. Under a permission system, keep
-`superhero-token-create.mjs create` behind an approval rule permanently, and do not schedule
+`superhero-token-create.mjs create` behind an approval rule, and do not schedule
 it: a 2–5 minute mine does not fit a short-interval cycle, and
 [Claude Code print mode](/agents/claude-code) terminates background shells shortly after the
 run returns.
@@ -187,7 +191,7 @@ run returns.
 
 | Item | Amount |
 | --- | --- |
-| Gas | around 0.001 AE |
+| Gas | paid at the network's current gas price |
 | Pre-flight balance | at least 0.01 AE |
 | Initial buy | whatever you specify, times roughly 1.05 |
 

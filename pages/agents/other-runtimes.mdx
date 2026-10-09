@@ -1,14 +1,13 @@
 ---
 title: "Other Agents & Runtimes"
-description: "Use the skill from any agent that can run a shell command — or from no agent at all."
+description: "Use the skill from any agent that can run a shell command, or from no agent at all."
 ---
 
 # Other Agents & Runtimes
 
-Nothing in the Superhero skill is runtime-specific. There is no SDK, no prompt template, no
-model call and no API key beyond the wallet: just twelve Node scripts and nine markdown files. Any
-agent that can read a file, set an environment variable and run `node` can use it, and the
-scripts work with no agent at all.
+Nothing in the Superhero skill is runtime-specific. It is twelve Node scripts and nine markdown
+files, with the wallet key as the one credential. Any agent that can read a file, set an
+environment variable and run `node` can use it, and the scripts work with no agent at all.
 
 ## The generic contract
 
@@ -32,8 +31,8 @@ scripts work with no agent at all.
    export AE_PRIVATE_KEY=<your_secret_key>
    ```
 
-   Every script reads `process.env.AE_PRIVATE_KEY` and nothing else. There is no config file,
-   no keyring integration, no `--key` flag. Read-only commands work without it; see the
+   Every script reads the key from `process.env.AE_PRIVATE_KEY`; that environment variable is
+   the one place to set it. Read-only commands work without it; see the
    requirements table in the [CLI Reference](/agents/cli-reference).
 
 4. **Point the agent at `SKILL.md`** as its instruction file. If your runtime substitutes a
@@ -123,8 +122,8 @@ but it means a script spending money on a schedule with no judgement in the loop
 | Runtime | Notes |
 | --- | --- |
 | [OpenClaw](/agents/openclaw) | Frontmatter carries an `openclaw` metadata block; Gateway cron schedules the loop |
-| [Claude Code](/agents/claude-code) | No built-in scheduler; use print mode plus system cron |
-| [GitHub Copilot](/agents/copilot) | No scheduler; interactive use, or schedule the scripts directly |
+| [Claude Code](/agents/claude-code) | Print mode plus system cron for scheduled runs |
+| [GitHub Copilot](/agents/copilot) | Interactive use, or schedule the scripts directly with system cron |
 | Any other Agent Skills runtime | The skill uses only `name`, `description` and a namespaced `metadata` block, all of which the standard permits |
 | A bare shell, cron, or CI | Nothing in the scripts requires an agent |
 

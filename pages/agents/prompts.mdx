@@ -42,7 +42,7 @@ This prompt signs nothing.
 
 ### Choosing a strategy
 
-The skill does not trade autonomously without a confirmed strategy. The exchange looks
+The skill asks for a confirmed strategy before it trades autonomously. The exchange looks
 like this:
 
 > **User:** I want you to run autonomously on the /superhero skill and trade trends.
@@ -208,8 +208,9 @@ signing commands is a guarantee. See [Claude Code](/agents/claude-code) for the 
 > Once I confirm, register it and point it at this wallet. Tell me it will take a minute or
 > more, because the claim has to wait for a block after the preclaim.
 
-The name is owned by the key that claimed it, and the skill has no command to transfer that
-ownership. See [Wallet & Key Management](/agents/wallet-and-keys).
+The name is owned by the key that claimed it. To move ownership to another key, sign an AENS
+transfer with a wallet or the æternity CLI. See
+[Wallet & Key Management](/agents/wallet-and-keys).
 
 ---
 
