@@ -1,0 +1,12 @@
+{
+  "index": "Overview",
+  "chain-access": "Node, Middleware & Compiler",
+  "api-and-indexer": "API & Indexer",
+  "chart-history": "Charts & History",
+  "web-app": "Web App",
+  "chat-relay": "Chat Relay",
+  "governance-backend": "Governance Backend",
+  "contracts": "Contracts",
+  "integrations": "Keys & Integrations",
+  "operations": "Operations"
+}

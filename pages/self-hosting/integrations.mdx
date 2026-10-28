@@ -1,0 +1,113 @@
+---
+title: "Keys & Integrations"
+description: "The optional features of a Superhero instance and the keys that switch each one on: X, rewards, names, push, GIFs, trending tags and the agent skill."
+---
+
+# Keys & Integrations
+
+The core of Superhero (posts, tokens, trading, DAOs, charts, governance, chat) runs with the
+settings from the previous pages. The features below each add one external service or one wallet,
+and each switches on when its keys are set. Keep every key and private key in your secret store,
+not in the repository.
+
+## X (Twitter)
+
+Linking an X account and the X reward programs use an app in the
+[X developer portal](https://developer.x.com).
+
+| Where | Setting | What it is for |
+| --- | --- | --- |
+| X app | Callback URL `https://app.example.com/profile/x/callback` | The OAuth return to your web app |
+| Web app (build) | `VITE_X_OAUTH_CLIENT_ID` | Shows "Connect X" and starts the OAuth flow |
+| API | `X_CLIENT_ID`, `X_CLIENT_SECRET` | OAuth 2.0 with PKCE, to confirm the account the user signed in with |
+| API | `X_CLIENT_SCOPE` | Default `users.read tweet.read` |
+| API | `X_API_KEY`, `X_API_KEY_SECRET` | App-only access for the reward checks: profiles, followers and posts. Use an X API plan that includes user and post lookups (Basic or above). |
+
+Writing the link on-chain also needs an AddressLink contract with your provider namespaces; see
+[Contracts](/self-hosting/contracts#addresslink).
+
+## Rewards programs
+
+The X reward programs pay AE from wallets you fund. All payouts stay off until you switch them on:
+`PROFILE_REWARDS_DISABLED=false` arms payouts, and each program then needs its own flag and wallet.
+
+| Program | Settings |
+| --- | --- |
+| Onboarding reward | `PROFILE_X_ONBOARDING_REWARD_ENABLED`, `PROFILE_X_ONBOARDING_REWARD_AMOUNT_AE`, `PROFILE_X_ONBOARDING_REWARD_PRIVATE_KEY` |
+| Posting rewards | `PROFILE_X_POSTING_REWARD_ENABLED`, `PROFILE_X_PERPOST_REWARD_ENABLED`, `PROFILE_X_PERPOST_REWARD_PRIVATE_KEY`, `PROFILE_X_FOLLOWER_TIERS` |
+| Streak bonus | `PROFILE_X_REWARD_STREAK_BONUS_ENABLED`, `..._LENGTH`, `..._AMOUNT_AE`, `..._PRIVATE_KEY` |
+| Invite milestones | `PROFILE_X_INVITE_MILESTONE_THRESHOLD`, `PROFILE_X_INVITE_MILESTONE_REWARD_AMOUNT_AE`, `PROFILE_X_INVITE_MILESTONE_REWARD_PRIVATE_KEY`, `PROFILE_X_INVITE_LINK_BASE_URL` |
+| Eligibility | `PROFILE_X_REWARD_MIN_FOLLOWERS`, `PROFILE_X_REWARD_DAILY_CAP_HOURS` |
+
+Each `*_PRIVATE_KEY` is a hot wallet: fund it with what the program needs for the period ahead and
+top it up on a schedule. Payouts run from one API instance; see
+[Scaling](/self-hosting/operations#scaling). The programs are described in
+[Rewards](/rewards/rewards-program).
+
+## `.chain` names
+
+`PROFILE_CHAIN_NAME_PRIVATE_KEY` is the sponsor wallet that claims `.chain` names for your users,
+sets their pointer and transfers each name to the user. See [Claim Your .chain Name](/getting-started/claim-name).
+
+## Notifications
+
+| Channel | Settings |
+| --- | --- |
+| Browser push | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a `mailto:` or `https:` URL). Generate the pair with `npx web-push generate-vapid-keys`. |
+| Mobile push (Expo) | `EXPO_ACCESS_TOKEN`, optional; set it for your Expo project's limits |
+| Notification feed | Built in; served from the API's `/notifications` Socket.IO namespace |
+
+The web app fetches the public VAPID key from the API, so push works on your domain as soon as the
+API has the pair. Rate and retention settings (`NOTIF_*`, `WEB_PUSH_*`, `EXPO_*`) are listed in
+`.env.example`. See [Notifications](/social/notifications).
+
+## GIFs, images and media
+
+| Feature | Setting |
+| --- | --- |
+| GIF search | `GIPHY_API_KEY` on the API; the composer searches through `/api/giphy/search` |
+| Stock images | Openverse, from the browser; no key |
+| Video meetings | `JITSI_DOMAIN` on the web app; default `meet.jit.si` |
+
+Posts store media as URLs, so there is no upload storage to run.
+
+## Trending tags and DEX listings
+
+`TRENDING_TAGS_API_KEY` (16 characters or more) protects two operator endpoints:
+`POST /api/trending-tags`, where an external collector submits trending topics, and
+`PATCH /api/dex/tokens/{address}/listed`, which lists a token on the DEX screens. Send it as
+`x-api-key` or a bearer token.
+
+## Affiliation sign-in
+
+The invite and affiliation flows can confirm a social account with `GITHUB_CLIENT_ID` and
+`GITHUB_CLIENT_SECRET`, and `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, alongside X. See
+[Affiliation](/rewards/affiliation).
+
+## AE price data
+
+AE rates and price history come from the public CoinGecko API with no key. Allow outbound HTTPS to
+`api.coingecko.com`. See [Charts & History](/self-hosting/chart-history#ae-price-and-fiat-values).
+
+## The agent skill
+
+The [agent skill](/agents) reads three settings from the environment for governance:
+`AE_NODE_URL`, `AE_GOVERNANCE_REGISTRY` and `AE_GOVERNANCE_BACKEND_URL`. Its other scripts keep
+their endpoints and addresses as constants at the top of each file:
+
+| Constant | Scripts |
+| --- | --- |
+| `NODE_URL` | `superhero-post`, `-comment`, `-token-create`, `-token-swap`, `-invite`, `-name`, `-wallet` |
+| `API_BASE` / `https://api.superhero.com` | `superhero-comment`, `-portfolio`, `-transactions`, `-trending`, `-token-create`, `-token-swap` |
+| `MIDDLEWARE_URL` | `superhero-read`, `-name` |
+| `CONTRACT_ADDRESS` (Tipping v3) | `superhero-post`, `-comment`, `-read` |
+| `FACTORY_ADDRESS` | `superhero-token-create`, `-invite` |
+| `INVITE_BASE_URL` | `superhero-invite` |
+
+Set them to your stack in your copy of the skill.
+
+## Related
+
+- [API & Indexer](/self-hosting/api-and-indexer): the core settings.
+- [Operations](/self-hosting/operations): keeping wallets and keys safe in production.
+- [Verifying Your X Account](/identity/x-verification): the X flow from the user's side.

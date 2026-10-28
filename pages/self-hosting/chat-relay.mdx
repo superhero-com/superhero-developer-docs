@@ -1,0 +1,127 @@
+---
+title: "Chat Relay"
+description: "Run the Nostr relay behind Superhero chat, connect the API as its room admin, and point the web app at it."
+---
+
+# Chat Relay
+
+Superhero chat is Nostr. Direct messages and profiles go to any relay in the app's relay list, and
+token-gated community rooms are NIP-29 groups on a relay the API manages. superhero.com runs
+[`verse-pbc/groups_relay`](https://github.com/verse-pbc/groups_relay), a Rust relay with NIP-29
+groups and NIP-42 authentication, behind Caddy for TLS.
+
+## What the relay handles
+
+| Feature | Nostr kinds and NIPs |
+| --- | --- |
+| Profiles and direct messages | Kind `0`, kind `4` (NIP-04) |
+| Authentication | NIP-42 `AUTH` (kind `22242`) |
+| Room messages | Kinds `9` and `11` with an `h` tag naming the room |
+| Room state | Kinds `39000` (metadata), `39001` (admins), `39002` (members) |
+| Room administration by the API | Kinds `9007` create, `9002` edit metadata, `9000` add member, `9001` remove member, `9006` set roles, `9008` delete |
+
+Each community room is a NIP-29 group whose id is the token's sale address. The API creates the
+room, keeps its member list in step with token balances and the community's moderation settings,
+and the relay enforces membership.
+
+## Run `groups_relay`
+
+The repository ships a `Dockerfile` and a `compose.yml` that mount `./config` and `./db` and check
+`/health`.
+
+```bash
+git clone https://github.com/verse-pbc/groups_relay.git
+cd groups_relay
+docker compose up -d
+```
+
+Configure it with `config/settings.yml` (plus `settings.<env>.yml` and `settings.local.yml`) or
+with `NIP29__relay__*` environment variables:
+
+| Setting | Set it to |
+| --- | --- |
+| `relay_secret_key` | A new secret key, in hex. This key is the relay's admin; replace the sample value in the repository. |
+| `relay_url` | The public URL clients use, e.g. `wss://relay.example.com`. NIP-42 checks the client's relay tag against it. |
+| `local_addr` | Listen address; default `0.0.0.0:8080` |
+| `db_path` | LMDB data directory; default `/app/db` |
+
+```bash
+NIP29__relay__relay_secret_key=<64 hex chars>
+NIP29__relay__relay_url=wss://relay.example.com
+```
+
+The relay serves plain WebSocket on port 8080, with `/health` for probes and `/metrics` for
+Prometheus.
+
+## TLS in front
+
+Put a TLS proxy in front of the relay. [Caddy](https://caddyserver.com) issues and renews the
+certificate automatically and proxies WebSockets without extra configuration:
+
+```caddyfile
+relay.example.com {
+  @metrics path /metrics
+  respond @metrics 404
+  reverse_proxy 127.0.0.1:8080
+}
+```
+
+Keep `/metrics` on your internal network, as above. Whatever proxy you use, make sure certificate
+renewal is automatic and monitored: browsers only connect to the relay over valid TLS. See
+[Operations](/self-hosting/operations#tls-certificates).
+
+Check it from outside:
+
+```bash
+curl -s -H 'Accept: application/nostr+json' https://relay.example.com
+```
+
+The response is the relay's NIP-11 document, including its `pubkey` (the admin key) and
+`supported_nips` (`1, 9, 11, 29, 40, 42, 70`).
+
+## Connect the API
+
+| API variable | Value |
+| --- | --- |
+| `TG_RELAY_URL` | The relay's public URL, the same as `relay_url` |
+| `TG_BOT_NSEC` | The relay's secret key in `nsec1…` form |
+| `TG_ROOM_ADMINS` | Optional: npubs or hex keys added as admins of every room |
+| `TG_BACKFILL_ON_BOOT` | `true` to create rooms for existing tokens at startup; the sweep resumes where it left off and skips rooms that exist |
+
+`TG_BOT_NSEC` is the same key as the relay's `relay_secret_key`: hex on the relay, `nsec` for the
+API. Convert between them with any Nostr tool, for example `nak encode nsec <hex>`. At startup the
+API reads the relay's NIP-11 `pubkey` and confirms it matches.
+
+Use the public `wss://` hostname for `TG_RELAY_URL` too, so the API's NIP-42 authentication matches
+`relay_url`.
+
+With both variables set, the API provisions rooms and membership; with either unset, chat rooms
+stay off and everything else runs as normal. Check the wiring:
+
+```bash
+curl -s https://api.example.com/api/rooms/config
+# {"relay_url":"wss://relay.example.com","admin_pubkey":"…"}
+```
+
+## Point the web app at it
+
+Set the web app's runtime `NOSTR_RELAY_URLS` to your relay (a comma-separated list is fine):
+
+```bash
+NOSTR_RELAY_URLS=wss://relay.example.com
+```
+
+The server adds it to the CSP and to the client's relay list. Include the API's `TG_RELAY_URL` in
+this list: the app opens community rooms only on a relay it is configured for. See
+[Web App](/self-hosting/web-app#runtime-variables).
+
+## Back it up
+
+The relay keeps everything in its LMDB directory (`db_path`). Back it up with the relay stopped, or
+use the `export_import` tool bundled in the image.
+
+## Related
+
+- [Chat](/social/chat): how chat works for users, DMs and rooms.
+- [Moderation](/social/moderation): the community settings the API applies to rooms.
+- [API & Indexer](/self-hosting/api-and-indexer): the service that manages the rooms.

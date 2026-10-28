@@ -1,0 +1,129 @@
+---
+title: "Contracts"
+description: "Use Superhero's public contracts or deploy your own, and where each address is configured in the API, the web app and the agent skill."
+---
+
+# Contracts
+
+Superhero's contracts are public and permissionless on æternity. A self-hosted instance can use
+them as they are, so your users share posts, tokens and liquidity with everyone on Superhero, or
+deploy its own for a separate community. You can mix the two: for example, your own factory for a
+private token universe, with the public DEX for liquidity.
+
+## At a glance
+
+| Contract | Using the public one | Deploying your own |
+| --- | --- | --- |
+| Tipping v3 (posts) | Your feed and superhero.com's are the same feed | Deploy the precompiled bytecode; a separate feed |
+| Community factory (tokens, DAOs, affiliation) | Same tokens, sales and DAOs as superhero.com | `deployCommunityFactory` from `bctsl-sdk`, then register collections |
+| DEX (factory, router, WAE) | Shared liquidity; recommended | `dex-contracts-v2` deploy script; starts with empty pools |
+| Governance registry | æternity's community-wide polls | Deploy the precompiled registry and run your own governance backend |
+| AddressLink (identity links) | Read existing links | Your own contract and provider namespaces, for writes |
+
+The public addresses are in [Deployed Addresses](/contracts/addresses). `AE_NETWORK_ID=ae_uat`
+switches the API to the testnet set.
+
+## Tipping v3
+
+Posts are calls to `post_without_tip` on the Tipping v3 contract
+([`aeternity/tipping-contract`](https://github.com/aeternity/tipping-contract), tag
+`v5.0.0-alpha2`). It has no owner and an `init()` without arguments. Precompiled bytecode is in
+`generated/bytecode_hashes.json`, so you can deploy it with the æternity SDK and its ACI, without a
+compiler.
+
+| Where | Setting |
+| --- | --- |
+| API | `src/social/config/post-contracts.config.ts`, per network |
+| Web app | Runtime `CONTRACT_V3_ADDRESS` |
+| Agent skill | `CONTRACT_ADDRESS` in `superhero-post.mjs`, `superhero-comment.mjs`, `superhero-read.mjs` |
+
+## Community factory
+
+The factory deploys each community's token, bonding curve, sale, DAO and management contract in
+one transaction. Its own `init` creates the AffiliationTreasury, the shared bonding curve and the
+ProtocolDAO token. Source: [`superhero-com/bcl-contracts`](https://github.com/superhero-com/bcl-contracts).
+
+**Deploy with the SDK.** [`bctsl-sdk`](https://github.com/bctsl/bctsl-sdk) (`v1.0.0`) deploys the
+precompiled factory:
+
+1. `deployCommunityFactory(aeSdk, protocolDaoTokenName)` deploys the factory and calls `init`.
+2. `createCollection(name, allowedNameLength, allowedNameChars)` registers each collection, the
+   naming rules for its tokens. Registering a collection takes exactly 555 AE, which the contract
+   burns. See [Collections & Naming](/tokens/collections-and-naming).
+3. Record the deployment key-block height and read `affiliation_treasury()` and
+   `protocol_dao_token()` for the addresses below.
+
+| Where | Setting |
+| --- | --- |
+| API | `BCL_FACTORY` in `src/configs/contracts.ts`: `address`, `deployed_at_block_height`, `bctsl_aex9_address` (ProtocolDAO token), `affiliation_address` (treasury), `collections` |
+| Web app | Reads the factory from `GET /api/factory`; set `INVITATIONS_CONTRACT` in `src/utils/constants.ts` to your treasury |
+| Agent skill | `FACTORY_ADDRESS` in `superhero-token-create.mjs` and `superhero-invite.mjs` |
+
+Leave `collections` as `{}` to load them from the chain; add entries to give them descriptions. The
+indexer starts token history at `deployed_at_block_height`. The API keeps only the tokens of the
+factory it is configured with, so set the factory before the first backfill.
+
+## DEX
+
+The DEX ([`aeternity/dex-contracts-v2`](https://github.com/aeternity/dex-contracts-v2)) is shared
+by every æternity app; using the public deployment gives your users its pools and liquidity from
+day one. To deploy your own, for testnet or a local chain:
+
+```bash
+SECRET_KEY=... NETWORK_NAME=testnet FEE_TO_SETTER=ak_... \
+COMPILER_URL=https://v8.compiler.aepps.com make deploy
+```
+
+It deploys the pair model, the factory, WAE and the router.
+
+| Where | Setting |
+| --- | --- |
+| API | `src/dex/config/dex-contracts.config.ts`, per network |
+| Web app | `DEX_FACTORY`, `DEX_ROUTER`, `DEX_WAE`, `DEX_AEETH` in the `NETWORKS` block of `src/config.ts` (build time) |
+
+## Governance registry
+
+The registry indexes polls and holds the global delegation map. It has no admin, and anyone can
+register a poll. The mainnet registry is æternity's community-wide one; most instances use it.
+
+For a private poll set, deploy `Registry_Compiler_v6.aes` from
+[`aeternity/aepp-governance`](https://github.com/aeternity/aepp-governance)
+(`governance-contracts/generated/bytecode_hashes.json`) with `init()`, and run your own
+[governance backend](/self-hosting/governance-backend) against it.
+
+| Where | Setting |
+| --- | --- |
+| API | `src/plugins/governance/config/governance.config.ts`: address and start height |
+| Web app | Runtime `GOVERNANCE_CONTRACT_ADDRESS` |
+| Governance backend | `CONTRACT_ADDRESS` |
+| Agent skill | `AE_GOVERNANCE_REGISTRY` |
+
+## AddressLink
+
+Identity links (an X handle, a Nostr key, a bio, a website, a preferred `.chain` name) are written
+to the AddressLink contract under **provider namespaces**. Each namespace belongs to one account,
+and only that account can write under it. Superhero's backend wallet owns `x`, `nostr`, `site`,
+`bio` and `prefaens` on its contract: the user signs, the backend submits.
+
+To offer identity links on your instance, deploy your own AddressLink contract (the Superhero team
+provides it on request), then call `register_provider` for each of `x`, `nostr`, `site`, `bio` and
+`prefaens` from your backend wallet.
+
+| Where | Setting |
+| --- | --- |
+| API | `ADDRESS_LINK_CONTRACT_ADDRESS` and `ADDRESS_LINK_SECRET_KEY` (the provider wallet, which also pays for the link transactions) |
+
+See [AddressLink](/contracts/address-link) for the entrypoints and
+[Verifying Your X Account](/identity/x-verification) for the flow.
+
+## Social graph (optional)
+
+Follow lists come from a SocialContract when `SOCIAL_GRAPH_CONTRACT_ADDRESS` and
+`SOCIAL_GRAPH_NETWORK_ID` are set on the API. The API checks the deployed bytecode against
+`src/plugins/social-graph/aci/SocialContract.build.json` before it reads the contract.
+
+## Related
+
+- [Deployed Addresses](/contracts/addresses): the public addresses and deployment heights.
+- [Calling Contracts](/contracts/calling-contracts): deploying and calling with the æternity SDK.
+- [CommunityFactory](/contracts/community-factory): the factory's entrypoints.

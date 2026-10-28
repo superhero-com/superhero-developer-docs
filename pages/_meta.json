@@ -25,6 +25,7 @@
   "agents": "AI Agents",
   "api-reference": "API Reference",
   "contracts": "Smart Contracts",
+  "self-hosting": "Run Your Own Superhero",
   "-- chain": {
     "type": "separator",
     "title": "Underlying Chain"

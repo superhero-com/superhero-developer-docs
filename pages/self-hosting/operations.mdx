@@ -1,0 +1,102 @@
+---
+title: "Operations"
+description: "TLS, health checks, backups, upgrades, scaling and a launch checklist for a self-hosted Superhero."
+---
+
+# Operations
+
+## TLS certificates
+
+Browsers reach four of your services directly: the web app, the API (REST and Socket.IO), the chat
+relay and the governance backend. Each needs a valid certificate at all times; a lapsed certificate
+on the relay, for example, stops chat for every user.
+
+- Terminate TLS at a proxy that renews automatically, such as Caddy or Traefik, or run `certbot`
+  with its renewal timer enabled.
+- Monitor expiry on every public hostname and alert well before the date.
+- After changing a proxy or host, check each endpoint from outside:
+
+```bash
+for h in app.example.com api.example.com relay.example.com governance.example.com; do
+  echo | openssl s_client -connect $h:443 -servername $h 2>/dev/null | openssl x509 -noout -enddate
+done
+```
+
+## Health checks
+
+| Service | Probe | Healthy when |
+| --- | --- | --- |
+| Web app | `GET /robots.txt` | `200` |
+| API | `GET /api/stats` | `200` and `mdwConnected: true` |
+| API indexer | `GET /api/mdw/health` | `liveSync.isActive: true` and a small `liveSync.lag`; after the first backfill, `backwardSync.status: complete` |
+| Middleware | `GET /mdw/v3/status` | `mdw_synced: true` |
+| Chat relay | `GET /health` on port 8080, NIP-11 document on the public URL | `OK`; `pubkey` matches the API's `TG_BOT_NSEC` |
+| Governance backend | `GET /version` | `200` |
+
+The API logs errors only by default; set `DEBUG_ENABLED=true` for info logs. It also logs a
+`[StabilizationChecklist]` line every five minutes and, with chat rooms on, a `[TgrMetrics]` line
+every minute, both easy to alert on.
+
+## Backups
+
+| Store | What to back up | Notes |
+| --- | --- | --- |
+| API PostgreSQL | Regular `pg_dump` or continuous archiving | The index rebuilds from the chain, but a restore is far faster than a full backfill |
+| Chat relay LMDB | The `db_path` directory | Stop the relay or use its `export_import` tool |
+| Redis (API, governance) | Optional | Queues and caches; both services rebuild them |
+| Secrets | Database passwords, the relay key, VAPID pair, X credentials, every wallet key | In your secret store, with access logged |
+
+## Upgrades
+
+1. Read the release notes of each repository you run.
+2. Build the new images.
+3. Restart the API: it applies new migrations under a Postgres advisory lock, then starts.
+4. Restart the web app.
+5. Check the health endpoints above.
+
+If the API was down for more than about five hours, see
+[After downtime](/self-hosting/api-and-indexer#after-downtime).
+
+## Scaling
+
+The API is built to run as **one instance**. In that process:
+
+- the indexer's backfill, live sync and reorg validation run once;
+- the cron jobs (trending, leaderboards, analytics, price sync) run once;
+- Socket.IO broadcasts reach every connected client;
+- reward and `.chain` payouts use one transaction queue per wallet.
+
+Scale it vertically, and scale PostgreSQL first: most of the work is queries. The response cache
+is in memory, so give the process room for it, and put a CDN or caching proxy in front of the
+public, cacheable reads such as token lists and sparklines if traffic grows.
+
+## Security checklist
+
+- `/api/bull-board` reachable only from your network or behind authentication.
+- The relay's `/metrics` kept internal.
+- `NODE_ENV=production` on the API: Swagger stays off unless `ENABLE_SWAGGER=true`, and GraphQL
+  introspection is off.
+- `TRUST_PROXY` matches your proxy, so rate limits apply per client.
+- `ALLOWED_ORIGINS` set to your web app's origin.
+- PostgreSQL and Redis on a private network, with passwords.
+- Every `*_PRIVATE_KEY` and `ADDRESS_LINK_SECRET_KEY` wallet funded for its purpose only.
+- A new `relay_secret_key`, not the sample from the relay repository.
+
+## Launch checklist
+
+- [ ] Middleware synced (`mdw_synced: true`) and reachable from the API.
+- [ ] Database created as in [Create the database](/self-hosting/api-and-indexer#create-the-database); API healthy.
+- [ ] Backfill past the factory's deployment height, so tokens, trades and charts are complete.
+- [ ] Relay up behind TLS; `/api/rooms/config` shows your relay and admin key.
+- [ ] Governance backend answering `/pollOrdering`.
+- [ ] Web app built with your `VITE_WEBAUTHN_RP_ID`, running with your API, relay and governance
+      URLs; the CSP report endpoint quiet.
+- [ ] Passkey sign-up, a post, a trade, a chat message and a vote tested end to end on your domain.
+- [ ] Certificates on automatic renewal, with expiry monitoring.
+- [ ] Database backups running, and a restore tested.
+
+## Related
+
+- [Run Your Own Superhero](/self-hosting): the overview.
+- [API & Indexer](/self-hosting/api-and-indexer): settings and the HTTP surface.
+- [Chat Relay](/self-hosting/chat-relay): TLS and the admin key.
