@@ -1,0 +1,199 @@
+---
+title: "API & Indexer"
+description: "Build and run superhero-api: its datastores, configuration, first-time database setup, indexing progress and HTTP surface."
+---
+
+# API & Indexer
+
+`superhero-com/superhero-api` is one NestJS process that does all of the backend work:
+
+- **Indexer.** Walks the chain through the middleware and stores what Superhero needs in
+  PostgreSQL: posts, tips, tokens, trades, DEX swaps, governance, identity links.
+- **API.** REST under `/api`, Socket.IO channels for live token data, and a notifications
+  namespace.
+- **Jobs.** Trending scores, token performance, leaderboards, DEX summaries, AE price history,
+  popular-feed ranking, holder syncs and push delivery, on cron schedules and Redis-backed queues.
+- **Integrations.** X verification and rewards, `.chain` name sponsoring, identity links and
+  token-gated chat rooms, each switched on by its own keys.
+
+## Requirements
+
+| Component | Version / notes |
+| --- | --- |
+| Node.js | 20 (the Docker image uses `node:20-alpine`) |
+| PostgreSQL | 16, no extensions |
+| Redis | Any current version; keys are prefixed with the network id |
+| Middleware and node | See [Node, Middleware & Compiler](/self-hosting/chain-access) |
+
+## Build
+
+The build installs two packages straight from GitHub (`bctsl-sdk` and `dex-contracts-v2`) and
+compiles `bctsl-sdk` during install.
+
+**Docker.** The `Dockerfile` reads a GitHub token from a BuildKit secret for those installs. Any
+token works, including a read-only one:
+
+```bash
+git clone https://github.com/superhero-com/superhero-api.git
+cd superhero-api
+DOCKER_BUILDKIT=1 docker build --secret id=GITHUB_TOKEN,env=GITHUB_TOKEN -t superhero-api .
+```
+
+**Without Docker.** Point Git at HTTPS for GitHub, then install and build:
+
+```bash
+git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+git config --global --add url."https://github.com/".insteadOf "git@github.com:"
+npm ci
+npm run build
+```
+
+The image runs `npm run migrate:prod:locked`, which applies pending migrations under a Postgres
+advisory lock, and then starts `node dist/main` on port 3000.
+
+## Configure
+
+Start from `.env.example` in the repository. The settings below are the core; feature keys are in
+[Keys & Integrations](/self-hosting/integrations).
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `NODE_ENV` | — | Set `production` |
+| `AE_NETWORK_ID` | `ae_mainnet` | `ae_mainnet` or `ae_uat`: selects chain endpoints, contracts and the Redis key prefix |
+| `APP_PORT` | `3000` | Listen port |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE` | port `5432` | PostgreSQL connection |
+| `DB_POOL_MAX`, `DB_POOL_MIN` | `40`, `5` | Connection pool |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | `localhost`, `6379` | Redis connection |
+| `TRUST_PROXY` | unset | Set `1` (or your proxy's CIDR) behind a reverse proxy, so rate limits see client IPs |
+| `ALLOWED_ORIGINS` | all origins | Comma-separated CORS allowlist for REST and Socket.IO |
+| `DEBUG_ENABLED` | `false` | `true` adds info-level logs to the default error logs |
+| `ENABLE_SWAGGER` | — | `true` serves the OpenAPI UI at `/api` in production |
+
+Chain endpoints are set in code, in `src/configs/network.ts`; see
+[Point the API at it](/self-hosting/chain-access#point-the-api-at-it). Contract addresses are set
+per network in code too; see [Contracts](/self-hosting/contracts).
+
+### Indexer settings
+
+| Variable | Default | What it sets |
+| --- | --- | --- |
+| `SYNC_INTERVAL_MS` | `3000` | How often the backfill loop checks for work |
+| `BULK_MODE_BATCH_BLOCKS` | `1000` | Blocks per step while far from the tip |
+| `BACKFILL_BATCH_BLOCKS` | `50` | Blocks per step close to the tip |
+| `MICRO_BLOCKS_PARALLEL_BATCH_SIZE` | `4` | Concurrent micro-block fetches |
+| `FETCH_JSON_TIMEOUT_MS` | `30000` | Timeout for each middleware request |
+| `REORG_DEPTH` | `100` | Key blocks re-checked every 10 minutes for reorgs |
+
+With a middleware on the same network, raise `MICRO_BLOCKS_PARALLEL_BATCH_SIZE` to speed up the
+first backfill.
+
+## Create the database
+
+On a new database, create the schema once before the first normal start. The schema comes from the
+API's entities; the migrations then add what the entities do not describe. These steps were
+checked against `main` on PostgreSQL 16.
+
+**1. Build the schema from the entities.** Start the API once in schema-sync mode, with the
+indexer off:
+
+```bash
+docker run --rm -p 3000:3000 --env-file .env.api \
+  -e NODE_ENV=development -e DB_SYNC=true -e DISABLE_MDW_SYNC=true \
+  superhero-api node dist/main
+```
+
+When `curl localhost:3000/api/stats` answers, stop the container. Schema sync works only outside
+`NODE_ENV=production`, so this is a one-off step.
+
+**2. Record the migrations the entities already cover.** These ten describe tables and columns the
+sync just created:
+
+```sql
+CREATE TABLE IF NOT EXISTS migrations (
+  id SERIAL PRIMARY KEY,
+  timestamp BIGINT NOT NULL,
+  name VARCHAR NOT NULL
+);
+INSERT INTO migrations (timestamp, name) VALUES
+  (1718900000001, 'TgrTokenColumns1718900000001'),
+  (1718900000002, 'TgrCommunityRoom1718900000002'),
+  (1718900000003, 'TgrRoomMembership1718900000003'),
+  (1718900000004, 'TgrRoomNotificationPreference1718900000004'),
+  (1718900000005, 'TgrRoomMessageSeen1718900000005'),
+  (1718900000006, 'TgrTokenBalance1718900000006'),
+  (1718900000007, 'TgrRoomBackfillState1718900000007'),
+  (1718900000008, 'TgrTokenRoomId1718900000008'),
+  (1718900000009, 'TgrRoomMembershipEvent1718900000009'),
+  (1718900000036, 'TokenPerformanceTable1718900000036');
+```
+
+**3. Start normally.** The container applies the remaining migrations, including the social graph
+tables and the query indexes, and starts the API:
+
+```bash
+docker run -d --restart=always --name superhero-api -p 3000:3000 \
+  --env-file .env.api -e NODE_ENV=production superhero-api
+```
+
+From here on, every start applies new migrations automatically before the API comes up.
+
+## Indexing
+
+On first start the indexer reads the middleware's tip height and runs two loops:
+
+- **Live sync** subscribes to the middleware WebSocket and indexes new blocks as they arrive.
+- **Backfill** walks from the tip back to the start of the chain in batches, storing blocks and the
+  transactions any plugin cares about.
+
+Some data arrives ahead of the backfill: all posts are pulled from the middleware shortly after
+boot, and new tokens are pulled from the factory every 10 minutes. Trades, DEX swaps and chart
+history fill in as the backfill reaches them; token history begins at the factory's deployment
+height.
+
+### Progress and health
+
+| Endpoint | What it tells you |
+| --- | --- |
+| `GET /api/stats` | `currentBlockNumber`, `lastSyncedBlockNumber`, `remainingBlocksToSync`, `mdwConnected`, uptime. Cheap; use it as the liveness probe. |
+| `GET /api/mdw/health` | Backfill status (`running` or `complete`), remaining blocks and percentage, live-sync lag, and each plugin's synced height |
+| `GET /api/v2/mdw/sync-state` | The raw sync state rows |
+
+The indexer is caught up when `backwardSync.status` is `complete` and `liveSync.lag` is a few
+blocks.
+
+### After downtime
+
+Every 10 minutes the indexer re-checks the last `REORG_DEPTH` key blocks, about five hours of
+chain at the default 100. If the API was down for longer, set `REORG_DEPTH` above the number of
+key blocks it missed, start it, let one validation pass run, then set it back.
+
+## HTTP surface
+
+| Path | What it serves |
+| --- | --- |
+| `/api/*` | REST; the full list is in the [API Reference](/api-reference) |
+| `/socket.io/` | Socket.IO: `token-updated`, `token-history`, `social-graph-updated`; namespace `/notifications` |
+| `/graphql` | GraphQL (introspection off in production) |
+| `/api/bull-board` | Job queue dashboard for operators |
+
+At the reverse proxy:
+
+- Pass WebSocket upgrades for `/socket.io/`.
+- Keep `/api/bull-board` on your internal network or behind authentication.
+- Set `TRUST_PROXY` on the API to match the proxy.
+
+## Running it
+
+- **One instance.** The indexer, the cron jobs, the Socket.IO broadcasts and the payout queues
+  are designed for a single process. See [Scaling](/self-hosting/operations#scaling) for more.
+- **Restart policy.** The process exits on an unexpected error so a supervisor restarts it
+  cleanly; run it with `--restart=always` or the equivalent.
+- **Factory changes.** On every start the API keeps only the tokens of the factory it is
+  configured with. Change the factory on a fresh database, or expect the token tables to be rebuilt.
+
+## Related
+
+- [Charts & History](/self-hosting/chart-history): what the jobs above compute and when charts fill in.
+- [Keys & Integrations](/self-hosting/integrations): X, push, rewards and the other feature keys.
+- [Operations](/self-hosting/operations): backups, monitoring and upgrades.
+- [Architecture Overview](/concepts/architecture): plugins, reorg handling and the live-update path.

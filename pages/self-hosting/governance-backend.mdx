@@ -1,0 +1,82 @@
+---
+title: "Governance Backend"
+description: "Run the æternity governance server that computes stake-weighted poll results for the /voting screens."
+---
+
+# Governance Backend
+
+The `/voting` screens read polls and their stake-weighted results from the æternity governance
+server, `governance-server` in [`aeternity/aepp-governance`](https://github.com/aeternity/aepp-governance).
+It watches the governance registry and every poll contract, resolves delegations, and serves the
+results. It keeps a cache in Redis and recomputes everything from the chain, so it has no database
+to manage.
+
+The public instance is `https://governance-server-mainnet.prd.service.aepps.com/`. Use it, or run
+your own next to your middleware.
+
+## Run it
+
+Build the image from the repository root, because the Dockerfile copies the compiled poll contracts
+from `governance-contracts/`:
+
+```bash
+git clone https://github.com/aeternity/aepp-governance.git
+cd aepp-governance
+docker build -f governance-server/Dockerfile -t governance-server .
+
+docker run -d --restart=always -p 3010:3000 \
+  -e CONTRACT_ADDRESS=ct_ouZib4wT9cNwgRA1pxgA63XEUd8eQRrG8PcePDEYogBc1VYTq \
+  -e NODE_URL=https://chain.example.com/ \
+  -e MIDDLEWARE_URL=https://chain.example.com/mdw \
+  -e WEBSOCKET_URL=wss://chain.example.com/mdw/websocket \
+  -e REDIS_URL=redis://redis:6379 \
+  governance-server
+```
+
+`governance-server/docker-compose.yml` runs the server with its Redis in one step.
+
+| Variable | Required | What it sets |
+| --- | --- | --- |
+| `CONTRACT_ADDRESS` | yes | The governance registry. Mainnet: `ct_ouZib4wT9cNwgRA1pxgA63XEUd8eQRrG8PcePDEYogBc1VYTq`; testnet: `ct_2nritSnqW6zooEL4g2SMW5pf12GUbrNyZ17osTLrap7wXiSSjf` |
+| `NODE_URL` | yes | æternity node |
+| `WEBSOCKET_URL` | yes | Middleware WebSocket, v1 path (`/mdw/websocket`) |
+| `REDIS_URL` | yes | Redis for the cache |
+| `MIDDLEWARE_URL` | recommended | Middleware REST; with it, the server finds poll creations and votes through `/v2/txs` quickly |
+| `PORT` | no | Default `3000` |
+| `SHORT_CACHE_TIME`, `LONG_CACHE_TIME`, `KEEP_HOT_INTERVAL` | no | Cache tuning; defaults 120 s, 8 h, 60 s |
+
+Check it:
+
+```bash
+curl -s https://governance.example.com/version
+curl -s https://governance.example.com/pollOrdering
+```
+
+## Routes the app uses
+
+| Route | Returns |
+| --- | --- |
+| `GET /pollOrdering[?closed=true]` | The poll list for `/voting` |
+| `GET /pollOverview/{poll}` | A poll with its stake-weighted results |
+| `GET /votesState/{poll}` | Current votes and stakes |
+| `GET /delegatedPower/{account}[?poll=]` | An account's own and delegated voting power |
+| `GET /accountPollVoterAuthor/{account}` | Polls an account voted in or created |
+| `POST /contractEvent` | A nudge after a vote or delegation, so the cache refreshes immediately |
+| `GET /version` | Server version |
+
+## Point the clients at it
+
+| Client | Setting |
+| --- | --- |
+| Web app | Runtime `GOVERNANCE_API_URL`, and `GOVERNANCE_CONTRACT_ADDRESS` for the registry |
+| Agent skill | `AE_GOVERNANCE_BACKEND_URL` and `AE_GOVERNANCE_REGISTRY` |
+
+The API indexes governance on its own as well (`/api/governance/votes`, `/api/governance/delegations`)
+for history; the registry address and start height are in
+`src/plugins/governance/config/governance.config.ts`.
+
+## Related
+
+- [Governance & Voting](/governance): polls, delegation and stake weighting.
+- [The Governance Registry](/governance/registry): the contract this server watches.
+- [Contracts](/self-hosting/contracts#governance-registry): using the shared registry or your own.

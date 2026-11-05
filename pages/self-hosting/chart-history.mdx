@@ -1,0 +1,85 @@
+---
+title: "Charts & History"
+description: "How the API builds token candles, DEX charts, portfolio history, AE price history and rankings, and how each fills in on a new instance."
+---
+
+# Charts & History
+
+Every chart in Superhero is served by the API from data its indexer stores. There is no separate
+charting service and no history import: once the indexer has the trades, the charts follow. This
+page shows where each chart comes from and how it fills in on a new instance.
+
+## Computed when you ask
+
+These are built from indexed trades on every request, with a short cache, so they are complete as
+soon as the trades they cover are indexed.
+
+| Chart | Endpoint | Built from |
+| --- | --- | --- |
+| Token candles (OHLCV) | `GET /api/tokens/{address}/history?interval=` | Bonding-curve trades (`transactions`) |
+| Token price series | `GET /api/tokens/{address}/transactions` | Bonding-curve trades |
+| Token previews and sparklines | `GET /api/tokens/preview/{address}`, `.../sparkline.svg` | Bonding-curve trades |
+| DEX pair candles | `GET /api/dex/pairs/{address}/history` | DEX swaps (`pair_transactions`) |
+| DEX token price | `GET /api/dex/tokens/{address}/history` | The token's deepest WAE pool |
+| Portfolio and PnL | `GET /api/accounts/{address}/portfolio/history`, `.../pnl-chart.svg` | Trades, key blocks and historical balances from the node |
+
+The live chart updates arrive on the `token-history` Socket.IO channel the moment the indexer
+stores a trade.
+
+Portfolio history asks the node for an account's balance at past heights, so it needs a node that
+keeps historical state (a full node with garbage collection off, the `ae_mdw` default) and the key
+blocks for the period, which the backfill provides.
+
+## Rebuilt on a schedule
+
+| Data | Schedule | Endpoint |
+| --- | --- | --- |
+| Token performance (price change, highs and lows per window) | Every 5 minutes | `GET /api/tokens/{address}/performance` |
+| Token ranks | Every 5 minutes | Token list ordering |
+| Leaderboard snapshots (7d, 30d, all time) | Every 10 minutes | `GET /api/accounts/leaderboard` |
+| DEX token prices and pair summaries | Every 10 minutes (`DEX_PRICE_SYNC_CRON`) | `/api/dex/*/summary` |
+| Trending scores | Every 2 hours for active tokens, every 6 hours for the rest, and at startup | Token list `order_by=trending_score` |
+| Popular feed | Every 10 minutes, in Redis | `GET /api/posts/popular` |
+| Daily analytics | Hourly | `/api/analytics/*` |
+
+Each of these runs at startup or on its first tick, so a new instance shows them within minutes of
+the trades being indexed. Nothing needs a manual rebuild.
+
+## AE price and fiat values
+
+The API reads AE prices from the public CoinGecko API every 10 minutes; no key is needed.
+
+| Data | Endpoint | Source |
+| --- | --- | --- |
+| Current rates | `GET /api/coins/aeternity/rates` | CoinGecko simple price, stored in `coin_prices` |
+| Price history, up to 365 days | `GET /api/coins/aeternity/history` | CoinGecko market chart, stored in `coin_historical_prices` |
+| Market data | `GET /api/coins/aeternity/market-data` | CoinGecko markets |
+
+The API also ships a bundled AE price file, used until the first CoinGecko refresh completes. Allow
+outbound HTTPS to `api.coingecko.com`.
+
+**How fiat values are stored.** AE amounts are exact, straight from the chain. When the indexer
+stores a bonding-curve trade, it also stores the trade's fiat values (`buy_price.usd`,
+`market_cap.usd` and the other currencies) at the AE rate of that moment. On an instance that
+indexes live, that is the rate at trade time. On a fresh backfill, historical trades take the rate
+from the time they were indexed. AE-denominated charts are exact either way; for fiat charts over
+history, backfill early and keep the instance running.
+
+## How a new instance fills in
+
+| Time after first start | What you see |
+| --- | --- |
+| Seconds | Posts (pulled straight from the middleware), the factory, collections, AE rates |
+| Minutes | New tokens from the factory, trending tags, token info and holders as their sync jobs run |
+| As the backfill reaches each height | Trades, candles, performance, leaderboards, DEX swaps and pool charts, portfolio history |
+| Backfill complete | Everything, with the live loop keeping it current |
+
+Watch `GET /api/mdw/health` for the backfill's progress; token history starts at the factory's
+deployment height, so it completes before the walk reaches the early chain.
+
+## Related
+
+- [API & Indexer](/self-hosting/api-and-indexer): the indexer and its settings.
+- [Web App](/self-hosting/web-app#charts-in-the-app): which component draws which chart.
+- [WebSocket](/api-reference/websocket): the `token-history` channel.
+- [Trending & Topics](/api-reference/trending): the trending-score formula.

@@ -1,0 +1,121 @@
+---
+title: "Node, Middleware & Compiler"
+description: "Run the æternity node and middleware the API indexes from, and where the Sophia compiler fits."
+---
+
+# Node, Middleware & Compiler
+
+Everything Superhero shows comes from the æternity chain. The API reads it through two services:
+the **node**, for chain state and broadcasting, and the **middleware** (`ae_mdw`), for indexed
+transaction history and a live WebSocket feed.
+
+## Public endpoints or your own
+
+| Option | Good for |
+| --- | --- |
+| Public `https://mainnet.aeternity.io` and `/mdw` | Trying the stack, development, a small instance. This is the API's default. |
+| Your own `ae_mdw` | Production. The first backfill reads the full transaction history from the middleware, and a local middleware makes it fast and keeps your instance independent. |
+
+## What the API uses
+
+| Service | Path | Used for |
+| --- | --- | --- |
+| Middleware REST | `/mdw/v3/status`, `/v3/key-blocks`, `/v3/transactions`, `/v3/contracts`, `/v3/aex9/*`, `/v3/names/*` | Backfill, token holders, contract logs, names |
+| Middleware WebSocket | `/mdw/v2/websocket` (`Transactions`, `KeyBlocks`, `MicroBlocks`) | Live indexing |
+| Node REST | `/v3/accounts/*`, `/v3/names/*`, dry runs, broadcasting | Balances, portfolio history, backend transactions |
+
+Portfolio history reads historical balances from the node, so run a full node with garbage
+collection off, which is the `ae_mdw` default.
+
+## Run `ae_mdw`
+
+`aeternity/ae_mdw` runs the node and the middleware in one container: the node on port 3013, the
+middleware on 4000 and the middleware WebSocket on 4001.
+
+The quickest route is the official installer, [`aeternity/get-aeternity`](https://github.com/aeternity/get-aeternity).
+It sets up `ae_mdw` with Docker Compose and can download the node and middleware snapshots for
+you. Check the `fork_management.network_id` in the generated `aeternity.yaml`: `ae_mainnet` for
+mainnet, `ae_uat` for testnet.
+
+To set it up by hand, follow the
+[middleware setup guide](https://github.com/aeternity/ae_mdw/blob/master/docs/middleware_setup.md):
+
+```bash
+mkdir -p data/mnesia data/mdw.db && chown -R 1000 data
+# Extract a full node snapshot into data/mnesia and a middleware snapshot into data/mdw.db
+docker compose up -d   # from the ae_mdw repository
+curl -s localhost:4000/v3/status
+```
+
+Snapshots are published by the æternity team; `get-aeternity` downloads the current full node
+snapshot (`main_v1_full_latest.tar.zst`) and middleware snapshot (`mdw_main_latest.tar.zst`). The
+middleware needs the **full** node database, not the light one.
+
+For hardware, follow the æternity
+[hardware requirements](https://github.com/aeternity/aeternity/blob/master/docs/hardware-requirements.md);
+`get-aeternity` recommends a 1 TB SSD. Apply the host settings in the middleware setup guide
+(open-file limit and `sysctl` values) before the first start.
+
+### Expose it the way the API expects
+
+The API addresses the node at `/`, the middleware at `/mdw` and the middleware WebSocket at
+`/mdw/v2/websocket` on one host. Put a reverse proxy in front of the container:
+
+| Public path | Container port |
+| --- | --- |
+| `/` | `3013` (node) |
+| `/mdw/` | `4000` (middleware REST) |
+| `/mdw/v2/websocket` | `4001`, path `/v2/websocket` |
+
+Or point the API straight at `http://mdw-host:3013`, `http://mdw-host:4000` and
+`ws://mdw-host:4001/v2/websocket` on a private network.
+
+### Point the API at it
+
+The API's chain endpoints live in `src/configs/network.ts`, one block per network:
+
+```ts
+export const NETWORK_MAINNET: INetwork = {
+  url: 'https://chain.example.com',
+  networkId: NETWORK_ID_MAINNET,
+  middlewareUrl: 'https://chain.example.com/mdw',
+  explorerUrl: 'https://aescan.io',
+  compilerUrl: 'https://v8.compiler.aepps.com',
+  websocketUrl: 'wss://chain.example.com/mdw/v2/websocket',
+  name: 'Mainnet',
+};
+```
+
+`AE_NETWORK_ID` (`ae_mainnet` or `ae_uat`) selects the block. Rebuild the API after editing. The
+web app has its own copy of these endpoints; see
+[The compiled network block](/self-hosting/web-app#the-compiled-network-block).
+
+### Health
+
+`GET /v3/status` on the middleware reports `node_height`, `mdw_height` and `mdw_synced`. The
+middleware is ready when `mdw_synced` is `true` and `mdw_height` is within a block or two of
+`node_height`.
+
+## The Sophia compiler
+
+The web app and the API work from committed contract interfaces (ACIs) and precompiled bytecode,
+so neither compiles Sophia at runtime. You need a compiler only to deploy contracts from source,
+for example the DEX deploy script.
+
+For deployments, use `https://v8.compiler.aepps.com`, or run your own:
+
+```bash
+docker run -p 3080:3080 aeternity/aesophia_http:v8.0.0
+```
+
+## Explorer
+
+Transaction links go to [aeScan](https://aescan.io), which reads the same public chain. Set the web
+app's `EXPLORER_URL` to use another one. aeScan is open source (`aeternity/aescan`) and can run
+against your own middleware through its `NUXT_PUBLIC_*` settings.
+
+## Related
+
+- [API & Indexer](/self-hosting/api-and-indexer): what the API does with these endpoints.
+- [Networks & Endpoints](/aeternity/networks): the public æternity endpoints.
+- [Explorers](/aeternity/explorers): aeScan and the other explorers.

@@ -1,0 +1,185 @@
+---
+title: "Web App"
+description: "Build the Superhero web app for your own domain, point it at your own services, and serve it with its production server."
+---
+
+# Web App
+
+The web app (`superhero-com/superhero`) is a React and Vite single-page app served by a small
+Express server. The server injects runtime configuration, renders per-page titles and social
+cards, sets a strict Content Security Policy and builds the sitemap. Most settings can change at
+runtime through environment variables; a few are compiled in, so plan one build per domain and
+network.
+
+## Requirements
+
+- Node.js `^20.19.0` or `>=22.12.0`. The Docker image uses Node 20.
+- Access to `github.com` at install time: `npm ci` pulls the contract and SDK packages
+  (`bctsl-contracts`, `bctsl-sdk`, `dex-contracts-v2`, `tipping-contract`) straight from GitHub.
+- A domain you control, with TLS in front of the server.
+
+## Build
+
+```bash
+git clone https://github.com/superhero-com/superhero.git
+cd superhero
+npm ci
+VITE_NETWORK=ae_mainnet \
+VITE_WEBAUTHN_RP_ID=app.example.com \
+npm run build
+```
+
+The output is `dist/`. The build also writes a static `public/sitemap.xml`; the server replaces it
+at runtime with a live one.
+
+### Build-time variables
+
+| Variable | What it sets | Default |
+| --- | --- | --- |
+| `VITE_NETWORK` | `ae_mainnet` or `ae_uat`; selects the compiled network block | `ae_mainnet` |
+| `VITE_WEBAUTHN_RP_ID` | The passkey Relying Party ID: your registrable domain | `superhero.com` |
+| `VITE_SUPERHERO_API_URL` | Your API, compiled in; takes precedence over the runtime value | none |
+| `VITE_NOTIFICATIONS_API_URL` | A separate API for the notification feed, socket and web push | the main API |
+| `VITE_X_OAUTH_CLIENT_ID` | Your X app's OAuth client id; enables "Connect X" | none |
+| `VITE_NOSTR_RELAY_URLS` | Chat relays, compiled in; meant for local development | none |
+
+For a deployed build, prefer the runtime variables below for the API and relays, so the CSP and
+the client always agree.
+
+### The compiled network block
+
+The SDK's node, the Sophia compiler, the middleware used by some views and the DEX contract
+addresses come from the `NETWORKS` block in `src/config.ts`. To use your own node, middleware or
+compiler everywhere in the app, edit that block and rebuild:
+
+| Key in `NETWORKS` | Mainnet value today |
+| --- | --- |
+| `NODE_URL` | `https://mdw.wordcraft.fun` |
+| `MIDDLEWARE_URL` | `https://mdw.wordcraft.fun/mdw` |
+| `compilerUrl` | `https://v7.compiler.aepps.com` |
+| `DEX_FACTORY`, `DEX_ROUTER`, `DEX_WAE`, `DEX_AEETH` | See [Deployed Addresses](/contracts/addresses) |
+
+Then add the new origins to `CONNECT_SRC_ALLOWLIST` in `server/lib/csp.cjs`, or set the matching
+runtime variables (below), so the CSP allows them. `npm run check:csp-origins` checks the built
+bundle against the policy.
+
+### Building with Docker
+
+The repository's `Dockerfile` builds and serves the app on port 80. It forwards three build
+arguments to Vite: `VITE_WEBAUTHN_RP_ID`, `VITE_X_OAUTH_CLIENT_ID` and
+`VITE_WALLET_CONNECT_PROJECT_ID`. `.env` files are not copied into the image, so add an `ARG` and
+`ENV` line for any other `VITE_*` variable you want baked in, such as `VITE_NETWORK` for a testnet
+image.
+
+```bash
+docker build \
+  --build-arg VITE_WEBAUTHN_RP_ID=app.example.com \
+  --build-arg VITE_X_OAUTH_CLIENT_ID=your-x-client-id \
+  -t superhero-web .
+```
+
+## Run
+
+```bash
+docker run -d --restart=always -p 3000:80 \
+  -e NODE_ENV=production \
+  -e SUPERHERO_API_URL=https://api.example.com \
+  -e SUPERHERO_WS_URL=wss://api.example.com \
+  -e NOSTR_RELAY_URLS=wss://relay.example.com \
+  -e SITEMAP_ORIGIN=https://app.example.com \
+  superhero-web
+```
+
+Without Docker, run `node server/index.cjs` from the repository root after the build.
+
+### Runtime variables
+
+The server writes these into `window.__SUPERCONFIG__` for the client and adds their origins to the
+CSP `connect-src`, so one variable covers both.
+
+| Variable | What it sets |
+| --- | --- |
+| `SUPERHERO_API_URL` | Your API: REST, the Socket.IO channels and the server's own page metadata |
+| `BACKEND_URL` | Older name for the API URL; set it to the same value |
+| `SUPERHERO_WS_URL` | The `wss://` origin of your API, so the CSP allows the socket |
+| `NOSTR_RELAY_URLS` | Comma-separated `wss://` chat relays; see [Chat Relay](/self-hosting/chat-relay) |
+| `NODE_URL`, `MIDDLEWARE_URL` | Node and middleware for the views that read runtime config |
+| `GOVERNANCE_API_URL` | Governance backend; see [Governance Backend](/self-hosting/governance-backend) |
+| `GOVERNANCE_CONTRACT_ADDRESS` | Governance registry contract |
+| `CONTRACT_V3_ADDRESS` | Tipping v3 contract for posts and tips |
+| `EXPLORER_URL` | Block explorer for transaction links |
+| `JITSI_DOMAIN` | Video meetings domain; default `meet.jit.si` |
+| `POPULAR_FEED_ENABLED` | `true` or `false` |
+| `SITEMAP_ORIGIN` | Origin written into the live sitemap |
+| `PORT` | Listen port; default `80` |
+
+### What the server does
+
+- **Page metadata.** For every HTML request it sets the title, Open Graph, Twitter card,
+  canonical link and JSON-LD. Posts, profiles and token pages read their data from
+  `SUPERHERO_API_URL`.
+- **Content Security Policy.** A per-request nonce, `connect-src` built from a fixed allowlist
+  plus the origins of the runtime variables above, and a report endpoint at `/_csp-report`.
+- **Sitemap.** `/sitemap.xml` is rebuilt from the API at startup and every six hours, using
+  `SITEMAP_ORIGIN`.
+- **Agent-readable pages.** `/post/<id>.md`, `/users/<address>.md` and `/trends/tokens/<name>.md`
+  serve Markdown for crawlers and agents, and `/hubs` serves plain crawl pages.
+
+For a liveness probe, request a static file such as `/robots.txt`.
+
+## Your domain
+
+### Passkeys belong to their domain
+
+Passkeys are bound to the Relying Party ID they were created under. Build with
+`VITE_WEBAUTHN_RP_ID` set to your domain, and your users create passkey wallets on your site.
+
+Passkey wallets created on superhero.com stay with superhero.com, and the browser keeps each
+site's wallet vault in that site's own storage. Users who want the same account on your domain
+bring their backup, or connect with the Superhero Wallet extension or app, which works on any
+domain.
+
+Replace `public/.well-known/apple-app-site-association` with your own iOS app id, or remove it if
+you have no app.
+
+### Domain strings to update
+
+| File | Set it to |
+| --- | --- |
+| `src/seo/Head.tsx` (`CANONICAL_ORIGIN`) | Your origin, for canonical and Open Graph URLs in the client |
+| `public/robots.txt` | Your sitemap URL |
+| `public/llms.txt`, `public/index.md` | Your site's name and links |
+| `scripts/generate-sitemap.cjs` | Your origin, for the static fallback sitemap |
+
+### Behind a TLS proxy
+
+The server builds canonical and Open Graph URLs from the request protocol. Behind a reverse proxy
+that terminates TLS, add `app.set('trust proxy', 1)` in `server/index.cjs` so those URLs use
+`https://`. The server sends HSTS when it sees `X-Forwarded-Proto: https`.
+
+### Connect X
+
+Register `https://app.example.com/profile/x/callback` as a callback URL in your X developer app,
+and build with that app's client id in `VITE_X_OAUTH_CLIENT_ID`. The client secret lives on the
+API; see [Keys & Integrations](/self-hosting/integrations).
+
+## Charts in the app
+
+| Chart | Library | Data |
+| --- | --- | --- |
+| Token candles | lightweight-charts | `GET /api/tokens/{sale}/history`, live on the `token-history` socket channel |
+| Token sparklines | SVG image | `GET /api/tokens/preview/{sale}/sparkline.svg` |
+| DEX pool candles | lightweight-charts | `GET /api/dex/pairs/{pair}/history`, live on `token-history` for `PairTransaction::{pair}` |
+| DEX token price | lightweight-charts | `GET /api/dex/tokens/{token}/history` |
+| Portfolio and PnL | recharts | `GET /api/accounts/{address}/portfolio/history` |
+| Trend cloud | visx | `GET /api/trending-tags` |
+
+All of it comes from your API, so the charts fill in as your indexer catches up. See
+[Charts & History](/self-hosting/chart-history).
+
+## Related
+
+- [Run Your Own Superhero](/self-hosting): the overview and the order to bring things up.
+- [API & Indexer](/self-hosting/api-and-indexer): the service the web app reads from.
+- [Chat Relay](/self-hosting/chat-relay): `NOSTR_RELAY_URLS` and the relay behind it.
+- [Using Testnet](/getting-started/testnet): building for `ae_uat`.
