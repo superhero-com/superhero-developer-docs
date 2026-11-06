@@ -7,8 +7,11 @@ Thanks for helping improve the Superhero developer docs.
 1. `pnpm install` and `pnpm dev` to preview at http://localhost:3000.
 2. Run `python3 scripts/lint-mdx.py`. It must report 0 issues. MDX errors break the whole build.
 3. Every fact (an address, an endpoint, a fee, a parameter) must trace to source: the
-   `superhero-com/superhero` web app, `superhero-com/superhero-agent-skill`, or the live API at
-   `api.superhero.com`. Link the source in your pull request.
+   `superhero-com/superhero` web app, `superhero-com/superhero-agent-skill`,
+   `superhero-com/superhero-api`, or the live API at `api.superhero.com`. For chain-level
+   behavior, use the relevant æternity protocol, Sophia, SDK, AEX or middleware source listed
+   in [README.md](./README.md#where-the-content-comes-from). Link the source and its release or
+   commit in your pull request, and distinguish upstream behavior from production behavior.
 4. New pages go in the right folder and in that folder's `_meta.json`.
 
 ## Writing style
