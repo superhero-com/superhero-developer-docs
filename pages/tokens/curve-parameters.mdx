@@ -5,7 +5,7 @@ description: "The constants, decimals and fixed-point conventions you need to co
 
 # Curve Parameters & Units
 
-Every integer that crosses the boundary between your code and a Superhero contract is scaled. AE
+Monetary amounts passed between your code and Superhero contracts are scaled integers. AE
 amounts are in aettos (10^18 to the AE), token counts are in the token's own decimal units (also
 10^18), and the curve formula is written in *whole* tokens and *whole* AE. Mixing those three
 conventions is how implementations end up off by a factor of 10^18.
@@ -80,8 +80,8 @@ the factory creates: `create_community` passes `decimals = 18` to the sale, and
 Read the value from one of those entrypoints rather than hardcoding 18.
 
 `GET /api/tokens/{address}` also returns `decimals` (as a string) alongside `total_supply`.
-`total_supply` from the API is already in token decimal units. Divide it by 10^18 before feeding it
-to the curve.
+`total_supply` from the API is already in token base units. Pass it unchanged to the contract's
+curve entrypoints. Divide it by 10^18 only when using the idealised formula expressed in whole tokens.
 
 ## What each entrypoint expects
 
@@ -213,14 +213,15 @@ Three properties matter if you are reimplementing this:
    to `0` under integer division. In the supply range these tokens trade in, the second bound always
    fires first; the terms collapse long before the hundredth.
 2. **`mc2` starts at the quadratic term.** It returns `scale · (e^z − 1 − z)` rather than
-   `scale · e^z`, where `z = k·supply / 10^18` is the curve exponent. The missing linear term is
+   `scale · e^z`, where `z = k·supply / 10^36` for supply in token base units. The missing linear term is
    what the `(initial_price * count) / decimals` summand restores; that is where the `−0.0009999`
    offset of the closed form comes from.
-3. **Every division floors, and the order is load-bearing.** `(term * x) / (i * scale)` divides once,
-   after both multiplications. Splitting it into `term * x / i / scale` or pre-scaling `x` changes
-   the truncation and the answers drift apart.
+3. **Integer truncation matters.** Preserve the multiplication before division in
+   `(term * x) / (i * scale)`. Pre-scaling `x` can discard precision. For non-negative
+   integers, dividing the product successively by `i` and `scale` gives the same floor as
+   dividing by their product.
 
-`sell_price` is not a separate curve evaluation: `calculate_sell_return(supply, n)` is
+`calculate_sell_return` is not a separate curve evaluation: `calculate_sell_return(supply, n)` is
 `calculate_price(supply − n, n) × 9950 / 10000`, floored.
 
 ## Reference implementation: exact
@@ -345,7 +346,7 @@ Because the curve is convex, the trapezoidal rule always *overestimates* slightl
 
 | Trade | Exact (AE) | Trapezoidal, n = 100 (AE) | Error |
 | --- | --- | --- | --- |
-| 1,000 tokens from supply 0 | 0.000105000 | 0.000105000 | +0.03 ppm |
+| 1,000 tokens from supply 0 | 0.000105000 | 0.000105000 | +0.00000794 ppm |
 | 1,000,000 tokens from supply 0 | 5.116708417 | 5.116709254 | +0.16 ppm |
 | 10,000,000 tokens from supply 0 | 518.091807565 | 518.092683989 | +1.69 ppm |
 | 100,000,000 tokens from supply 0 | 71,838.182845904 | 71,839.614745042 | +19.9 ppm |

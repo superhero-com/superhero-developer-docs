@@ -29,15 +29,16 @@ Use a wallet that supports `NameClaimTx` bidding if you want a short name.
 
 ## Registration is preclaim, then claim
 
-AENS registration is two transactions, to stop front-running:
+The app and CLI use a two-transaction registration flow to protect against front-running:
 
 1. **Preclaim.** Publish a commitment: the hash of the name plus a random salt. Nobody watching
    the mempool learns which name you want.
 2. **Claim.** Reveal the name and the salt. The protocol checks the commitment.
 
-The two transactions must land in **different blocks**. After the claim, **update** the name's
+The claim must land at a **later key-block height** than the preclaim. After the claim, **update** the name's
 pointers so it resolves to your address. A name with no `account_pubkey` pointer resolves to
-nothing.
+nothing. Since Ceres the protocol also allows a direct claim with salt zero, without a
+preclaim; see [AENS](/aeternity/aens).
 
 ## The sponsored claim in the app
 
@@ -107,15 +108,20 @@ protocol parameters too; the
 [AENS protocol specification](https://github.com/aeternity/protocol/blob/master/AENS.md) is the
 reference.
 
-If a name expires, it stops resolving and becomes available again. On Superhero:
+If a name expires, it stops resolving and passes through the revoked state before becoming
+available again. On Superhero:
 
-- The cached `chain_name` is refreshed from the middleware on an hourly sweep, and on any stale
-  read of `GET /api/accounts/{address}`, so a lapsed name disappears from profiles within about
-  an hour.
+- The cached `chain_name` is refreshed by an hourly sweep of eligible stale accounts, capped
+  at 100 per run. The reviewed backend uses a 23-hour sweep staleness window and a 24-hour
+  read staleness window for `GET /api/accounts/{address}`. Failed lookups preserve the old value,
+  and profile reads can fall back to a legacy cached name. A lapsed name therefore has no
+  guaranteed removal deadline; see [Names](/identity/names#how-the-chain-name-stays-fresh).
 - A `prefaens` address link naming it does **not** self-clear. The link is contract state and
   stays until you unlink it. Because `prefered_aens_name` sits at the top of the
   [name resolution ladder](/identity/names), a lapsed linked name keeps being displayed as your
-  public name until you unlink it.
+  public name. The preferred-name unlink flow also checks current AENS ownership, so expiry
+  or transfer can prevent unlinking that old name through this flow. Linking another name you
+  own replaces the preferred-name value.
 
 `chain_expires_at` in the profile aggregate is a legacy field and is not refreshed; resolve the
 name through AENS to check whether it is live.

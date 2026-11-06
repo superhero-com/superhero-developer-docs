@@ -7,8 +7,8 @@ description: "The exponential curve that prices every Superhero community token,
 
 Every Superhero community token is priced by one deterministic function of its own supply. Buying
 mints new tokens and moves you up the curve; selling burns tokens and moves you down it. Because
-price is computed from supply, there is always a quote and always liquidity. There is no order book, no
-matching engine and no counterparty on the other side of your trade.
+price is computed from supply, trades use contract quotes and a reserve funded by buys. There is
+no order book, matching engine or counterparty on the other side of your trade.
 
 Superhero uses an **exponential** curve, implemented by the `BondingCurveExponential` contract. The
 contract evaluates `e^x` as a bounded Taylor series in integer arithmetic (at most 100 terms,
@@ -138,9 +138,10 @@ from supply 10,000,000, where spot is `1.052709e-4 AE`:
 | 50,000,000 | 21,699.788231 | 4.33996e-4 | +312.3% |
 
 Buying 10,000,000 tokens in one transaction doubles the supply and costs a 54% premium to spot.
-Splitting the order does **not** help: the curve is path-independent, so ten buys of 1,000,000 from
-a rising supply cost exactly the same total as one buy of 10,000,000. Only trade size and starting
-supply change your average price.
+In the continuous model, splitting the order does **not** reduce this price impact: the curve
+integral is path-independent, so ten consecutive buys of 1,000,000 cost the same curve value as
+one buy of 10,000,000 with the same starting supply and no intervening trades. Integer rounding
+can change the exact totals, and each transaction pays its own network fee.
 
 A large sell realises an average price below the quoted spot for the same reason, in reverse.
 `minimal_return_required` protects you from that. See
@@ -186,18 +187,23 @@ small per trade, meaningful in aggregate. Spot prices at a few reference supplie
 | 100,000,000 | 1.718382e-3 | 1.709790e-3 |
 | 200,000,000 | 6.389156e-3 | 6.357210e-3 |
 
-The curve is tuned on the expectation that only **10–20% of the total supply** will ever be reached,
-which is why the interesting price action is packed into the first couple of hundred million tokens.
+The exponent determines how quickly price grows with supply. There is no fixed maximum supply,
+so a percentage of maximum supply is not defined for this curve.
 
 ## Why the reserve is always solvent
 
-The sell curve sits strictly below the buy curve at every supply level, so the AE paid into the sale
-contract always exceeds the AE it could ever be asked to pay out. Selling the entire circulating
-supply back to the curve is always possible.
+Full redemption follows in the ideal continuous model. Each buy retains the quote for
+immediately selling its newly minted tokens; in that model, these amounts sum to the sell-curve
+integral over the circulating supply. Integer truncation means separately rounded quotes need
+not sum to the quote for a combined amount, so this argument alone does not prove exact solvency
+for every sequence of integer trades. See
+[Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding) for the
+limits of the continuous-model argument.
 
-At a supply of 10,000,000 tokens, buyers have paid in `518.09 AE` in total, and selling every one of
-those tokens back would return `515.50 AE`. The `2.59 AE` difference is the DAO's accumulated
-spread, and it never has to be given back.
+In that model, reaching a supply of 10,000,000 tokens from zero costs `518.09 AE` before the
+affiliation fee, and selling the full supply quotes `515.50 AE`. The `2.59 AE` difference is
+allocated to the DAO on buys, leaving the reserve for sellers. These rounded examples are not a
+proof for every sequence of integer trades or a check of deployed balances.
 
 ## The spread
 
@@ -206,7 +212,7 @@ buys, so the **total spread between buy and sell price is 1% of the curve value*
 community DAO and 0.5% to the affiliation system.
 
 From the buyer's side: you hand over `1.005 ×` the curve integral and can immediately sell back for
-`0.995 ×` it, so a round trip at unchanged supply returns `0.995 / 1.005 = 0.99502…` of what you
+`0.995 ×` it, so a round trip at unchanged supply returns `0.995 / 1.005 = 0.99004975…` of what you
 paid, a **0.995% loss on an instant round trip**. See [Fees & Slippage](/tokens/fees-and-slippage)
 for the full breakdown and [Risks](/tokens/risks) for what that means for a position.
 
@@ -224,10 +230,10 @@ for the full breakdown and [Risks](/tokens/risks) for what that means for a posi
 | Fee model | 1% spread baked into two curves | Implementation-defined | Explicit swap fee (e.g. 0.30%) to LPs |
 | Rug-pull surface | No LP to withdraw | No LP to withdraw | LPs can remove liquidity |
 
-Two practical consequences. There is no liquidity to pull: the reserve is held by the sale contract
-and is sufficient to redeem everything. And an exponential curve punishes large late buys much
-harder than a constant-product pool of comparable depth. The price impact of doubling the supply
-is a factor of `e^(k·supply)`, not a bounded ratio.
+Two practical consequences. The reserve is held by the sale contract, without an LP withdrawal
+mechanism. An exponential curve punishes large late buys much harder than a constant-product pool
+of comparable depth. The price impact of doubling the supply is a factor of `e^(k·supply)`, not a
+bounded ratio.
 
 Community tokens trade only against their own curve. Superhero's AMM for ordinary token pairs is
 [the DEX](/defi/swap).

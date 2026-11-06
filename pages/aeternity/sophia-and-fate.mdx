@@ -6,7 +6,7 @@ description: "æternity's smart-contract language and the VM that runs it, orien
 # Sophia & FATE
 
 **Sophia** is æternity's smart-contract language: functional, strongly and statically typed, with
-no mutable global state. **FATE** (the Fast æternity Transaction Engine) is the virtual machine
+contract-local mutable state. **FATE** (the Fast æternity Transaction Engine) is the virtual machine
 that executes it. Every Superhero contract is written in Sophia and runs on FATE.
 
 If you are arriving from Ethereum, most of your instincts transfer. The table covers the ones
@@ -19,7 +19,7 @@ that do not.
 | `contract C` with a body in braces | `contract C =` with an indented body | Layout is significant, like Python or Haskell |
 | `public` / `external` function | `entrypoint` | Only entrypoints are callable from outside |
 | `internal` / `private` function | `function` | A local function, invisible off-chain |
-| `view` / `pure` | a plain `entrypoint` | Non-stateful is the default |
+| `view` / `pure` | a plain `entrypoint` | Closest syntax, but not a guarantee of global purity; see below |
 | state-mutating function | `stateful entrypoint` | You must opt in; see below |
 | `payable` | `payable entrypoint` | Contracts are non-payable by default |
 | `msg.sender` | `Call.caller` | The calling entity, possibly another contract |
@@ -38,9 +38,10 @@ that do not.
 
 Three differences do real work:
 
-**No mutable global state.** A Sophia contract has exactly one `state` value. A stateful function
+**Contract-local mutable state.** A Sophia contract has exactly one `state` value. A stateful function
 reads it and calls `put` with a new one; there is no assignment to a storage slot anywhere. This
-is what reduces the surface for reentrancy and state-corruption bugs.
+is the language's state-update model. FATE separately rejects remote calls back into a contract
+already executing on the call stack; that runtime check prevents reentrant contract calls.
 
 **No floating point.** Sophia omits it. Every price, fee and curve value in Superhero is an
 integer in aettos or token-decimals. See [AE & Gas](/aeternity/ae-and-gas).
@@ -51,21 +52,26 @@ malformed call does not corrupt state; it fails.
 
 ## Entrypoint annotations
 
-Three orthogonal properties, all opt-in, all visible in the ACI:
+Entrypoints are non-stateful and non-payable by default. The ACI records both flags:
 
 | Annotation | Meaning | Omit it and… |
 | --- | --- | --- |
-| (none) | Read-only. Can be dry-run without a transaction. | This is the default |
-| `stateful` | May modify contract state, emit events, or call another contract with a non-zero value | The compiler rejects any `put`, any `Chain.event`, any value-carrying call |
-| `payable` | May receive coins in the call | Spending to the contract fails outright |
+| (none) | Cannot directly update this contract's state; normally called through a dry-run | This is the default |
+| `stateful` | May update state, use stateful primitives, or call another contract with a non-zero value | The compiler rejects these operations |
+| `payable` | May receive AE through this entrypoint | Calls with a non-zero value fail |
+
+Emitting an event does not require `stateful`. A non-stateful entrypoint can also call a
+stateful entrypoint in another contract with zero value. The flag alone does not prove that
+an on-chain call has no effects.
 
 `payable` also applies to the contract itself: a contract is non-payable unless declared
 otherwise, so a plain AE transfer to a `ct_` address fails by default.
 
 These map straight onto how you call a contract. A non-stateful entrypoint can be answered by a
-dry-run with no transaction, no gas and no wallet prompt. That is how Superhero prices a trade before
-you confirm it. A `stateful` entrypoint needs a signed contract-call transaction. A `payable` one
-also takes an `amount` option:
+dry-run without broadcasting a transaction, paying a network fee or prompting the wallet.
+Dry-runs still execute under gas limits, and can also simulate stateful calls. Persisting a
+call's effects requires a signed contract-call transaction. To attach AE to a payable call,
+pass an `amount` option:
 
 ```js
 // Calling a payable, stateful entrypoint
@@ -126,8 +132,8 @@ const ACI = JSON.parse(fs.readFileSync('./contracts/FungibleTokenFull.aci.json',
 await Contract.initialize({ aci: ACI, address: tokenAddress, onAccount: aeSdk, onNode: aeSdk.api });
 ```
 
-Keep a vendored ACI in step with the deployed contract. A stale ACI does not fail loudly; it
-encodes arguments against the wrong signature.
+Keep a vendored ACI in step with the deployed contract. A stale ACI can encode arguments or
+decode results incorrectly, causing errors or misleading results.
 
 The `@compiler >= N` pragma at the top of a `.aes` file is a minimum compiler version, not the
 version the contract was built with.
@@ -150,5 +156,5 @@ top of one.
 - [Calling contracts](/contracts/calling-contracts): using an ACI to make a real call.
 - [Contract security](/contracts/security): where Sophia's guarantees stop and yours start.
 - [AEX Standards](/aeternity/aex-standards): AEX-9 read from a Sophia ACI.
-- [Sophia language features](https://docs.aeternity.com/aesophia/v6.1.0/sophia_features/): the canonical reference for `stateful`, `payable`, state and events.
+- [Sophia language features](https://github.com/aeternity/aesophia/blob/master/docs/sophia_features.md): the language reference for `stateful`, `payable`, state and events; use the compiler's matching release for version-specific behavior.
 - [FATE VM](https://docs.aeternity.com/aeternity-core-concepts/protocol/fast-aeternity-transaction-engine-fate-vm): the official description of the VM.

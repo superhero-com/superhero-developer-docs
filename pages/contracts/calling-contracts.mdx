@@ -13,7 +13,7 @@ aborts.
 ## Install
 
 ```bash
-npm install @aeternity/aepp-sdk bignumber.js
+npm install @aeternity/aepp-sdk@14.1.0 bignumber.js
 ```
 
 The code below targets `@aeternity/aepp-sdk` 14.
@@ -115,7 +115,7 @@ console.log('events:', result.decodedEvents.map((e) => e.name));
 | `Contract.initialize` | Needs `aci` plus `address`. Pass `onNode` always, and `onAccount` only when you intend to sign. Without `onAccount` the instance can still do read calls. |
 | `.decodedResult` | Every call returns a result envelope. `decodedResult` is the value, already decoded against the ACI: integers come back as `BigInt`, records as plain objects, maps as `Map`. |
 | `{ amount }` | The AE attached to a payable call, in aettos (1 AE = 10^18 aettos). |
-| `omitUnknown: true` | Drops call-option keys the SDK does not recognise instead of throwing. Set it on every write. |
+| `omitUnknown: true` | Skips emitted events for which the supplied ACIs have no definition. Without it, an unknown event can make decoding throw even after a transaction succeeds. |
 
 ### Arguments and types
 
@@ -153,11 +153,11 @@ await dao.add_vote(
 
 Two different things are called "dry run".
 
-**A non-stateful entrypoint is already free.** `price`, `sell_return`, `buy_price`,
+**The SDK dry-runs non-stateful entrypoints by default.** `price`, `sell_return`, `buy_price`,
 `balance`, `meta_info`, `total_supply`, `has_community` and every other read in these
 contracts is declared without `stateful` in the ACI. The SDK resolves them through the node's
-dry-run endpoint automatically: no transaction is created, no gas is spent, no account is
-needed. That is why the price quote in the example above costs nothing.
+dry-run endpoint automatically without broadcasting a transaction or charging a network fee.
+Execution still has a gas limit. That is why the price quote in the example above costs nothing.
 
 **A stateful entrypoint can be dry-run explicitly** by passing `callStatic: true`. The node
 executes the call against current state and returns the result and the events it would emit,
@@ -176,8 +176,8 @@ dry run exactly as it would on chain, without costing a transaction fee.
 
 ## Gas estimation and gas limits
 
-`result.result.gasUsed` on a dry run is the measured consumption for that call against
-current state, and `result.gasPrice` is the price the call paid. Set an explicit `gasLimit`
+`dry.result.gasUsed` is the measured consumption for a dry-run call against current state.
+A dry-run does not pay a gas charge. Set an explicit `gasLimit`
 from the measurement with a margin:
 
 ```javascript
@@ -199,7 +199,7 @@ Two caveats:
   aggressively; let the SDK use its default unless you have measured repeatedly.
 
 You can also set `gasPrice` explicitly. Leave it alone unless you are fighting for inclusion;
-the SDK's default tracks the node's minimum.
+SDK v14.1.0 estimates it from recent node gas prices and utilisation, with a `1e9` aetto floor.
 
 ## Decoding events
 

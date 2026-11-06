@@ -15,10 +15,10 @@ redirects to `/get-ae`.
 
 | Action | Cost |
 | --- | --- |
-| Publishing a post | Gas only. |
-| Buying or selling a community token | The trade amount, plus fee and gas, plus a **1% curve spread** (0.5% to the community DAO, 0.5% to affiliation). |
-| Claiming a `.chain` name | Gas plus a **name price**, which for short names dwarfs the fee. Superhero sponsors one free claim per address; see [Claim Your .chain Name](/getting-started/claim-name). |
-| Voting in a DAO | Gas, plus an allowance transaction the first time. |
+| Publishing a post | Network transaction fee and execution gas. |
+| Buying or selling a community token | Network transaction fees and execution gas. A buy pays the curve cost plus a 0.5% affiliation fee; a sell receives the sell quote. The buy/sell spread is 1% of the underlying curve value before integer rounding. |
+| Claiming a `.chain` name | Transaction fees and the protocol name fee. The sponsor pays for an eligible sponsored claim; you pay on the self-funded path. See [Claim Your .chain Name](/getting-started/claim-name). |
+| Voting in a DAO | Network transaction fees and execution gas for the allowance, when needed, and vote calls. The voted tokens stay in the vote contract until you revoke (while the vote is open) or withdraw (after it closes). |
 
 Two things worth knowing:
 

@@ -12,8 +12,9 @@ to the protocol, and lets contracts verify user signatures. æternity provides a
 ## Affordable on-chain writes
 
 æternity keeps each write light enough that every post, comment, tip, trade and vote can be its
-own transaction. A post or a comment pays gas only, with no posting fee, and gas price follows
-network demand. See [AE & Gas](/aeternity/ae-and-gas) for how a fee is computed.
+own transaction. A post or comment pays a network transaction fee and execution gas, with no
+additional posting fee. Gas price follows network demand. See [AE & Gas](/aeternity/ae-and-gas)
+for how a fee is computed.
 
 ## Protocol-level names
 
@@ -24,17 +25,18 @@ is portable rather than Superhero-specific. See [AENS](/aeternity/aens) and
 
 ## Native signature verification in contracts
 
-Sophia exposes `Crypto.verify_sig`, and æternity defines a signed-message prefix
-(`"aeternity Signed Message:\n"`, with a fixed 28-byte header) that a contract can reconstruct.
-Superhero's Tipping and AddressLink contracts hash a message with Blake2b, prepend the prefix
-to produce a 60-byte payload, and verify it with `Crypto.verify_sig`. That is what makes
-[delegated posting](/social/delegated-posting) possible: a user signs off chain, a relayer pays
-the gas, and the contract still attributes authorship to the signer.
+Sophia exposes `Crypto.verify_sig`, and æternity defines personal-message framing that a
+contract can reconstruct. Tipping v3 hashes the post content to 32 bytes, adds a 28-byte
+header containing the signed-message prefix and length bytes, then hashes that 60-byte
+payload and verifies its signature. See [the full construction](/contracts/tipping#the-full-construction).
+This supports [delegated posting](/social/delegated-posting): a user signs off chain, a
+relayer pays the network charges, and the contract attributes authorship to the signer.
 
 ## Sophia's safety properties
 
-Sophia is strongly and statically typed with no mutable global state, which reduces the surface
-for reentrancy and state-corruption bugs. See [Sophia & FATE](/aeternity/sophia-and-fate) and
+Sophia is strongly and statically typed, with contract-local mutable state. FATE rejects
+reentrant calls into a contract already executing on the call stack. See
+[Sophia & FATE](/aeternity/sophia-and-fate) and
 [Contract security](/contracts/security).
 
 ## AEX-9 as the token standard

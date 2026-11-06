@@ -5,8 +5,9 @@ description: "How superhero.com discovers your wallet, what the connection grant
 
 # Connecting a Wallet
 
-superhero.com never holds your keys. To act on your behalf it finds a wallet, opens an RPC session
-with it, and sends every transaction there for you to approve.
+With an external wallet, superhero.com requests signatures without receiving your keys. Its
+built-in wallet instead stores an encrypted seed in this browser and signs in-page after you
+approve. The connection path determines where each request goes.
 
 ## The three connection paths
 
@@ -14,7 +15,7 @@ with it, and sends every transaction there for you to approve.
 | --- | --- | --- |
 | Browser extension | In-page message connection, discovered by the SDK's wallet detector | Desktop browsers with Superhero Wallet installed |
 | Wallet app or web wallet | Deep link with a callback URL | Mobile, or desktop when no extension answers |
-| Built-in wallet | No transport; the signer runs in the page | Installed PWA with an on-device vault |
+| Built-in wallet | No transport; the signer runs in the page | Browser tab or installed PWA with this browser's vault |
 
 The first two are external custody: the wallet holds the key and Superhero only ever receives a
 signed result. The third is documented in [The Built-In Wallet](/wallets/built-in-wallet).

@@ -14,12 +14,12 @@ pnpm build    # production build
 ```
 
 > **Note on dependencies:** the Nextra versions are pinned to the `2.x` line, which is the
-> line that supports this repository's `pages/` + `_meta.json` layout. `nextra@latest` now
-> resolves to the 4.x line, which requires the App Router and a different meta format, so
-> do not "upgrade" these specifiers without migrating the whole site first.
+> line that supports this repository's `pages/` + `_meta.json` layout. Moving to a newer major
+> version requires checking its router and metadata requirements and migrating the site.
 >
 > `pnpm-lock.yaml` is committed and resolved against those pinned versions, so
-> `pnpm install --frozen-lockfile` (the default on Vercel and most CI) works as-is.
+> use `pnpm install --frozen-lockfile` for a reproducible local dependency install. The current
+> GitHub Pages workflow uses `npm install` and does not consume the pnpm lockfile.
 
 ### Deployment
 
@@ -75,12 +75,12 @@ pages/
 ## Editing
 
 Every page follows the same shape: double-quoted `title` and `description` frontmatter, an H1,
-one to three sentences of opening prose, task-oriented sections, and a `## Read more` section of
-internal links. Plain MDX only, with no imports and no components.
+one to three sentences of opening prose, task-oriented sections, and a `## Related` section of
+links. Plain MDX only, with no imports and no components.
 
-Five things break the build, and `scripts/lint-mdx.py` catches all of them: unquoted
-frontmatter, a bare `{` or `<` in prose, a `|` inside inline code inside a table row, a broken
-internal link, and a page missing from its directory's `_meta.json`. Run it before every push.
+`scripts/lint-mdx.py` checks frontmatter, bare MDX braces and JSX hazards, table pipes,
+imports and exports, internal links, static assets, and `_meta.json` entries. Run it before
+every push, then run `pnpm build` to check compilation and static export.
 
 ## Where the content comes from
 

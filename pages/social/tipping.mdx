@@ -7,7 +7,8 @@ description: "Send AE directly to a creator against a specific post — the payl
 
 A tip on Superhero is a plain AE transfer with a payload that names the post: a spend
 transaction from your account straight to the author's. The indexer reads the payload to
-attribute it. There is no fee, no escrow and no intermediary.
+attribute it. There is no platform tipping fee or escrow; the sender still pays the network
+transaction fee.
 
 ## The transaction
 
@@ -111,16 +112,19 @@ pending-tip pool and no reclaim path.
 
 ## Tips and notifications
 
-There is no tip notification type. The closest is `incoming-transfer`, which fires on any
-incoming `SpendTx`, a tip included, above `NOTIF_MIN_AMOUNT_AETTOS` (default 0, meaning
-off). That type is mobile push only, so an incoming tip produces a mobile push if the recipient
-has a registered device, and nothing in the web bell. See
-[Notifications](/social/notifications).
+Recognised tips indexed live can trigger `tip-received`, which writes a web bell item and
+sends browser push when subscribed. Self-tips, tips below the amount floor and those blocked by
+preferences or the rate cap do not notify. The floor is at least one aetto, raised by
+`NOTIF_MIN_AMOUNT_AETTOS` when configured higher.
+
+The same spend can also trigger the Expo-only `incoming-transfer` notification for a
+registered mobile device. `tip-received` does not send a second Expo push. See
+[Notifications](/social/notifications#no-tip-notification).
 
 ## Related
 
 - [Posting](/social/posting): the ids and `_v3` suffix convention the payload depends on.
 - [The Feed](/social/feed): how tip signals influence popular ranking.
-- [Notifications](/social/notifications): why a tip does not raise a bell notification.
+- [Notifications](/social/notifications): web tip notifications and mobile transfer push.
 - [Value flow](/concepts/value-flow): where money moves elsewhere in the protocol.
 - [Transactions](/api-reference/transactions): reading spend transactions and their payloads.

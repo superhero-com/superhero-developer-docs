@@ -120,14 +120,15 @@ token_contract = Chain.create(name, decimals, symbol, None) : FungibleTokenFull
 ```
 
 Because `Chain.create` runs inside the sale contract, the sale contract is the token's
-`owner`, and that is what authorises `mint` on a buy and `burn` on a sell.
+`owner`, and that is what authorises `mint` on a buy. On a sell, it first transfers your
+tokens into its own balance, then burns them from that balance.
 `initial_owner_balance` is `None`, so a new community token starts at zero total supply: every
 token in existence was minted by a buy. The name and the symbol are the same string, because
 `CommunityFactory.create_community` passes its `name` argument to both positions.
 
 ## Allowances
 
-Two Superhero flows require an allowance before they work:
+These bonding-curve and DAO flows require an allowance before they work:
 
 | Flow | Grant the allowance to |
 | --- | --- |
@@ -148,6 +149,9 @@ Three entrypoints manage the value:
 | `create_allowance(for_account, value)` | Creates a new allowance entry. | First time granting to this spender |
 | `change_allowance(for_account, value_change)` | Adds a delta to an existing allowance. The delta may be negative. | Adjusting an existing allowance |
 | `reset_allowance(for_account)` | Sets it to zero. | Revoking |
+
+Resetting leaves the allowance record in place. To grant it again afterwards, use
+`change_allowance`; `create_allowance` still rejects the existing record.
 
 The pattern:
 
@@ -179,16 +183,21 @@ if (existing === undefined) {
 - On a sell, the sale contract pulls your tokens with `transfer_allowance` and calls `burn`,
   and supply goes down.
 
-Both are owner-gated. For a community token the owner is the sale contract, so the only way to
-increase supply is to pay the curve. That is what makes `total_supply()` a reliable input to a
-price calculation.
+Only `mint` is owner-gated. For a community token the owner is the sale contract, so new
+tokens are issued through curve buys. Any holder can call `burn(value)` to destroy tokens
+from their own balance without receiving AE. Direct burns also reduce the supply used by
+the curve; they are different from selling tokens through the sale contract.
 
 ## The swap extension
 
-`swap`, `swapped` and `check_swap` come from the AEX-9 swappable extension, which migrates
-balances from an older token contract into a newer one: `swap()` credits the caller based on
-their balance in the predecessor and records the amount in the `swapped` map. Superhero does
-not use this path; for a factory-created token `swapped()` is empty.
+In this implementation, `swap()` burns the caller's entire current balance, writes that
+amount to `swapped[caller]`, and emits `Swap`. `check_swap(account)` reads the stored amount,
+defaulting to zero. A later call overwrites that account's stored amount rather than adding
+to it.
+
+This call neither reads a predecessor token nor credits replacement tokens. A migration
+would need a separate receiving contract or process; `swap()` alone destroys the current
+tokens without paying AE or issuing another token. It is also unrelated to a DEX swap.
 
 `aex9_extensions()` returns the list of extension names the contract implements. It is the
 standard's own discovery mechanism, so call it instead of assuming.

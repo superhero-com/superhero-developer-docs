@@ -240,32 +240,35 @@ height.
 - **Custom period.** Pass `startDate` **and** `endDate` together. Leaders are ranked by
   performance in that range among accounts that traded in it, with metrics and buy/sell counts
   scoped to it. `tradingOnly=true` bases period PnL and ROI on realized token-trading PnL only,
-  excluding transfer-driven portfolio changes.
+  excluding transfer-driven portfolio changes. The end must follow the start, and the period
+  must not exceed 14 days. Supplying both dates selects this path even if `window` is also set.
 
 | Parameter | Notes |
 | --- | --- |
 | `sortBy` | `pnl`, `roi`, `mdd` or `aum` |
 | `sortDir` | Defaults to `DESC`, except `sortBy=mdd` which defaults to `ASC` |
 | `minAumUsd` | Exclude leaders below this USD AUM |
-| `page`, `limit` | Standard pagination |
-| `points`, `maxCandidates` | Deprecated and ignored |
+| `page`, `limit` | Page defaults to 1; limit defaults to 18 and must be 1–50 |
+| `points` | Ignored for snapshot windows; custom periods use 2–12 sparkline points, default 8 |
+| `maxCandidates` | Ignored for snapshot windows; custom periods default to 100, clamp the requested value to 500, then raise it to at least the page offset plus limit |
 
 ```bash
 curl -s "https://api.superhero.com/api/accounts/leaderboard?window=30d&sortBy=roi&sortDir=DESC&limit=18&page=1"
 ```
 
 Items carry `address`, `chain_name`, `aum_usd`, `pnl_usd`, `roi_pct`, `mdd_pct`, `buy_count`,
-`sell_count`, `volume_usd`, `created_tokens_count`, `owned_trends_count` and
-`portfolio_value_usd_sparkline` (an array of `[timestamp, value]` pairs).
+`sell_count`, `created_tokens_count`, `owned_trends_count` and `portfolio_value_usd_sparkline`
+(an array of `[timestamp, value]` pairs). Custom-period items also carry `volume_usd`, and
+report `created_tokens_count` and `owned_trends_count` as `0`.
 
 `mdd_pct` is **maximum drawdown as a positive percentage**: the largest `(peak - value) / peak`
 along the sparkline, times 100. 0 means the portfolio never fell from a peak; larger is worse,
 which is why `sortDir` defaults to `ASC` for it.
 
 `meta` is **not** the standard envelope: `page` (not `currentPage`), `limit`, `totalItems`,
-`totalPages`, `window`, `sortBy`, `sortDir` and a `timeFilter` of `value`, `unit`, `start` and
-`end`. Snapshot windows are rebuilt every ten minutes; responses are cached for up to 60
-seconds, and `meta.timeFilter.start` / `end` reflect when the cache entry was filled.
+`totalPages`, `window`, `sortBy` and `sortDir`. Custom-period responses also carry
+`timeFilter: { start, end }` with the requested ISO timestamps; snapshot responses omit it.
+Snapshot windows are rebuilt every ten minutes; responses are cached for up to 60 seconds.
 
 ## Related
 

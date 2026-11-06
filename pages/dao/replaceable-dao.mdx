@@ -5,14 +5,13 @@ description: "The ReplaceableDAO interface a custom DAO must implement, and how 
 
 # Replaceable DAOs
 
-Sophia contracts are immutable once deployed, and Superhero's contracts have no proxy, no
-admin key and no migration hook. A community that wants different governance rules cannot
-patch `DAO.aes`. What it can do is deploy a **different DAO contract** and vote to hand over
+Sophia contract code is immutable once deployed. A community that wants different governance
+rules cannot patch its deployed `DAO.aes`. It can deploy a **different DAO contract** and vote to hand over
 control. `ReplaceableDAO.aes` defines the interface that makes that possible, and `ChangeDAO`
 is the vote that performs it.
 
 What survives a migration: the AEX-9 token keeps its address, its supply and its holders; the
-bonding curve keeps its reserve and its price; the community keeps its name and its posts.
+sale contract keeps its reserve and its pricing curve; the community keeps its name and its posts.
 Only the contract that owns the sale and holds the treasury is replaced.
 
 ## The interface
@@ -50,9 +49,13 @@ contract can implement `is_dao() = true`.
 
 ## Build a replacement DAO
 
-1. **Write the contract in Sophia.** Implement `is_dao`, `get_community_management` and
-   `record_sale_transaction` with exactly the signatures above. Sophia type-checks the
-   interface, so a mismatched arity or a missing `payable` fails at the call site.
+1. **Write the contract in Sophia.** Declare it `payable contract`: `ChangeDAO` moves the old
+   treasury with `Chain.spend`, which aborts when the target is not payable, even for a zero
+   balance. Implement `is_dao`, `get_community_management` and `record_sale_transaction` with
+   the signatures above, including a `payable` income handler. The sale's zero-value probe
+   checks that the handler can be called, but not that it accepts a payment: a DAO with a
+   non-payable handler passes migration, and each later buy's DAO share then stays in the sale
+   contract. Check that behavior separately before migration.
 2. **Decide what it does with authority.** The replacement becomes the owner and beneficiary
    of the existing `AffiliationBondingCurveTokenSale`, and the owner of the existing
    `CommunityManagement`. If it does not expose equivalents of `add_vote` and

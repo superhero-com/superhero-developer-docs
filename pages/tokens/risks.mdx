@@ -14,7 +14,7 @@ Nothing here is financial advice. Never risk funds you cannot afford to lose.
 ## 1. Every position starts about 1% down
 
 You buy at the curve price plus a 0.5% affiliation fee. You can only sell at 0.995 times the curve
-price. An instant round trip at unchanged supply therefore returns `0.995 / 1.005 = 0.99502` of what
+price. An instant round trip at unchanged supply therefore returns `0.995 / 1.005 = 0.99004975…` of what
 you paid:
 
 ```text
@@ -28,12 +28,12 @@ sell them straight back
 loss                               0.001052764439 AE   = 0.995% of what you paid
 ```
 
-Before gas. **The price has to rise about 1% before you are level**, which on this curve means the
-supply must grow by roughly the same 1%: somebody else has to buy about as much as you did for you
-to break even.
+Before gas. **Your sell return must increase by about 1.005% to recover the purchase cost.**
+The additional supply needed depends on your entry supply and position size; a 1% price
+increase does not imply a 1% supply increase on this curve.
 
 For a trader doing many round trips this compounds: ten round trips at unchanged prices leave you
-with `0.99502^10 = 0.951` of your capital, a 4.9% loss from friction alone. Frequent trading on a 1%
+with `(0.995 / 1.005)^10 ≈ 0.90484` of your capital, a 9.52% loss from friction alone. Frequent trading on a 1%
 spread loses unless each move is substantially larger than 1%.
 
 ## 2. The exit price is not the quoted price
@@ -53,8 +53,9 @@ exit.** Call `sell_return(balance)` on the sale contract for the exact number be
 a position's value. See [Portfolio & PnL](/tokens/portfolio).
 
 The same logic makes large entries expensive: adding 10% to a token's supply costs about 5% above
-the price you were quoted, and doubling the supply costs about 54% above it. Splitting the order does
-not help, because the curve is path-independent. See [Fees & Slippage](/tokens/fees-and-slippage).
+the price you were quoted, and doubling the supply costs about 54% above it. Splitting the order
+does not reduce this price impact in the continuous model. Integer rounding and per-transaction
+network fees can change exact totals. See [Fees & Slippage](/tokens/fees-and-slippage).
 
 ## 3. Reflexivity
 
@@ -74,7 +75,7 @@ further up the curve than the people the signal is reporting on. See
 Most community tokens are small. The specific dangers in a thin one:
 
 - **A single holder can be the market.** If one address holds 50% of the supply, their exit walks the price down through every other holder's position first. Check the Holders tab before you buy.
-- **The creator's entry was much cheaper than yours.** A pre-buy at creation happens at the very bottom of the curve: the first 437,014 tokens cost exactly 1 AE, while the same 437,014 tokens bought at a supply of 10,000,000 cost 47.06 AE, 47 times more. An early holder can be far ahead while a later one is underwater.
+- **The creator's entry was much cheaper than yours.** A pre-buy at creation happens at the bottom of the curve: the first 437,014 tokens have a curve cost of about 1 AE, while the same amount bought at a supply of 10,000,000 has a curve cost of about 47.06 AE. Both purchases also pay the affiliation fee and network charges. An early holder can be ahead while a later one is underwater.
 - **Low holder count with high supply is one person's position with a price attached**, not a community.
 - **Dilution.** Supply is unlimited and minted on demand. Your balance does not change when other people buy, but your share of the supply, and therefore your governance weight, falls.
 
@@ -87,8 +88,9 @@ prices and the curve keeps working, but:
 - Whatever the DAO treasury accumulated stays there. Opening a DAO vote costs **555 AE** paid by the proposer, so a treasury worth less than 555 AE is effectively unspendable: nobody will rationally pay more to propose a payout than the payout is worth. See [DAO voting](/dao/voting).
 - Governance requires a quorum of 10% of the token stake and 55% approval within two weeks. In an abandoned community that quorum may be unreachable, which freezes the treasury, the moderator set and the write threshold as they are.
 
-You can always sell back to the curve (solvency is guaranteed), but you will be selling into whatever
-supply remains, at whatever price the last trades left behind.
+The curve computes your sell quote from the remaining supply, at the price the last trades left
+behind. Buys fund the reserve, but the continuous-model redemption argument needs separate
+integer-rounding analysis. See [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
 
 ## 6. Mechanism risk
 
@@ -102,10 +104,12 @@ supply remains, at whatever price the last trades left behind.
 
 ## 7. Smart contract risk
 
-The contracts are written in Sophia, a functional language with strong static typing and no mutable
-global state, which narrows the surface for reentrancy and state-corruption bugs. The economic design
-is solvent by construction: the sell curve sits strictly below the buy curve at every supply, so the
-reserve can always redeem the entire supply. The contracts have not undergone a third-party audit.
+The contracts are written in Sophia, a functional language with strong static typing and
+contract-local mutable state. FATE rejects reentrant calls into an executing contract. The sale contract
+retains the immediate sell quote on each buy, which funds full redemption in the ideal continuous
+model. Integer truncation requires a separate check for exact solvency across trade sequences;
+the continuous argument alone does not establish it for deployed contracts. The contracts have
+not undergone a third-party audit.
 See [Contract security](/contracts/security).
 
 - **Bugs in the sale, curve, DAO or factory contracts.** These are immutable once deployed. A `ChangeDAO` vote can migrate a community's DAO, but the token and sale contracts are fixed.

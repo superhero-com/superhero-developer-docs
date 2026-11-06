@@ -84,23 +84,27 @@ Two details of that definition:
 - **The unit price includes the 0.5% affiliation fee.** `TokenSale.price(count)` is the curve integral plus the fee, so `market_cap` is 0.5% above a pure curve valuation.
 - **It is a marginal price, priced for one token.** It is the cost of the *next* token, applied to every token already minted.
 
-So it is a rectangle, while the AE in the reserve is the area under the curve:
+For comparison, the buy-curve spot valuation is a rectangle, while the curve cost and modeled
+redemption value are integrals. The following continuous-model examples omit affiliation fees
+and integer rounding:
 
 ```text
 market cap    =  buy(S) × S                     ← a rectangle: today's price, every token
-reserve paid  =  ∫ from 0 to S of buy(x) dx     ← the area under the curve
-redeemable    =  0.995 × that same integral     ← what selling everything would return
+curve cost    =  ∫ from 0 to S of buy(x) dx     ← the area under the curve
+redemption    =  0.995 × that same integral     ← full-supply return in the continuous model
 ```
 
 On a rising convex curve the rectangle is always bigger than the area:
 
-| Total supply | Market cap (AE) | AE ever paid in (AE) | Redeemable if everyone sold (AE) | Market cap overstates by |
+| Total supply | Spot valuation before affiliation (AE) | Curve cost from zero (AE) | Modeled full-supply redemption (AE) | Spot valuation overstates by |
 | --- | --- | --- | --- | --- |
 | 10,000,000 | 1,052.71 | 518.09 | 515.50 | 2.04× |
 | 100,000,000 | 171,838.20 | 71,838.18 | 71,478.99 | 2.40× |
 
-A token showing a 1,000 AE market cap is backed by roughly 500 AE of reserve, and the gap widens as
-the curve steepens. Unlike most assets, the reserve is a number you can check on-chain.
+A token showing a 1,000 AE market cap has roughly 500 AE of reserve in this model, and the gap
+widens as the curve steepens. Check the actual balance on-chain; the continuous comparison does
+not establish exact solvency across integer trades. See
+[Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
 
 **Market cap is a ranking signal, not a valuation.** The trending list defaults to sorting by it so
 that larger communities surface first, and for that job it is fine. Do not read it as money that

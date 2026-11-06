@@ -94,8 +94,8 @@ datatype event =
 | `CreateCommunity` | `9838227481037218045844062460739435620538960633417016110994140287779986845610` |
 | `CreateCollection` | `106451687811681430585235988806070705060981919041452525929915952793933471156443` |
 
-`CreateCommunity` is the most useful event in the system for an indexer: one log entry gives
-you a new community's name and all three of its contract addresses.
+`CreateCommunity` gives an indexer a new community's name and its DAO, sale and management
+addresses. Read `token_contract()` on the sale for the fourth, the AEX-9 token address.
 
 ### AffiliationBondingCurveTokenSale
 
@@ -252,12 +252,13 @@ datatype event =
 | `PrincipalLink` | `33734067034041800501097175880685404869663974342910460138405033266635271063644` |
 | `PrincipalUnlink` | `65650841556643744410284701498125626234659108343589856439166449381677919258575` |
 
-Every one carries an `address` topic and a `string` in `data`. The `Link` / `Unlink` pair
-covers account links; the `Principal` pair covers links made against an AENS name.
+Every one carries an `address` topic and a `string` in `data`. `Link` and `Unlink` carry
+`provider:value`, including the removed value on unlink. Non-address principals additionally
+emit `PrincipalLink` or `PrincipalUnlink` with `principal|provider:value`.
 
-**The `data` string on a link event is `provider:value`, colon-joined.** Split it on the
-first colon. Provider ids match `/^[a-z]{1,10}$/`, so a value may contain a colon but a
-provider id may not. `prefaens` is the provider id for a preferred AENS name.
+Provider ids match `/^[a-z]{1,10}$/`, and values may not contain a colon. `prefaens` is the
+provider id for a preferred AENS name. For a principal event, remove the known principal and
+its `|` separator before parsing the provider and value.
 
 ### Tipping v4
 
@@ -304,8 +305,9 @@ for (const e of result.decodedEvents) {
 }
 ```
 
-`decodedEvents` covers events from **every** contract the call touched, so a buy gives you the
-sale's `Buy` and `PriceChange` plus both `Mint` events. Match on `e.contract.address` to tell
+`decodedEvents` can include events from every contract the call touched when their definitions
+are available in the supplied ACIs. `omitUnknown: true` skips unknown events; it does not
+decode them. Match on `e.contract.address` to tell
 the community token's mint from the ProtocolDAO token's:
 
 ```javascript
@@ -319,7 +321,7 @@ const tokenMint = result.decodedEvents.find(
 For transactions you did not submit, query the middleware's contract log index:
 
 ```text
-GET {middlewareUrl}/v3/contracts/logs?contract_id={ct_...}&tx_hash={th_...}&limit=100
+GET {middlewareUrl}/v3/contracts/{ct_...}/logs?event=Mint&limit=100
 ```
 
 | Network | Middleware base URL |
@@ -327,46 +329,50 @@ GET {middlewareUrl}/v3/contracts/logs?contract_id={ct_...}&tx_hash={th_...}&limi
 | Mainnet | `https://mainnet.aeternity.io/mdw` |
 | Testnet | `https://testnet.aeternity.io/mdw` |
 
-Drop `tx_hash` to get a contract's full log history, paged. Each entry carries `topics` as an
-array of big-integer strings and `data` as the string payload, so matching is a string compare
-against the hashes above:
+Omit `event` for the contract's full log history. Middleware logs use `args` for the indexed
+arguments and `event_hash` for the constructor hash; they do not expose the node's `topics`
+array. With the default argument formatting, indexed arguments are decimal strings and the
+constructor hash is not included in `args`:
 
 ```javascript
-const MINT_TOPIC = '97248968993606906149864095761415446114204891017168990930824289305879066770211';
-
 const res = await fetch(
-  `https://mainnet.aeternity.io/mdw/v3/contracts/logs?contract_id=${saleAddress}&limit=100`,
+  `https://mainnet.aeternity.io/mdw/v3/contracts/${tokenAddress}/logs?event=Mint&limit=100`,
 );
+if (!res.ok) throw new Error(`Middleware returned ${res.status}`);
 const { data } = await res.json();
 
-const mints = data.filter((log) => log.topics?.[0] === MINT_TOPIC);
-for (const log of mints) {
-  console.log('account topic:', log.topics[1], 'value:', log.topics[2]);
+for (const log of data) {
+  console.log('account topic:', log.args[0], 'value:', log.args[1]);
+  console.log('transaction:', log.call_tx_hash);
 }
 ```
 
-A log entry also carries `event_hash` and, when the middleware can resolve the contract's
-ACI, a decoded `event_name` and an `args` array:
+A log entry also carries the transaction hash, payload and an event name when the middleware
+recognises the event through its built-in definitions or configured custom events:
 
 ```javascript
 const eventHash = log.event_hash;
-const eventName = log.event_name;       // may be absent
-const addressTopic = log.args?.[0];     // decoded topic arguments
+const eventName = log.event_name;       // may be null
+const addressTopic = log.args[0];       // numeric topic string by default
 const payload = log.data;
 ```
 
 `event_hash` is the same 32-byte Blake2b-256 digest as `topics[0]`, encoded as padded
 base32hex (RFC 4648's extended-hex alphabet, not standard base32). Match on `event_hash` when
 you want a stable identifier, and on `event_name` only as a convenience, since it is present only
-when the middleware has the contract's ACI.
+when the middleware recognises the event. `aexn-args=true` and `custom-args=true` enable
+additional formatting for supported events. Non-UTF-8 payloads are returned as base64.
+
+To select the logs of a known transaction, pass `scope=transaction:th_...` to the log query, or
+read its raw logs from the node's `GET /v3/transactions/{hash}/info` response.
 
 Two operational notes:
 
 - **Paginate.** The response carries a `next` field with a relative path. Follow it until it
   is absent; do not assume one page is the whole history.
 - **Logs lag the transaction.** A transaction hash is available the moment it is mined, but
-  the middleware may not have indexed its *logs* yet, so a `tx_hash`-filtered query can return
-  an empty list for a transaction that emitted events. Retry, or reconcile in a later
+  the middleware may not have indexed its *logs* yet, so its logs can be missing from the
+  indexed history. Retry, or reconcile in a later
   catch-up pass.
 
 ## Live subscriptions
@@ -402,7 +408,7 @@ and `token-history`. See [WebSocket API](/api-reference/websocket).
 ## Related
 
 - [Calling Contracts](/contracts/calling-contracts): `decodedEvents` in context, plus reverts and gas
-- [AffiliationBondingCurveTokenSale](/contracts/token-sale): where the four events of a buy come from
+- [AffiliationBondingCurveTokenSale](/contracts/token-sale): the core buy events and additional treasury logs
 - [Node and middleware API](/api-reference/node-and-middleware): the middleware endpoints in full
 - [WebSocket API](/api-reference/websocket): the Superhero API's own real-time channels
 - [æternity contract events specification](https://github.com/aeternity/protocol/blob/master/contracts/events.md): the topic and data encoding rules

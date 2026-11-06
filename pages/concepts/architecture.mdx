@@ -6,8 +6,9 @@ description: "How the on-chain contracts, the indexer, the API and the clients f
 # Architecture Overview
 
 Superhero is a set of Sophia contracts on æternity, an off-chain indexer that turns their events
-into a queryable API, and three clients that talk to both. Every write goes to the chain; every read
-that needs to be fast goes to the API.
+into a queryable API, and clients that talk to both. Posts, trades and governance actions are
+written to the chain. Indexed reads, profile workflows, notifications and chat also use
+off-chain services.
 
 ## The stack in one view
 
@@ -35,18 +36,17 @@ that needs to be fast goes to the API.
 
 The Tipping and factory contracts are **singletons**: one address per network. The Tipping address
 is in [Deployed Addresses](/contracts/addresses); the active factory is returned by
-`GET /api/factory`. Everything else is **per community**: creating a token deploys a fresh token,
-curve, sale, DAO and management contract in a single transaction.
+`GET /api/factory`. Each community has its own token, sale, DAO and management contracts.
+The sale references the factory's shared bonding curve and affiliation treasury.
 
-The factory's deployment sequence:
+The community-creation flow:
 
-1. A new AEX-9 token contract for the community.
-2. A `BondingCurveExponential` contract with the community's pricing parameters.
-3. An `AffiliationBondingCurveTokenSale` referencing the token and the curve.
-4. A `DAO` contract, which becomes the sale's owner and beneficiary.
-5. A `CommunityManagement` contract with initial moderator and threshold settings.
-6. Registration of the community in the factory's on-chain registry.
-7. An optional initial buy, executed in the same transaction.
+1. Deploy a `CommunityManagement` contract and a `DAO` contract.
+2. Deploy an `AffiliationBondingCurveTokenSale`, which creates the community's AEX-9 token
+   and references the shared curve and treasury.
+3. Set the DAO as the sale's owner and beneficiary and the management contract's owner.
+4. Execute any initial buy and register the community in the factory, all in the same
+   transaction. See [CommunityFactory](/contracts/community-factory) for the detailed flow.
 
 ## Off-chain layer
 
@@ -181,7 +181,7 @@ else is mainnet). A deployed container can override most of these at runtime thr
 
 | Key | Mainnet | Testnet |
 | --- | --- | --- |
-| `BACKEND_URL` | `https://api.superhero.com` | Not publicly documented |
+| `BACKEND_URL` | `https://api.superhero.com` | Configure your own testnet backend |
 | `NODE_URL` | `https://mdw.wordcraft.fun` | `https://testnet.aeternity.io` |
 | `MIDDLEWARE_URL` | `https://mdw.wordcraft.fun/mdw` | `https://testnet.aeternity.io/mdw` |
 | `EXPLORER_URL` | `https://aescan.io` | `https://testnet.aescan.io` |

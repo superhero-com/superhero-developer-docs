@@ -5,10 +5,11 @@ description: "Four levels of referral rewards paid from every community-token bu
 
 # The Affiliation System
 
-Every community-token buy on Superhero carries a 1% spread between the buy and sell price.
-Half of it funds the community DAO; the other half funds a four-level referral system.
-**0.5% of every buy is collected up front and credited to up to four levels of inviters above
-the buyer.** Rewards accumulate in 30-day periods, and `withdraw()` pays the current and
+The documented buy/sell spread is 1% of curve value before integer rounding. Buys allocate
+approximately 0.5% of the curve cost to the community DAO and add another 0.5% for the
+four-level referral system. Sells make no new allocation.
+**The affiliation fee is 0.5% of the buy's curve cost**, credited to up to four levels of
+inviters above the buyer. Rewards accumulate in 30-day periods, and `withdraw()` pays the current and
 previous period.
 
 The percentages, the payout period length and the qualification thresholds are constants in
@@ -16,9 +17,11 @@ the contract; they cannot change without redeploying it.
 
 ## The split
 
-When an invitee buys tokens, 0.5% of the transaction value is distributed up the chain:
+When an invitee buys tokens, the treasury receives the curve cost as `transaction_value`.
+The following percentages use that cost, before the affiliation fee, and are rounded down
+to whole aettos when credited:
 
-| Level | Relationship to the buyer | Share of the transaction |
+| Level | Relationship to the buyer | Share of the curve cost |
 | --- | --- | --- |
 | 1 | The buyer's direct inviter | 0.300% |
 | 2 | That person's inviter | 0.125% |

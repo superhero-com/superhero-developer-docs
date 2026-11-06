@@ -5,8 +5,9 @@ description: "What a community token is, which contracts it deploys, and what ow
 
 # Community Tokens
 
-A Superhero community token is an AEX-9 fungible token whose entire supply is minted and burned
-against a bonding curve, with a DAO treasury attached. Creating one deploys a small cluster of
+A Superhero community token is an AEX-9 fungible token minted through bonding-curve buys and
+redeemed through sells, with a DAO treasury attached. Holders can also burn their own tokens
+directly without receiving AE. Creating one deploys a small cluster of
 contracts in a single transaction; holding one gives you a governance stake and a write threshold in
 that community, not a claim on a company.
 
@@ -18,7 +19,7 @@ that community, not a claim on a company.
 | Pricing | Exponential bonding curve, a pure function of supply |
 | Buy/sell spread | 1% of the curve value: 0.5% to the community DAO, 0.5% to affiliation |
 | Utility | Community governance voting, write-access threshold, community membership |
-| Solvency | The full supply is redeemable at all times against the curve reserve |
+| Reserve design | Buys retain the immediate sell quote; full redemption follows in the continuous model, subject to integer-rounding analysis |
 | Supply cap | None. Supply is elastic and grows with demand |
 
 ## What gets deployed
@@ -28,13 +29,13 @@ order:
 
 | Step | Contract | Role |
 | --- | --- | --- |
-| 1 | `FungibleTokenFull` | The AEX-9 token itself: balances, transfers, allowances |
-| 2 | `BondingCurveExponential` | Pricing. Pure arithmetic, no state of its own |
+| 1 | `CommunityManagement` | Moderators, mute list, write threshold, community metadata |
+| 2 | `DAO` | Owner and beneficiary of the sale; holds the treasury |
 | 3 | `AffiliationBondingCurveTokenSale` | Buy, sell, mint, burn, affiliation fee routing |
-| 4 | `DAO` | Owner and beneficiary of the sale; holds the treasury |
-| 5 | `CommunityManagement` | Moderators, mute list, write threshold, community metadata |
-| 6 | None | Registration in the factory's on-chain community registry |
-| 7 | None | Optional initial token purchase, in the same transaction |
+| 4 | `FungibleTokenFull` | Created inside the sale's `init`: balances, transfers, allowances |
+| 5 | None | Link the DAO, sale and management contracts |
+| 6 | None | Optional initial token purchase, in the same transaction |
+| 7 | None | Registration in the factory's on-chain community registry |
 
 `create_community` returns the tuple `(DAO, TokenSale, CommunityManagement)`. The bonding curve
 contract is shared: the factory exposes a single `bonding_curve()` and every sale contract points
@@ -60,7 +61,7 @@ own address, so an allowance is granted to `sale_address` with its `ct_` prefix 
 ## What holding the token gets you
 
 - **Governance.** Holders at or above the community's `minimum_token_threshold` can open DAO votes; any holder can vote, with voting weight equal to the tokens they lock in the vote contract. Opening a vote costs 555 AE, paid to the DAO. See [DAO voting](/dao/voting).
-- **A treasury you collectively control.** 0.5% of the curve value on every trade accrues to the community's DAO, and holders vote on how it is spent. See [Treasury](/dao/treasury).
+- **A treasury you collectively control.** Approximately 0.5% of the curve value on each buy is allocated to the community's DAO, and holders vote on how it is spent. Sells make no new DAO allocation. See [Treasury](/dao/treasury).
 - **Write access and membership.** `CommunityManagement` stores a `minimum_token_threshold` that gates write access in the community for verified accounts, plus the moderator set and mute list. See [Moderators](/dao/moderators).
 - **ProtocolDAO tokens.** Buying a community token also mints you platform-wide ProtocolDAO tokens, proportional to the AE value of the buy. Their governance framework is not yet live. See [ProtocolDAO](/dao/protocol-dao).
 
@@ -69,8 +70,8 @@ own address, so an allowance is granted to `sale_address` with its `ct_` prefix 
 - **Not equity.** A community token conveys no ownership of any company, no share of profits, and no claim on anyone's assets other than the AE in its own bonding-curve reserve.
 - **Not a revenue share.** The DAO treasury is spent by vote, not distributed automatically. There is no dividend.
 - **Not a fixed-supply asset.** Anyone can mint more at any time by buying. Your percentage of the supply falls whenever someone else buys, even if your balance does not change.
-- **Not backed by a promise.** The only guarantee is arithmetic: the curve always quotes a sell price, and the reserve can always pay it. Whether that price is higher or lower than what you paid depends on what everyone else does.
-- **Not free to enter and exit.** The 1% spread means an instant round trip returns about 0.995 of what you put in, before gas. See [Risks](/tokens/risks).
+- **Not backed by a promise.** The curve computes a sell quote from supply, and buys fund the reserve. The continuous-model redemption argument needs a separate check for integer rounding. Whether the quote is higher or lower than what you paid depends on what everyone else does. See [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
+- **Not free to enter and exit.** Before gas and integer rounding, an instant round trip with no intervening trades returns `0.995 / 1.005`, about `0.99004975` of what you paid. See [Risks](/tokens/risks).
 
 ## Two token types on the platform
 

@@ -5,18 +5,20 @@ description: "Pagination, ordering, units, errors, rate limits and authenticatio
 
 # API Conventions
 
-Every endpoint on `api.superhero.com` is plain JSON over HTTPS. The rules below (base URLs,
-pagination, shared query parameters, units, errors, rate limits and the signature-based write
-flow) apply everywhere and are not repeated on the endpoint pages.
+The REST API on `api.superhero.com` serves JSON over HTTPS. This page explains base URLs,
+pagination, shared query parameters, units, errors and rate limits. Authentication varies by
+endpoint; the exceptions are listed below.
 
 ## Base URLs
 
 | Network | Base URL | Chain id |
 | --- | --- | --- |
 | Mainnet | `https://api.superhero.com` | `ae_mainnet` |
-| Testnet | Not publicly documented | `ae_uat` |
+| Testnet | No public endpoint documented | `ae_uat` |
 
-Both hosts serve the same paths. Every path is relative to the base and begins with `/api/`. The
+Testnet API integrations require a separately deployed backend and its base URL.
+
+REST paths are relative to the configured base URL and begin with `/api/`. The
 only versioned prefix is `/api/v2/mdw/*`, the indexed chain mirror. See
 [Node & Middleware](/api-reference/node-and-middleware).
 
@@ -25,17 +27,19 @@ Outside production the server also serves Swagger UI at `/api` and the OpenAPI 3
 
 ## Authentication
 
-**Reads need no credentials.** No API key, bearer token, cookie or session:
+**Public data reads need no credentials.** Token, post and account queries need no API key
+or bearer token. Private notifications require authentication, as described below:
 
 ```bash
 curl -s "https://api.superhero.com/api/tokens?limit=3&order_by=market_cap&order_direction=DESC"
 ```
 
-**Writes are authorised by wallet signature.** There is no login endpoint and no token to store.
-Every mutating flow is three steps:
+**Profile and address-link writes use wallet signatures.** The usual flow has three steps:
 
-1. `POST` the challenge endpoint with your `ak_...` address. It returns a `nonce` (or
-   `verification_token`), a human-readable `message` and an expiry.
+1. `POST` the claim or challenge endpoint with your `ak_...` address and the flow's required
+   inputs. It usually returns a `nonce` and a human-readable `message`; some flows also return
+   a verification token or an expiry. The notification device and preference challenges are the
+   exception: they return only `{ nonce, expiresAt }` (see below).
 2. Sign `message` with the private key for that address.
 3. `POST` the submit endpoint with the nonce, the signature and the value you are claiming.
 
@@ -54,8 +58,17 @@ pattern:
 | Push-notification device | `POST /api/notifications/devices/challenge` | `POST /api/notifications/devices` |
 | Notification preferences | `POST /api/notifications/preferences/challenge` | `POST /api/notifications/{address}/preferences` |
 
-Each `claim` flow has a matching `unclaim` and `unclaim/submit` pair, signed the same way. See
+Each address-link `claim` flow has a matching `unclaim` and `unclaim/submit` pair, signed the same way. See
 [Profile](/api-reference/profile) for request bodies.
+
+Nostr submission additionally requires a signed `nostr_event` instead of a verification
+token. Preferred-name messages use the owned `.chain` name as principal rather than the
+address. Sign the returned text exactly.
+
+The notification device and preference challenges return no message. The client builds it
+from the fixed templates in the API's
+[`notifications.constants.ts`](https://github.com/superhero-com/superhero-api/blob/9013fd1ba3e61844cbb76653ea9f5960ca0a23c7/src/notifications/notifications.constants.ts)
+and signs that; the feed-session template is shown in [Notifications](/social/notifications).
 
 **The notification feed uses a bearer session token.** One wallet signature is exchanged for a
 token, which is then sent as a normal `Authorization: Bearer` header:
@@ -137,7 +150,7 @@ to `market_cap` and an unrecognised `order_direction` to `DESC`, with no error.
 | --- | --- |
 | `GET /api/tokens/{address}/history` | A bare JSON array. Still takes `page` and `limit`; you have reached the end when a page comes back empty |
 | `GET /api/accounts/{address}/portfolio/history` | A bare JSON array of snapshots, bounded by `startDate`, `endDate` and `interval` rather than by pages |
-| `GET /api/accounts/leaderboard` | `items` plus a different `meta`: `page`, `limit`, `totalItems`, `totalPages`, `window`, `sortBy`, `sortDir` and `timeFilter`. Note `page`, not `currentPage` |
+| `GET /api/accounts/leaderboard` | `items` plus a different `meta`: `page`, `limit`, `totalItems`, `totalPages`, `window`, `sortBy`, `sortDir` and, for custom periods only, `timeFilter: { start, end }`. Note `page`, not `currentPage` |
 | `GET /api/feed` | Keyset pagination: `items` plus `next_cursor`. Pass the cursor back as `cursor`; there is no page number |
 
 The analytics series endpoints return bare arrays and the totals endpoints return a scalar or a
@@ -247,13 +260,16 @@ on each guarded endpoint.
 | `POST /api/notifications/devices/challenge`, `POST /api/notifications/devices`, `DELETE /api/notifications/devices` |
 | `POST /api/notifications/preferences/challenge`, `GET` and `POST /api/notifications/{address}/preferences` |
 | `POST /api/notifications/{address}/feed/challenge`, `POST /api/notifications/{address}/feed/session` |
+| `POST /api/notifications/{address}/price-alerts`, `DELETE /api/notifications/{address}/price-alerts/{id}` |
 | `GET /api/notifications/web-push/vapid-public-key` |
-| `GET /api/profile/{address}/x-posting-reward`, `POST /api/profile/x-posting-reward/recheck-challenge`, `POST /api/profile/{address}/x-posting-reward/recheck`, `POST /api/profile/{address}/x-reward/referral-link` |
+| `GET /api/profile/{address}/x-posting-reward`, `GET /api/profile/{address}/x-posting-reward/history`, `POST /api/profile/x-posting-reward/recheck-challenge`, `POST /api/profile/{address}/x-posting-reward/recheck`, `POST /api/profile/{address}/x-reward/referral-link` |
 | `POST /api/profile/chain-name/challenge`, `POST /api/profile/chain-name/claim` |
 | `/api/rooms/*` and the token-gated-room recheck and metrics routes |
+| Internal dashboard login/setup: `POST /api/bcl-affiliation/auth/login`, `POST /api/bcl-affiliation/auth/setup` |
 
-Everything else (tokens, transactions, accounts, analytics, DEX, posts, trending tags,
-affiliations, search and feed) is unthrottled. Poll considerately and prefer the
+The public token, transaction, account, analytics, DEX, post, trending-tag, affiliation, search and
+feed controllers do not use this guard. Deployment infrastructure can impose additional
+limits, so handle `429` responses on any endpoint. Poll considerately and prefer the
 [WebSocket](/api-reference/websocket) for change notification.
 
 ## CORS
@@ -283,7 +299,7 @@ Several endpoints are served from an in-process cache rather than recomputed per
 | `GET /api/accounts` | 60 seconds |
 | `GET /api/feed` | 15 seconds |
 | `GET /api/analytics/total-unique-users` | 20 seconds |
-| `GET /api/accounts/leaderboard` | up to 60 seconds. `meta.timeFilter.start` / `.end` are the times the cache entry was filled |
+| `GET /api/accounts/leaderboard` | up to 60 seconds; snapshot windows are rebuilt every ten minutes |
 
 Some values are recomputed on a schedule: token performance and `rank` every five minutes, the
 daily analytics rows hourly, AE fiat rates every ten minutes, and trending scores as described on
@@ -295,14 +311,15 @@ There is no version negotiation. The OpenAPI document declares version `1.0`, `G
 reports the deployed package version as `apiVersion`, and no header or path segment selects a
 version. `/api/v2/mdw/*` is a name inherited from the middleware's own API.
 
-Deprecation is by annotation. A retired parameter keeps validating and stops having an effect:
+Deprecation is by annotation. Check each parameter's scope: an annotation does not necessarily
+mean it is ignored in every request mode.
 
 | What | Status |
 | --- | --- |
 | `GET /api/contracts` | Deprecated. Still returns a single-element array naming the community factory. Use `GET /api/factory` |
 | `includeOnChain` on both profile read endpoints | Accepted and ignored; profiles are served from indexed data |
 | `window` on `GET /api/posts/popular` | Accepted and ignored; popular ranking is all-time |
-| `points` and `maxCandidates` on `GET /api/accounts/leaderboard` | Accepted and ignored |
+| `points` and `maxCandidates` on `GET /api/accounts/leaderboard` | Deprecated in the schema; ignored for snapshot windows but still affect custom-period requests |
 
 ## Related
 

@@ -12,8 +12,9 @@ standard, and touches a few others through its wallet stack.
 ## AEX-9: fungible tokens
 
 Every Superhero community token and the ProtocolDAO token is an AEX-9 contract. That is why a
-token you mint on Superhero shows up in any æternity wallet and on [æScan](https://aescan.io/)
-without Superhero having to integrate with them.
+token can be read by compatible æternity wallets, middleware and explorers such as
+[æScan](https://aescan.io/) through a shared interface. Discovery and display still depend
+on the client and its indexer.
 
 AEX-9 is inspired by ERC-20 but deliberately smaller: the base interface is the read functions
 plus `transfer`, and everything else (allowances, minting, burning, swapping) is an optional
@@ -21,7 +22,9 @@ extension. A contract advertises which extensions it implements through `aex9_ex
 
 ### The interface
 
-Non-stateful entrypoints can be dry-run for free; stateful ones need a signed transaction.
+The tables below describe Superhero's full token implementation, including optional
+extensions. They are not the minimum interface every AEX-9 token must implement. Dry-runs
+simulate calls without network fees; persisting changes requires a signed transaction.
 
 **Reads**
 
@@ -117,8 +120,8 @@ See [Networks & Endpoints](/aeternity/networks).
 | AEX-130 | æpp meta-information format | Draft | Not used |
 | AEX-141 | Non-fungible tokens | Review | Not used; Superhero has no NFT feature |
 
-AEX-9's status is Review and nothing supersedes it. Every æternity wallet, explorer and the
-middleware's AEX-9 indexing are built against it as written.
+AEX-9 is marked Review in the specification and is used by Superhero and the middleware's
+token indexing. Check each client's supported extensions rather than assuming universal support.
 
 ## Related
 

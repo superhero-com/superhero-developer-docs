@@ -12,17 +12,18 @@ Every Superhero community token is an AEX-9 fungible token, the æternity equiva
 | Entrypoint | Arguments | What it does |
 | --- | --- | --- |
 | `meta_info` | none | Name, symbol, decimals |
-| `total_supply` | none | Total minted supply |
+| `total_supply` | none | Outstanding supply, after burns |
 | `balance` | `address` | One account's balance, as an option |
 | `balances` | none | The whole balance map |
 | `transfer` | `address, int` | Move your own tokens |
-| `allowance` | `from_account, for_account` | Read a granted allowance |
+| `allowance` | one record: `from_account`, `for_account` | Read a granted allowance |
 | `allowance_for_caller` | `address` | Read the allowance granted to the caller |
 | `create_allowance` | `address, int` | Grant a new allowance |
 | `change_allowance` | `address, int` | Adjust an existing one by a delta |
-| `reset_allowance` | `address` | Revoke it entirely |
+| `reset_allowance` | `address` | Set an existing allowance to zero, retaining its record |
 | `transfer_allowance` | `from, to, int` | Spend someone else's allowance |
-| `mint` / `burn` | `address, int` / `int` | Supply changes, owner-gated |
+| `mint` | `address, int` | Owner-only issuance to an account |
+| `burn` | `int` | Destroy tokens from the caller's own balance, without an AE payout |
 
 Amounts everywhere are integers in the token's **base units**. Divide by 10 to the power of
 `decimals` from `meta_info` to get a human figure. Superhero's signing prompt does *not* do that
@@ -104,9 +105,10 @@ is in fact granted to the router contract.
 
 ### DAO vote locking
 
-Governance votes lock the tokens you vote with until the vote closes, and that locking is
-implemented with the AEX-9 allowance mechanism, which is what prevents the same tokens being
-double-spent across two concurrent votes. Revoking your vote releases the lock.
+Community DAO votes transfer the tokens you stake into the vote contract using an AEX-9
+allowance. Holding those tokens in the vote contract prevents the same balance from being
+transferred, sold or staked in another proposal. An allowance alone does not lock tokens.
+While the vote is open, revoking it returns the stake; after it closes, call `withdraw()`.
 
 This is why a vote can ask you to sign twice: once to grant or adjust the allowance, once to cast.
 
@@ -121,7 +123,8 @@ reset_allowance(for_account)   on the AEX-9 token contract
 
 where `for_account` is the grantee in `ak_` form. For the DEX, that is the router's contract address with
 `ct_` swapped for `ak_`. Use the agent skill's SDK setup, `aepp-cli`, or any tool that can call a
-contract entrypoint.
+contract entrypoint. Resetting retains the allowance record with value zero, so a later grant
+uses `change_allowance` rather than `create_allowance`.
 
 Every allowance Superhero grants is sized to the specific trade, so a stale allowance is capped at
 whatever was left over from the operation that created it. That is usually zero, because a swap spends

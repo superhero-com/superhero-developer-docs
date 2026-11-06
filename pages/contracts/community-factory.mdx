@@ -20,7 +20,7 @@ It is deployed once per network and reused for every collection and community af
 `CommunityFactory.aci.json` also carries the inlined interfaces of `DAO`, `DAOVote`,
 `CommunityManagement`, `AffiliationTreasury`, `VoteSubjects`, `Frac` and `FungibleTokenFull`.
 
-Four values are fixed, so you never need a node to know them:
+The factory exposes these identifiers and fee parameters:
 
 | Call | Returns | Note |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ Four values are fixed, so you never need a node to know them:
 | `fee_precision()` | `100000` | passthrough to `AffiliationTreasury.get_affiliation_fee_precision()` |
 
 `fee_percentage() / fee_precision()` is `500 / 100000`, or 0.5%. Divide the two rather than
-hardcoding 0.005; both are passthroughs and a treasury redeployment could move them.
+hardcoding 0.005. Both are passthroughs, so read them from the deployed factory when integrating.
 
 ## Entrypoints
 
@@ -137,8 +137,11 @@ create_collection("WORDS", ...) called by ak_alice...
 ```
 
 That returned string is the id every later call must use, and it is why collection ids in the
-Superhero API are typed as `${string}-${Encoded.AccountAddress}`. Creating a collection whose
-name already exists aborts with `collection_ALREADY_EXISTS` (note the lowercase first letter).
+Superhero API are typed as `${string}-${Encoded.AccountAddress}`. `collection_ALREADY_EXISTS`
+checks the raw input against registry keys before the caller suffix is appended, so it never
+stops a repeat: calling `create_collection` again with the same name from the same account burns
+another 555 AE and replaces the collection's registry entry with an empty one. See
+[Collections & Naming](/tokens/collections-and-naming).
 
 Any account may register a collection, with any naming rules. The collections the Superhero
 app lists on mainnet (`WORDS`, `CHINESE`, `ARABIC` and `RUSSIAN`) are a curated set

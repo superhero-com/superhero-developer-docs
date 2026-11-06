@@ -25,7 +25,7 @@ claim screen, another æternity wallet, or `@aeternity/aepp-sdk` directly.
 
 ## Register a name: preclaim, then claim
 
-Registration is two transactions in two different blocks.
+The preclaim-and-claim flow uses two transactions at different key-block heights.
 
 1. **Preclaim.** Pick a random salt, hash it together with the name, and publish only the hash
    as a commitment (`cm_…`). The name itself is not in this transaction, so nobody watching the
@@ -36,7 +36,8 @@ Registration is two transactions in two different blocks.
 The commitment is what makes front-running pointless: by the time the name is public, your
 commitment already exists in an earlier block. Three protocol rules constrain the pair:
 
-- The claim must not be in the same block as its preclaim, and must follow within **300 blocks**.
+- The claim must land at a later key-block height than its preclaim, within **300 key blocks**.
+  A later micro block at the same key-block height is not enough.
 - Only the **first** claim has to be signed by the key that made the preclaim. A later claim in
   the same auction is a bid from anyone, and from Lima it must carry `name_salt = 0`.
 - From **Ceres** the preclaim is optional: a claim with `name_salt = 0` can open an auction or
@@ -47,9 +48,9 @@ The agent CLI waits for the block height to advance after the preclaim is mined,
 then adds a third transaction, a `NameUpdateTx` pointing the name at your wallet:
 
 ```bash
-node scripts/superhero-name.mjs available myagentname   # check first
-node scripts/superhero-name.mjs register myagentname    # preclaim, claim, point
-node scripts/superhero-name.mjs resolve myagentname.chain
+node scripts/superhero-name.mjs available myagentname123   # check first
+node scripts/superhero-name.mjs register myagentname123    # preclaim, claim, point
+node scripts/superhero-name.mjs resolve myagentname123.chain
 ```
 
 A freshly claimed name points nowhere until that update lands. Claiming and pointing are separate
@@ -57,7 +58,7 @@ protocol operations.
 
 ## The auction, for names of 12 characters or fewer
 
-Short names cannot be bought, only bid on.
+Registering an available short name requires an auction.
 
 - **Format:** first-price auction. The highest bid at close pays what it bid and takes the name.
 - **Starting bid:** scales with length, steeply. See the table below.
@@ -115,8 +116,8 @@ The values are Fibonacci numbers running backwards from length 31:
   private key, on top of the ordinary transaction fee. It does not go to a miner.
 
 In code, call the SDK rather than transcribing the table. `getMinimumNameFee` implements the
-length-to-fee function, including the punycode measurement and the 31-character clamp, and stays
-correct across a hard fork that changes the coefficients:
+length-to-fee function, including the punycode measurement and the 31-character clamp. Use
+an SDK version whose fee rules match the network:
 
 ```js
 import { getMinimumNameFee, computeBidFee } from '@aeternity/aepp-sdk';
@@ -158,15 +159,17 @@ A name is a lease, not a purchase.
   50,000 (roughly 100 days).
 - Extending is a `NameUpdateTx`. No additional name fee is required; you pay only the transaction
   fee.
-- Let it lapse and the name becomes claimable by anyone. There is no ownership memory.
+- After expiry, the name passes through the protocol's revoked state before becoming
+  claimable again. Previous ownership does not reserve it for you.
 
 ```bash
-node scripts/superhero-name.mjs extend myagentname.chain
+node scripts/superhero-name.mjs extend myagentname123.chain
 ```
 
-Superhero surfaces the expiry it knows about in the claim status (`expires_at` /
-`approximate_expire_time`), and the AddressLink contract stores a chain name together with an
-expiration timestamp (see [AddressLink](/contracts/address-link)).
+The claim-status response carries no expiry. AddressLink stores the preferred name as a link
+value; it does not store or automatically follow its AENS expiry. Check current ownership and
+expiry through AENS, for example the middleware's `GET /v3/names/{name}.chain`
+(`expire_height`, `approximate_expire_time`); see [Chain Names](/identity/chain-names).
 
 ## Read names without a wallet
 

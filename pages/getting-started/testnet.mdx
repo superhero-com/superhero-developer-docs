@@ -5,8 +5,10 @@ description: "Endpoints, contract addresses and a faucet for running Superhero a
 
 # Using Testnet
 
-æternity's public testnet (`ae_uat`) is where you experiment without spending real AE. Superhero has
-a complete second deployment there, with its own backend, its own contracts, its own explorer.
+æternity's public testnet (`ae_uat`) is where you experiment without spending real AE.
+Use testnet contract addresses, nodes and middleware. No public Superhero testnet API or
+Socket.IO endpoint is documented here. To test the full application, deploy and configure
+a backend for testnet; selecting `ae_uat` alone does not provide one.
 
 ## Network selection is a build-time decision
 
@@ -15,7 +17,9 @@ environment variable. It accepts `ae_mainnet` (the default) or `ae_uat`; anythin
 to mainnet.
 
 There is no in-app network switcher. The running app offers exactly one network, and a wallet on
-the other one produces a mismatch you resolve in the wallet. To use testnet, build for it:
+the other one produces a mismatch you resolve in the wallet. In a checkout of the
+[`superhero-com/superhero` application](https://github.com/superhero-com/superhero), build for testnet
+with the following commands. These variables configure the application, not this documentation site:
 
 ```bash
 VITE_NETWORK=ae_uat npm run dev
@@ -39,8 +43,8 @@ names, inspect AEX-9 balances and sign for a locally built app.
 
 | Setting | Mainnet (`ae_mainnet`) | Testnet (`ae_uat`) |
 | --- | --- | --- |
-| Backend / API | `https://api.superhero.com` | Not publicly documented |
-| WebSocket | `https://api.superhero.com` | Not publicly documented |
+| Backend / API | `https://api.superhero.com` | No public endpoint documented |
+| WebSocket | `https://api.superhero.com` | No public endpoint documented |
 | Node | `https://mdw.wordcraft.fun` | `https://testnet.aeternity.io` |
 | Middleware | `https://mdw.wordcraft.fun/mdw` | `https://testnet.aeternity.io/mdw` |
 | Explorer | `https://aescan.io` | `https://testnet.aescan.io` |
@@ -110,14 +114,14 @@ Superhero Wallet (extension, mobile app, or `wallet.superhero.com`) ships both n
 build. Switch under **Settings → Network**; custom networks can be added there too, with
 per-protocol URLs.
 
-Its æternity testnet defaults:
+Its æternity testnet endpoints and Superhero API requirement:
 
 | Setting | Value |
 | --- | --- |
 | Node | `https://testnet.aeternity.io` |
 | Middleware | `https://testnet.aeternity.io/mdw` |
 | Explorer | `https://testnet.aescan.io` |
-| Superhero API | Not publicly documented |
+| Superhero API | Configure your own testnet backend |
 | Tipping backend | `https://superhero-backend-testnet.prd.service.aepps.com` |
 | Multisig backend | `https://ga-multisig-backend-testnet.prd.service.aepps.com` |
 
@@ -139,8 +143,10 @@ AE_NODE_URL=https://testnet.aeternity.io node scripts/superhero-governance.mjs .
 ```
 
 The other scripts set their node and API URLs as constants at the top of the file. To run them
-against testnet, change those constants. The Superhero API base needs changing too: the testnet API
-is a different host rather than a path on the mainnet one, and it is not publicly documented.
+against testnet, change those constants. Scripts that use the Superhero API also need a backend
+deployed for testnet; configure its base URL rather than using the mainnet API.
+Also replace network-specific contract constants, including the Tipping, factory and governance
+addresses; changing the node URL alone does not select testnet contracts.
 
 | Script | Constants to change |
 | --- | --- |

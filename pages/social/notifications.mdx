@@ -6,7 +6,7 @@ description: "The notification feed, browser push, preferences and devices — e
 # Notifications
 
 Superhero has two independent notification systems. The **bell** is a server-side feed
-(someone replied, someone sent you AE, a room let you in) delivered over REST plus a socket and
+(someone replied, tipped you or followed you) delivered over REST plus a socket and
 optionally as an OS notification. The **transaction banner** is a purely local progress
 indicator for whatever you are signing right now. They share no code and no delivery path.
 
@@ -64,28 +64,38 @@ throwing.
 
 ### Types, channels, and where a click lands
 
-The catalog has six types, and each declares which channels it goes out on. `database` is the
-channel that writes a bell row, so the web bell carries comments and invitation claims; the
-other four types reach mobile push only.
+The [API's notification catalog](https://github.com/superhero-com/superhero-api/blob/72a57261a054c4f3506b4b856900f64200bdb534/src/notifications/notification-catalog.ts)
+has ten types, each with declared delivery channels. `database` writes a bell row;
+`web-push` delivers browser push when configured and subscribed; `expo` delivers mobile push.
+Preferences and each type's dispatch checks still apply.
 
 | Type | Channels | Trigger |
 | --- | --- | --- |
 | `post-comment` | expo, **database**, web-push | Someone comments on a post you authored |
 | `invitation-claimed` | expo, **database**, web-push | Someone redeems an invitation you created |
-| `incoming-transfer` | expo only | Any incoming `SpendTx` above `NOTIF_MIN_AMOUNT_AETTOS` |
+| `new-follow` | expo, **database**, web-push | Someone follows you |
+| `token-price-alert` | expo, **database**, web-push | A token reaches a price alert you set |
+| `tip-received` | **database**, web-push | Someone tips you or one of your posts |
+| `post-mention` | expo, **database**, web-push | Someone tags your account in a post |
+| `incoming-transfer` | expo only | A non-self incoming `SpendTx` at or above `NOTIF_MIN_AMOUNT_AETTOS`, with a registered device |
 | `announcement` | expo only | Authored by the Superhero team |
 | `room-membership` | expo only | You are added to or removed from a token-gated room |
 | `room-messages` | expo only | New messages in a room you belong to |
 
-`incoming-transfer` is kept off the web feed because it fires for every transfer on chain to
-the recipient. The client's routing table maps all six, because the same payload also feeds the
-mobile app:
+`incoming-transfer` is kept off the web feed; a recognised tip has its own `tip-received`
+notification. The [reviewed web client's routing](https://github.com/superhero-com/superhero/blob/ef9526e1e2ca7d9ba5005b549c988109dc7ecd12/src/features/notifications/notificationNavigation.ts)
+handles these destinations. Backend support alone does not establish support in every client
+version; older web versions lacked the price-alert destination.
 
 | Type | Destination | Actor field |
 | --- | --- | --- |
 | `post-comment` | `/post/` plus `data.commentId`, falling back to `data.parentPostId` | `data.commenter` |
 | `incoming-transfer` | `/wallet` | `data.sender` |
 | `invitation-claimed` | `/wallet` | `data.claimer` |
+| `new-follow` | `/users/` plus `data.follower` | `data.follower` |
+| `token-price-alert` | `/trends/tokens/` plus `data.saleAddress` | None |
+| `tip-received` | `/post/` plus `data.postId` for a post tip; `/wallet` otherwise | `data.sender` |
+| `post-mention` | `/post/` plus `data.postId` | `data.author` |
 | `room-membership` | `/trends/tokens/` plus `data.saleAddress` | None |
 | `room-messages` | `/trends/tokens/` plus `data.saleAddress` | None |
 | `announcement` | None; the row renders as non-navigable | None |
@@ -97,7 +107,7 @@ ids) rather than a URL, because the mobile app has different routes.
 
 ### What suppresses a notification
 
-Every send passes three gates before a channel sees it; `post-comment` shows all three:
+Comment notifications pass three gates before delivery; other types have their own checks:
 
 1. **Self-action.** You are never notified about your own reply.
 2. **Preference.** The recipient's opt-out is checked before the rate cap, so an opted-out
@@ -163,10 +173,10 @@ payload wins over the mapping after an origin check.
 
 ### The preference keys
 
-A preference key is a catalog `type`, and the six keys are exactly the types in the table
-above: `incoming-transfer`, `announcement`, `invitation-claimed`, `post-comment`,
-`room-membership`, `room-messages`. The catalog is ordered, and the mobile preferences screen
-renders its rows in that order.
+A preference key is a catalog `type`. The API accepts all ten types in the table above and
+returns them in catalog order from `GET /api/notifications/{address}/preferences`, including
+each type's `id`, `title`, `short_description` and `enabled` state. Use that returned catalog for API
+integrations; it does not establish which controls a particular client screen exposes.
 
 The write is a partial upsert behind a signed challenge:
 
@@ -183,8 +193,9 @@ rejected against the catalog. The model is opt-out: a type with no stored row is
 
 `/notifications/devices` registers an **Expo push token**, for the native apps; the web-push
 endpoints register a **VAPID browser subscription**. An expo-only type reaches a registered
-device, and nothing if the account has none. Both registration paths are behind their own
-signed challenge, and deregistration binds the signature to both the address and the token.
+device, and nothing if the account has none. Expo registration uses a signed device challenge;
+browser subscription uses the notification-feed bearer session. Device deregistration binds
+its signature to both the address and the Expo token.
 
 The per-room mute control lives with chat: it writes `muted` and a tri-state account-wide
 `mute_all` through `POST /api/rooms/{saleAddress}/mute` behind its own signed challenge. The
@@ -208,12 +219,13 @@ Step 4 of 4 — transferring the name to your wallet
 Others cover token creation, swaps, wrapping and unwrapping AE, liquidity changes, and signing
 a profile update. None of these are recorded in the notification feed.
 
-## No tip notification
+## No tip notification?
 
-There is no tip type in the catalog. `incoming-transfer` does fire for a tip, since a tip is a
-plain `SpendTx`, but it is expo-only and never reaches the bell. An incoming tip produces a
-mobile push if you have a registered device, and nothing in the web app. See
-[Tipping](/social/tipping).
+`tip-received` writes a web bell item and can send browser push when a recognised tip is
+indexed live and passes the preference, amount and rate-cap checks. Self-tips do not notify.
+A post tip opens the tipped post; a profile tip opens the wallet. The same
+`SpendTx` can produce the Expo-only `incoming-transfer` notification for a registered mobile
+device, so `tip-received` itself does not send Expo push. See [Tipping](/social/tipping).
 
 ## Related
 

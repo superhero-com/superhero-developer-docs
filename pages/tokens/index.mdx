@@ -5,14 +5,15 @@ description: "Community tokens, the exponential bonding curve that prices them, 
 
 # Tokens & Bonding Curves
 
-Anyone can turn a topic into a market. Type a name, and a few seconds later that idea has a token,
-a price, a chart and a treasury, with no listing, approval or market maker involved.
+Anyone can turn a topic into a market. Type a name, and once the deployment is mined that idea has a token,
+a price and a treasury, with no listing, approval or market maker involved.
 
 The price comes from a curve rather than an order book. Every buy mints new tokens and nudges the
-price up; every sell burns them and moves it back down. So there is always a price, always
-liquidity, and no counterparty to find: you are trading with the contract itself, which holds
-enough reserve to buy the entire supply back. Because the price is a function of supply, tokens bought
-before the supply grows cost less.
+price up; every sell burns them and moves it back down. You trade with the contract itself,
+which computes quotes from supply and retains AE from buys to pay sellers. See
+[Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding) for the
+continuous-model redemption argument and its implementation limits. Tokens bought before the
+supply grows cost less.
 
 ## The numbers to remember
 
@@ -23,11 +24,11 @@ before the supply grows cost less.
 | Price of a trade | The integral of the curve across the supply you mint into or burn out of |
 | Launch price | 0.0000001 AE per token, at supply 0 |
 | Spread | 1% of the curve value: 0.5% to the community DAO, 0.5% to affiliation |
-| Instant round trip | Returns 0.99502 of what you paid, before gas |
-| Affiliation split | 0.300% / 0.125% / 0.050% / 0.025% across four referral levels; burned if unreferred |
+| Instant round trip | Returns about 0.99005 of what you paid, before gas |
+| Affiliation split | 0.300% / 0.125% / 0.050% / 0.025% of curve value across four referral levels; uncredited shares stay in the affiliation treasury |
 | ProtocolDAO reward | Minted to the buyer on every buy, proportional to its AE value |
 | Token standard | AEX-9, 18 decimals |
-| Solvency | The sell curve is strictly below the buy curve at every supply, so the reserve always covers the full supply |
+| Reserve design | Buys retain the immediate sell quote; full redemption follows in the continuous model, subject to integer-rounding analysis |
 
 ## Where to start
 

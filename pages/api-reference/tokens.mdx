@@ -8,8 +8,9 @@ description: "Query community tokens: the TokenDto and its units, holders, price
 Community tokens are the centre of the API: the trending list, portfolios, charts and trade
 records all resolve to a token. Twelve endpoints return tokens and their derived data.
 
-All paths are relative to `https://api.superhero.com`. Reads need no authentication and are not
-rate-limited.
+All paths are relative to `https://api.superhero.com`. Reads need no authentication. These
+routes do not use the backend's 10-request-per-minute guard; handle deployment-level limits
+and back off on `429` responses. See [Rate limits](/api-reference/conventions#rate-limits).
 
 ## Endpoints
 

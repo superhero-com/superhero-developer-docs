@@ -59,7 +59,8 @@ contract.
 
 ## Entrypoints
 
-Three parallel namespaces exist, differing only in what identifies the subject.
+The entrypoint families accept different forms of subject, but all store links and nonces
+under the signer's address. They do not create separate link or nonce namespaces.
 
 ### Address-keyed
 
@@ -72,7 +73,7 @@ Three parallel namespaces exist, differing only in what identifies the subject.
 | `get_link` | `(addr: address, provider: string) => option(string)` |
 | `resolve` | `(provider: string, value: string) => option(address)` |
 
-### AENS-name-keyed ("principal")
+### Principal-based
 
 | Entrypoint | Signature |
 | --- | --- |
@@ -83,7 +84,7 @@ Three parallel namespaces exist, differing only in what identifies the subject.
 | `get_link_principal` | `(principal: string, signer: address, provider: string) => option(string)` |
 | `resolve_signer` | `(principal: string) => option(address)` |
 
-The principal is an AENS name. The contract verifies ownership itself via `AENSv2.lookup`
+For preferred-name links the principal is an AENS name. The contract verifies ownership via `AENSv2.lookup`
 before accepting the link: a name that is not registered aborts with `PRINCIPAL_NOT_FOUND`, and
 a name the signer does not own aborts with `PRINCIPAL_MISMATCH`. The preferred-AENS-name link
 uses this namespace.
@@ -99,8 +100,13 @@ uses this namespace.
 | `get_link_did` | `(did: string, controller: address, provider: string) => option(string)` |
 | `resolve_did_controller` | `(did: string) => option(address)` |
 
-The `did` is an opaque string; the contract attaches no syntax or meaning to it. The Superhero
-providers use the address-keyed and principal-keyed namespaces, and the API indexes those two.
+The DID entrypoints require `did:ae:<subject>`, where the subject is the signer's `ak_` address
+or a `.chain` name the signer currently owns. They use the same address-keyed links and nonce
+as the other entrypoints, but the Superhero indexer processes only `link`, `unlink`,
+`link_principal` and `unlink_principal`, so a change made through `link_did` or `unlink_did`
+is on chain without appearing in the API's `links`. `resolve_did_controller` looks up the current owner of a name-based
+subject; it returns `None` for an address-based subject. These entrypoints alone do not
+provide a DID Core method specification or DID documents.
 
 ### Events
 
@@ -108,8 +114,9 @@ providers use the address-keyed and principal-keyed namespaces, and the API inde
 `PrincipalLink(address, string)`, `PrincipalUnlink(address, string)`.
 
 The first argument is the subject address as an integer, and the payload string is
-`provider:value` for a link and `provider:` for an unlink. The indexer decodes the integer back
-to an `ak_…` address and splits the payload on its first colon.
+`provider:value` for both `Link` and `Unlink`, with the removed value included on unlink.
+`PrincipalLink` and `PrincipalUnlink` prepend `principal|` to that payload. The indexer decodes
+the address topic back to an `ak_…` address.
 
 ## The signed message
 
@@ -126,14 +133,19 @@ For a principal link the subject slot holds the AENS name instead of the address
 link:hero.chain:prefaens:hero.chain:0
 ```
 
-The digest is the standard æternity personal-message construction: a 28-byte prefix
-(`0x1a`, `aeternity Signed Message:` plus a newline, then the body length `0x20`) concatenated
-with the Blake2b-256 hash of the message, the whole 60 bytes hashed again. That is exactly what
-`signMessage` in `@aeternity/aepp-sdk` produces, so pass the claim's `message` string to
-`signMessage` and never hash it by hand. The signature goes on the wire as **128 lowercase hex
-characters**, no `0x`, no base64.
+The digest uses standard æternity personal-message framing:
 
-The same construction is used by [delegated posting](/social/delegated-posting).
+```text
+body   = UTF-8(message)
+digest = Blake2b-256(0x1a || UTF-8("aeternity Signed Message:\n")
+                    || varuint(byte_length(body)) || body)
+```
+
+The body is the full message, and its byte length uses the SDK's variable-length integer
+encoding. Pass the claim's `message` directly to SDK `signMessage`; do not pre-hash it.
+The REST API expects **128 hex characters**, without `0x`, `sg_` or base64.
+[Delegated posting](/social/delegated-posting) uses a different construction: its body is
+always a 32-byte inner hash, producing a fixed 60-byte payload before the final hash.
 
 ### Error codes
 
@@ -141,14 +153,17 @@ The same construction is used by [delegated posting](/social/delegated-posting).
 | --- | --- |
 | `INVALID_SIGNATURE` | The Ed25519 check failed against the subject |
 | `INVALID_NONCE` | The nonce moved between claim and submit; restart from claim |
-| `ALREADY_CLAIMED` | This provider is already linked to a different value for this subject |
-| `NOT_LINKED` / `NO_LINKS` | Nothing to unlink |
+| `ALREADY_CLAIMED` | This provider value is already linked to a different address |
+| `LINK_NOT_FOUND` / `NO_LINKS` | No link for this provider, or no links for the address |
 | `NOT_PROVIDER_OWNER` | The submitting wallet does not own the provider namespace |
 | `PRINCIPAL_NOT_FOUND` | The AENS name is not registered |
 | `PRINCIPAL_MISMATCH` | The AENS name is not owned by the signer |
 | `INVALID_PRINCIPAL` | Not a well-formed AENS name |
 
-The backend maps each abort to a readable `400` message.
+The backend maps recognised aborts to readable `400` messages. The mapping names `NOT_LINKED`
+rather than the contract's `LINK_NOT_FOUND`, so that
+abort is propagated without the documented friendly mapping. Do not assume every contract
+failure returns `400`.
 
 ## Configuration
 
@@ -161,8 +176,13 @@ The backend's address-link module is environment-driven:
 | `ADDRESS_LINK_VERIFICATION_TTL_SECONDS` | Claim-token lifetime, default 300 |
 | `ADDRESS_LINK_NOSTR_EVENT_MAX_AGE_SECONDS` | Nostr proof-event freshness window, default 300 |
 
-With either of the first two unset, every address-link read and write returns
-`503 Service Unavailable` and nothing is indexed.
+The indexer requires `ADDRESS_LINK_CONTRACT_ADDRESS`; without it, address-link indexing is
+disabled. It does not require the provider secret. Reads of stored links through account and
+profile endpoints also do not require that secret.
+
+The contract service requires **both** the address and secret, including for nonce reads used by
+claims and for link/unlink submissions. Missing either produces `503 Service Unavailable` from
+that service. Existing indexed records remain separate from these contract-dependent operations.
 
 ## How a link reaches the API
 
@@ -191,7 +211,7 @@ deprecated):
 | `profile.bio` | `links.bio`, falling back to the legacy profile field |
 | `profile.site` | `links.site` |
 | `profile.prefered_aens_name` | `links.prefaens` |
-| `profile.chain_name` | The middleware's AENS name for the address, refreshed hourly |
+| `profile.chain_name` | Cached middleware-resolved name, falling back to the legacy cached name; see [freshness limits](/identity/names#how-the-chain-name-stays-fresh) |
 | `profile.fullname`, `avatarurl`, `username`, `chain_expires_at` | Legacy profile fields, read-only |
 | `public_name` | `prefered_aens_name`, else `chain_name`, else `username`, else the address |
 | `followers_count`, `following_count` | The social-graph counts, when that feature is enabled |

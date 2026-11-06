@@ -101,10 +101,10 @@ Sign `postDigest(title, media)` with the author's Ed25519 key and hand the relay
 lowercase hex string with no prefix (the convention the address-links API uses) is a good
 wire format.
 
-If you are signing from a connected wallet rather than a raw key, the wallet's `signMessage`
-applies the prefix framing itself over the message you give it. Pass the 32-byte inner Blake2b
-digest as that message to reproduce steps 2 to 4 exactly; passing the raw text would frame the
-text rather than its digest.
+Do not assume a connected wallet's `signMessage` can sign this binary message body. SDK v14's
+method accepts text; signing the post text or a hex-encoded digest changes the bytes. Use a
+wallet API that explicitly supports this construction, or the raw-key example in
+[Tipping v3](/contracts/tipping#the-full-construction).
 
 ## Run a relayer
 
@@ -151,7 +151,8 @@ when the relayer submitted it, not when the author signed it.
 
 Use `post_without_tip_sig` when the author cannot pay: new-user onboarding before the wallet
 is funded, or a custodial surface that holds no user key but can forward a signature. For
-everything else prefer `post_without_tip`: it is simpler, and the author pays only gas.
+everything else prefer `post_without_tip`: it is simpler, and the author pays the network
+transaction fee and execution gas.
 
 ## Related
 

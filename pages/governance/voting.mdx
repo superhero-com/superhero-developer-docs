@@ -5,7 +5,7 @@ description: "Cast, change and revoke a vote on an æternity governance poll, an
 
 # Voting on Polls
 
-Voting on a governance poll is one transaction that pays gas only. Nothing is locked,
+Voting on a governance poll is one transaction that pays a transaction fee and execution gas. Nothing is locked,
 nothing is transferred, and you can change your mind as often as you like until the poll
 closes.
 
@@ -119,10 +119,10 @@ The snapshot only exists once the poll has closed:
 An open poll's percentages are a live reading, so two people loading the same open poll an
 hour apart can legitimately see different numbers.
 
-**There is no minimum balance to vote.** An account with nothing in it can cast a vote that
-records normally, emits a `Vote` event and appears in `votes()`. It contributes zero stake,
-but it is counted in the backend's `voteCount`, the address count the app shows as "Total
-Votes". See [Polls](/governance/polls).
+**There is no minimum voting stake**, but the normal app flow requires enough AE to pay the
+transaction fee and gas. The contract does not impose a minimum balance for the vote itself.
+A recorded vote with zero voting weight contributes no stake but still counts in the backend's
+`voteCount`, the address count the app shows as "Total Votes". See [Polls](/governance/polls).
 
 Nothing about a governance poll executes on-chain. Acting on a result is a separate, off-chain
 process. See [Community DAOs](/dao) for the system where a passing vote moves money.

@@ -205,18 +205,28 @@ framing:
 5. ok      = Crypto.verify_sig(digest, author, sig)
 ```
 
-Steps 3 and 4 are exactly what the SDK's `signMessage` does to whatever you hand it, so from a
-key the whole author side is two calls:
+SDK v14's `account.signMessage` accepts text. This contract expects the raw 32-byte inner
+digest as the message body, so construct the framing explicitly and sign its hash:
 
 ```javascript
-import { signMessage, hash } from '@aeternity/aepp-sdk';
+import { MemoryAccount, hash } from '@aeternity/aepp-sdk';
 
+const account = new MemoryAccount(process.env.AE_PRIVATE_KEY); // sk_... secret
 const message = title + media.join('');
-const signature = signMessage(hash(message), secretKey);
+const inner = hash(Buffer.from(message, 'utf8'));
+const payload = Buffer.concat([
+  Buffer.from([0x1a]),
+  Buffer.from('aeternity Signed Message:\n', 'utf8'),
+  Buffer.from([0x20]),
+  inner,
+]);
+const signature = await account.unsafeSign(hash(payload));
 ```
 
 Note what is being signed: the **32-byte inner digest**, not the text. Handing a wallet's
-`signMessage` the raw post text produces a different digest and the call reverts.
+`signMessage` the raw post text, or a hex string of the digest, produces a different digest
+and the call reverts. `unsafeSign` signs exactly the bytes supplied; use it here only with
+the contract-specific digest above.
 
 ## Notes
 
@@ -229,6 +239,7 @@ takes an explicit `nonce` on every signed write.
 - [Posting](/social/posting): what posting looks like from the app, and what the API adds on top
 - [Delegated posting](/social/delegated-posting): the relayer flow end to end
 - [Tipping](/social/tipping): the spend-with-payload mechanism
+- [SDK v14.1.0 account implementation](https://github.com/aeternity/aepp-sdk-js/blob/v14.1.0/src/account/Memory.ts): `signMessage` and `unsafeSign`
 - [Events](/contracts/events): the topic hash for `PostWithoutTipReceived` and how to subscribe
 - [Calling Contracts](/contracts/calling-contracts): SDK setup, gas, and reading revert reasons
 - [aeternity/tipping-contract](https://github.com/aeternity/tipping-contract): the contract family's source

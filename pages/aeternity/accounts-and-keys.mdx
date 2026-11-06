@@ -1,17 +1,18 @@
 ---
 title: "Accounts & Keys"
-description: "Every æternity address prefix, the Ed25519 keypair behind an account, and the secret-key encoding the SDK expects."
+description: "Common æternity identifier prefixes, the Ed25519 keypair behind an account, and the secret-key encoding the SDK expects."
 ---
 
 # Accounts & Keys
 
-Every identifier on æternity carries a two-letter prefix that says what it is: a token sale
-address is a `ct_`, a wallet is an `ak_`, a trade receipt is a `th_`.
+Encoded æternity identifiers carry a two-letter prefix that identifies their type: a token sale
+has a `ct_` contract address, an account has an `ak_` address, and a trade transaction has a
+`th_` hash. A wallet manages accounts and keys; it is not itself an address.
 
 ## Address prefixes
 
 Identifiers are a raw byte array, base-encoded, with a prefix describing what the bytes are.
-Base58 with a checksum is used for short identifiers meant to be read and pasted; base64 for
+Base58 with a checksum is used for short identifiers meant to be read and pasted; base64 with a checksum for
 longer binary payloads.
 
 ### Base58: the ones you paste
@@ -23,7 +24,7 @@ longer binary payloads.
 | `th_` | Transaction hash | Trade and post receipts; what you paste into an explorer |
 | `kh_` | Key-block hash | Block references in explorer links |
 | `mh_` | Micro-block hash | Block references in explorer links |
-| `sg_` | Signature | Delegated-posting payloads, address-link claims |
+| `sg_` | Encoded signature | Returned by the SDK's `signTypedData` and `signDelegation` and by the wallet `unsafeSign` RPC; `signMessage` returns raw bytes, and AddressLink REST submit requires 128-character hex |
 | `nm_` | Name (AENS) | The on-chain object behind a `.chain` name |
 | `cm_` | Commitment | The salted preclaim hash in AENS registration |
 | `ok_` | Oracle public key | Not used by Superhero |

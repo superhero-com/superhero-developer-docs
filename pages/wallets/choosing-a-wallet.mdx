@@ -13,9 +13,10 @@ what gets you back in. Pick by surface and by recovery model. All of them hold t
 ## Recommended: passkey
 
 For most people, start with a **passkey**. On superhero.com, tap "Continue with passkey" and
-approve with Face ID, a fingerprint or your device PIN. That creates your account: no seed phrase
-to write down, nothing to install. Make sure your passkey syncs (iCloud Keychain, Google Password
-Manager or a password manager), because on a passkey-created wallet the passkey is your backup.
+approve with Face ID, a fingerprint or your device PIN. That creates your account with nothing to
+install, then offers an optional 12-word phrase backup. Save the phrase offline so you can restore
+without the passkey. If you rely on the passkey across devices, make sure it syncs (iCloud Keychain,
+Google Password Manager or a password manager).
 See [The Built-In Wallet](/wallets/built-in-wallet).
 
 ## Comparison
@@ -24,9 +25,9 @@ See [The Built-In Wallet](/wallets/built-in-wallet).
 | --- | --- | --- | --- | --- | --- |
 | Product | Superhero Wallet | Superhero Wallet | Superhero Wallet, at `wallet.superhero.com` | Superhero app itself | Your own process |
 | Custody | Yours, in the extension | Yours, on the device | Yours, in a hosted page | Yours, in this browser's storage | Yours, in an env var |
-| Platforms | Chrome, Brave, Opera, Firefox | iOS, Android | Any browser | Any browser; in-page signing in the installed PWA | Anywhere Node runs |
+| Platforms | Chrome, Brave, Opera, Firefox | iOS, Android | Any browser | Browser tab or installed PWA; passkeys require browser/authenticator support | Anywhere Node runs |
 | Install needed | Yes | Yes | No | No | No |
-| Unlocks with | Wallet password | Device biometrics, if enabled | Wallet password | Passkey, passphrase or recovery code | Nothing; the key is live |
+| Unlocks with | Wallet password | Device biometrics, if enabled | Wallet password | Passkey (passkey-created); passphrase or recovery code, plus an optional device passkey (phrase-created/imported) | Nothing; the key is live |
 | Change the unlock secret later | Yes | Biometrics on or off | Yes | **No** | n/a |
 | Portable backup | Seed phrase | Seed phrase | Seed phrase | Seed phrase, or a syncing passkey | The secret key |
 | Export one account's private key | Yes | Yes | Yes | **No** | It *is* the key |
@@ -85,14 +86,14 @@ over AEX-2 instead; see [Connecting a Wallet](/wallets/connecting).
 ### First time, on a phone
 
 Use a **passkey** (recommended): tap "Continue with passkey", approve with Face ID or a
-fingerprint, and you have an account. Make sure your passkey syncs. On a passkey-created wallet
-the passkey *is* your backup, and there is no phrase export screen. If you prefer a seed phrase,
-install the **Superhero Wallet mobile app**.
+fingerprint, and you have an account. Save the optional recovery phrase offered next; it restores
+the wallet without the passkey. Make sure your passkey syncs if you rely on it across devices.
+For a standalone wallet with a seed phrase, install the **Superhero Wallet mobile app**.
 
 ### First time, on a desktop
 
-Install the **browser extension**. A desktop browser tab does not install the in-page signer, so
-desktop signing needs it. The extension also gives you the multi-chain wallet, an address book and
+Use a **passkey** for the built-in wallet, which signs in a desktop browser tab as well as the
+installed app. Or install the **browser extension** for a multi-chain wallet, an address book and
 `.chain` name management in one place.
 
 ### Trading actively and holding real value
@@ -135,17 +136,18 @@ superhero.com connects to it. In a browser tab the built-in wallet does not offe
 | --- | --- |
 | Extension, mobile, web wallet | The seed phrase or, for one account at a time, that account's exported private key. |
 | Built-in wallet from a phrase | The seed phrase. Its passphrase and recovery code are **same-device only**. |
-| Built-in wallet from a passkey | The passkey, **only if it syncs**. The recovery code is same-device only. |
+| Built-in wallet from a passkey | The saved recovery phrase, or the passkey if it syncs. This path does not enroll a recovery code. |
 | Raw agent key | The secret key string. |
 | A Ledger or AirGap account held in Superhero Wallet | The device's own recovery words. The Superhero Wallet seed phrase does **not** restore it, because the wallet only stores its public address. |
 
 The same applies to an account you imported by pasting a private key: it cannot be restored with
 the seed phrase, only with that private key.
 
-The built-in wallet's storage is evictable in a way an installed wallet's is not: clearing site data
-deletes the encrypted vault, and Safari's tracking prevention can evict it after about seven days
-of no interaction. That is survivable with a written phrase or a syncing passkey and fatal without
-either. [Backup & Recovery](/wallets/backup-and-recovery) has the full matrix.
+The built-in wallet depends on this browser's storage. Deleting the storage containing its vault
+removes the encrypted seed. In a Safari tab, ITP can remove script-writable storage after seven
+days of Safari use without site interaction; first-party Home Screen web-app storage is exempt
+from that rule. Keep a written recovery phrase, or a working passkey that derives this wallet's
+seed. [Backup & Recovery](/wallets/backup-and-recovery) has the full matrix.
 
 ## You can use more than one
 

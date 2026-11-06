@@ -103,8 +103,10 @@ resolves up to 25 at a time, and fall back to the middleware for names it does n
 
 ### Transaction confirmation
 
-`GET /mdw/v3/transactions/{hash}` returning `404` means **pending**, not failed. Poll every 5
-seconds and compute confirmations as `currentHeight - blockHeight + 1`.
+`GET /mdw/v3/transactions/{hash}` returning `404` means the middleware has no indexed record.
+The transaction may be pending, not yet indexed, never broadcast or dropped. Check the node
+and the submission result as well. For an included transaction, compute confirmations as
+`currentHeight - blockHeight + 1`; poll while waiting for the required count.
 
 ## The middleware mirror on api.superhero.com
 

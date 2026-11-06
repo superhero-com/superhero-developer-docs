@@ -34,7 +34,8 @@ wallet. Tokens are minted/burned against AE along the bonding curve.
 
 ### 4. Where do fees go?
 
-A portion of each trade funds the token's DAO treasury. Holders can propose and vote to allocate
+A portion of each buy's curve cost funds the token's DAO treasury. Sells make no new DAO
+allocation. Holders can propose and vote to allocate
 funds for growth, bounties, or community rewards.
 
 *Trading · More in [Where the Money Goes](/concepts/value-flow)*
@@ -114,8 +115,8 @@ sales, you can withdraw accumulated referral rewards.
 
 ### 15. How is Market Cap and pricing shown?
 
-We display price and market cap using AE as the unit. Trending defaults to Market Cap so larger
-communities surface first. Token pages include candlestick charts, recent transactions, and holders
+We display price and market cap using AE as the unit. The web app's main token list starts
+with Trending selected; choose Market Cap to sort by size. Token pages include candlestick charts, recent transactions, and holders
 to help you read the market.
 
 *Pricing & Analytics · More in [Reading a Token Page](/tokens/token-page)*
@@ -177,18 +178,21 @@ factory at `GET /api/factory`.
 
 ### What is the API base URL?
 
-`https://api.superhero.com` on mainnet. The testnet API is not publicly documented. The node
+`https://api.superhero.com` on mainnet. No public Superhero testnet API endpoint is documented;
+testnet API workflows require a separately deployed backend. The node
 and middleware are separate: `https://mdw.wordcraft.fun` and `https://mdw.wordcraft.fun/mdw` on
 mainnet, `https://testnet.aeternity.io` and `https://testnet.aeternity.io/mdw` on testnet. See
 [Conventions](/api-reference/conventions).
 
 ### Is the API authenticated? Are there rate limits?
 
-Read endpoints need no authorization header. Writes are not API calls; they are signed
-transactions you send to the node. Profile mutation is the exception: it goes through a
-challenge-and-signature flow (`POST /api/profile/[address]/challenge`, then `PATCH`).
+Public token, post and account reads need no authorization header. On-chain actions use
+signed transactions sent to a node. Profile and address-link updates use REST challenge
+and submit endpoints, such as `POST /api/address-links/bio/claim` followed by
+`POST /api/address-links/bio/submit`. Private notifications use a bearer session token, and
+administrative writes can require an API key. See [Authentication](/api-reference/conventions#authentication).
 
-The API allows **10 requests per minute** per IP and route path, and rejects the eleventh with
+Guarded routes allow **10 requests per minute** per IP and route path, and reject the eleventh with
 HTTP 429 and a body carrying `retryAfter` in seconds:
 
 ```json
@@ -197,13 +201,17 @@ HTTP 429 and a body carrying `retryAfter` in seconds:
 
 Design around three properties:
 
-- **The bucket key is IP plus route path.** Ten calls a minute to `/api/tokens` and ten to
-  `/api/posts` both succeed; eleven to either does not.
+- **The bucket key is IP plus route path.** The guard uses Express's route pattern where
+  available, so changing an address parameter does not necessarily create a separate bucket.
 - **The window is fixed, not sliding.** The first request starts a 60-second window and the counter
   resets when it expires.
 - **The limit applies to the entity CRUD endpoints** and to the profile rewards, profile chain-name,
   notification feed and token-gated-room endpoints. Write your client to back off on any 429 and
   honour `retryAfter`.
+
+Public token and post routes do not use this guard. See the
+[guarded-route list](/api-reference/conventions#guarded-routes) for its scope; deployment
+infrastructure may impose additional limits.
 
 ### Is there a published OpenAPI schema?
 

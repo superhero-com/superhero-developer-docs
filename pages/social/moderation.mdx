@@ -140,11 +140,13 @@ pipeline enforces it:
 1. The API reads `CommunityManagement.get_state()` and mirrors `muted_user_ids` into the room's
    muted list, alongside `moderators`, `min_token_threshold`, `is_private` and the owner
    address. The relay's admin and role lists are derived from the same read.
-2. Eligibility for the room is `balance >= min_token_threshold AND NOT muted`, where the muted
-   check compares the member's æternity address against that list.
-3. A muted member is removed from the relay group with a kind-9001 event, and the sync refuses
-   to publish a kind-9000 add for any member currently muted, so a mute is not undone by a
-   later re-sync.
+2. Ordinary-member eligibility is `balance > 0 AND balance >= min_token_threshold AND NOT muted`,
+   using raw base units. A zero threshold still requires a positive holding. Moderators bypass
+   the positive-balance check, but the predicate still checks the threshold and mute.
+3. An ineligible ordinary member is removed from the relay group with a kind-9001 event, and
+   the sync refuses to publish a kind-9000 add for a muted member. Relay publication also
+   requires a linked Nostr key. Existing admin relay states and configured-admin removal
+   guards are separate from the eligibility predicate; do not assume a mute removes every admin.
 
 Mute a holder and they become ineligible for that community's chat room regardless of balance,
 until the mute is lifted.
@@ -164,7 +166,7 @@ silences your own alerts and changes nothing for anyone else. See
 | Gate | Where | Rule |
 | --- | --- | --- |
 | Opening a DAO vote | `DAO.add_vote` | `token.balance(Call.caller) >= minimum_token_threshold`, else `ADD_VOTE_TOKEN_HOLDER_MISSMATCH` |
-| Entering the community chat room | The rooms eligibility check | raw balance `>=` raw threshold, and not muted |
+| Entering the community chat room | The rooms eligibility check | Ordinary members need a positive raw balance meeting the raw threshold, and must not be muted; relay publication also needs a linked Nostr key |
 
 It starts at one whole token (`10 ^ 18`) and moves only by a `ChangeMinimumTokenThreshold`
 vote. The same value surfaces in the chat rooms API as `min_token_threshold`, alongside the

@@ -5,7 +5,7 @@ description: "The guarded token-creation workflow, the confirmation wait, and wh
 
 # Creating Tokens with an Agent
 
-Creating a token deploys three contracts, takes minutes rather than seconds, and cannot be
+Creating a token deploys the community contracts, takes minutes rather than seconds, and cannot be
 undone. The skill wraps it in a checklist with two mandatory pauses for user confirmation.
 
 ## The workflow
@@ -80,12 +80,13 @@ metadata at creation, call `create_community` yourself with a populated map. See
 ```json
 { "success": true, "token_name": "MYTOKEN", "collection": "WORDS-ak_...",
   "sale_address": "ct_...", "dao_address": "ct_...", "community_management_address": "ct_...",
-  "initial_buy_ae": 0.1, "estimated_tokens": "812.41", "tx_hash": "th_..." }
+  "initial_buy_ae": 0.1, "estimated_tokens": "132247.81", "tx_hash": "th_..." }
 ```
 
-One transaction, three contracts: the **sale** contract holding the bonding curve and the
-reserve, the **DAO** contract receiving the community's share of the spread, and the
-**community management** contract governing moderation. See
+The result returns three addresses: the **sale** contract holding the reserve, the **DAO**
+contract receiving the community's share of the spread, and the **community management**
+contract governing moderation. These are not a count of all contracts involved: the sale also
+has an AEX-9 token and references the factory's shared bonding curve. See
 [Community Factory](/contracts/community-factory) and [Token sale](/contracts/token-sale).
 
 `sale_address` is the one you need afterwards for buying, selling, transaction history and

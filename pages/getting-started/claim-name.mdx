@@ -1,20 +1,21 @@
 ---
 title: "Claim Your .chain Name"
-description: "Turn your ak_ address into a human-readable on-chain username, free for names over 12 characters."
+description: "Claim a human-readable on-chain username: long names, sponsorship eligibility and the self-funded path."
 ---
 
 # Claim Your .chain Name
 
 A `.chain` name is an æternity Naming System (AENS) record that points at your account, so people
-see `yourname.chain` instead of `ak_2a1j2Mk4…`. Superhero sponsors one free claim per address, and
-the name's length decides whether yours is free.
+see `yourname.chain` instead of `ak_2a1j2Mk4…`. Superhero can sponsor one claim per address.
+The name must meet the length requirement, and the sponsor must be available and able to fund it.
 
 ## The two rules
 
 - **The name must be longer than 12 characters**, excluding the `.chain` suffix. Names of 12
   characters or fewer go to auction instead of registering instantly. This is an AENS protocol rule.
-- **One sponsored claim per address.** Further names are claimed directly in Superhero Wallet: the
-  browser extension, the mobile app, or the web wallet at `wallet.superhero.com`.
+- **One sponsored claim per address.** A valid name is not automatically free. The app checks
+  whether the sponsor can fund it; when it reports that it cannot, the app offers a self-funded
+  claim. The standalone Superhero Wallet also supports claims, including short-name auctions.
 
 The claim field shows a live counter against 13 characters as you type.
 
@@ -28,12 +29,14 @@ most 63 characters. The app validates this before you can submit.
 1. Open your profile, edit it, and choose to claim a `.chain` name.
 2. Type the name you want. The field checks availability as you type and shows whether the name is
    sponsored (**Free**) or has a price.
-3. A name of 13 or more characters shows **Free**. A shorter one shows an approximate AE price with
-   the note *"Paid from your wallet"*, which marks the self-funded path, not the sponsored one.
-4. Press **Claim**. Your wallet asks you to sign a message. This proves you control the address
-   without spending anything.
-5. The app reports *"Claim submitted. Waiting for sponsorship and transfer…"* and tracks the
-   claim's progress.
+3. A valid long name shows **Free** when the sponsor can fund it. Otherwise it shows an
+   approximate AE price and *"Paid from your wallet"*. Names of 12 characters or fewer are
+   rejected here; the app does not quote or bid on short names.
+4. Press **Claim**. For a sponsored claim, sign a challenge message proving control of your
+   address; you do not pay the claim's transaction fees or name fee. For a self-funded claim,
+   approve the on-chain transactions and their costs in your wallet.
+5. For a sponsored claim, the app reports *"Claim submitted. Waiting for sponsorship and
+   transfer…"* and tracks the claim's progress. A self-funded claim runs from your own wallet.
 
 ### What happens behind that message
 
@@ -43,7 +46,7 @@ Superhero's backend executes the sponsored claim on your behalf and reports each
 | --- | --- |
 | `wallet` | You sign the challenge message in your wallet |
 | `queued` | The signed claim is accepted and queued |
-| `preclaim` | The commitment transaction is submitted; AENS requires this to prevent front-running |
+| `preclaim` | The sponsor submits a commitment to conceal the name before claiming it |
 | `claim` | The name is claimed in a later block |
 | `update` | The name's pointer is set |
 | `transfer` | The name is transferred to **your** address |
@@ -53,10 +56,11 @@ not Superhero's.
 
 ### When a name is not free
 
-For a name short enough to pay for, the figure shown is the **preclaim transaction fee plus the
-claim's execution cost**, which includes the protocol's minimum name fee for a name of that length.
-Short names are expensive by design. That is how AENS allocates scarce names, and why the free tier
-starts at 13 characters.
+If the sponsor cannot fund a valid long name, the app can offer a self-funded claim. The figure
+shown estimates the preclaim transaction fee plus the claim transaction fee and the protocol's
+minimum name fee. The flow also updates the name's pointer, which requires another transaction
+fee. Keep additional AE for that step. This path still requires more than 12 characters; use
+Superhero Wallet or the SDK for short-name auctions.
 
 ### Errors you may see
 
@@ -101,7 +105,7 @@ The rest of the command surface:
 | `list` | Your own names |
 
 Names are lowercased and get `.chain` appended automatically if you leave it off. Registration
-costs gas plus the name fee, so run `available` first.
+costs transaction fees plus the name fee, so run `available` first.
 
 The script targets **mainnet**. See [Using Testnet](/getting-started/testnet).
 

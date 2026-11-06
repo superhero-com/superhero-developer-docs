@@ -17,15 +17,15 @@ standalone extension and mobile app, though both hold the same kind of `ak_...` 
 | Surface | Create a wallet | Import an existing seed | In-page signing |
 | --- | --- | --- | --- |
 | Installed PWA (Add to Home Screen) | Yes | Yes | Yes |
-| Plain browser tab | Yes | No, use Connect instead | Not installed as the signer |
+| Plain browser tab | Yes | No, use Connect instead | Yes, for this browser's wallet |
 
-Creating a wallet (passkey or a fresh recovery phrase) is offered on every surface. Pasting a seed
-phrase or private key is offered **only in the installed app**: in a browser tab, "I already have a
+Creating a wallet (passkey or a fresh recovery phrase) is offered on every surface. Importing a seed
+phrase is offered **only in the installed app**: in a browser tab, "I already have a
 wallet" means Connect, which hands signing to the extension or the wallet app and never asks for
-your secret.
+your secret. The built-in import form does not accept a raw private key.
 
-The in-page signer is installed only when the app is running installed *and* the active address
-belongs to this device's wallet. An externally connected wallet is never intercepted.
+The in-page signer is used when the active address belongs to this browser's wallet, in a browser
+tab or the installed app. An externally connected wallet is never intercepted.
 
 ## How the key is stored
 
@@ -87,39 +87,47 @@ If the first ceremony returns no PRF output, the app runs a follow-up assertion 
 is why you may see two prompts.
 
 The Relying Party ID is pinned at build time from `VITE_WEBAUTHN_RP_ID`, defaults to
-`superhero.com`, and is never derived from the page's own host. A bundle served from another host
-cannot use your Superhero passkey. When that value does not match the origin, the passkey option
-fails with no OS prompt at all. See [Troubleshooting](/wallets/troubleshooting).
+`superhero.com`, and is never derived from the page's own host. WebAuthn permits that RP ID on
+`superhero.com` and its HTTPS subdomains; it does not isolate credentials to one exact hostname.
+An unrelated domain cannot use it. An RP ID must equal the origin's hostname or be a registrable
+domain suffix of it, or the browser rejects the ceremony. See
+[Troubleshooting](/wallets/troubleshooting) and the [WebAuthn RP-ID rules](https://www.w3.org/TR/webauthn-3/#relying-party-identifier).
 
 ## Two ways a wallet is created
 
 ### From a recovery phrase
 
-A 12-word BIP39 phrase is generated, shown, and **verified by re-entry** before any vault exists.
-Then a passphrase factor creates the vault. The recovery code is enrolled next and is mandatory. A
-device passkey is offered after that and is optional.
+A 12-word BIP39 phrase is generated and shown, followed by a request to re-enter two words to
+confirm the backup. You can skip confirmation; in that case the wallet records that the backup
+has not been verified. A passphrase factor then creates the vault. An optional device passkey is
+offered next, followed by mandatory recovery-code enrollment.
 
 Import follows the same path minus the show/verify screens. The phrase is normalized (trimmed,
 whitespace collapsed, lowercased) and checked against the BIP39 wordlist **and checksum** before a
-vault is created, so a typo cannot seal a wrong seed.
+vault is created. Invalid mnemonics are rejected; a valid phrase can still belong to a different
+wallet, so check the resulting address.
 
 ### From a passkey
 
-One ceremony does everything. The passkey is enrolled, and the BIP39 mnemonic is **derived from its
-PRF output** at a fixed, public salt, so there is no phrase screen. The seed derivation and the
-key that wraps the DEK use separate derivations, so neither can be computed from the other.
+The passkey is enrolled, and the BIP39 mnemonic is **derived from its PRF output** at a fixed,
+public salt. The app then offers an optional **12-word recovery phrase backup**, hidden until you
+press **Reveal**, with copy and download options; the download is an unencrypted text file with
+the address and phrase. This path does not enroll a recovery code. The
+seed derivation and the key that wraps the DEK use separate derivations, so neither can be computed
+from the other.
 
 The salt is fixed rather than random so that the seed can be re-derived on any device the passkey
-reaches, even after the vault is gone. That makes the passkey a real backup **only if it syncs**
-(iCloud Keychain, Google Password Manager). A device-bound platform credential such as Windows
-Hello dies with its device, and **there is no phrase reveal or export screen in the app**, so for
-those users the passkey is the only copy.
+reaches, even after the vault is gone. A syncing passkey (iCloud Keychain, Google Password Manager)
+can therefore restore the wallet on another device. A device-bound credential such as Windows
+Hello cannot. The saved recovery phrase is a portable backup in either case and restores the wallet
+independently of the passkey. If you skip that backup, losing the passkey can mean losing access.
 
 **Restoring on a new device** runs a discoverable assertion, derives the wallet the credential
 implies, and shows you the derived address **before persisting anything**. The confirm screen also
-checks whether that address has on-chain activity: a pristine account is a warning that you picked
-the wrong passkey, because a phrase-created wallet's device passkey evaluated at the seed salt
-derives a valid but empty different wallet.
+checks whether that address has on-chain activity: a pristine account can warn that you picked
+the wrong passkey. A phrase-created wallet's device passkey evaluated at the seed salt can
+derive a different wallet. Check the displayed address. After confirmation, the same optional phrase-backup
+screen appears, without recovery-code enrollment.
 
 ## Key derivation
 
@@ -197,9 +205,13 @@ Once the vault record is gone:
 - Your **passkey** still exists in your authenticator, but for a *phrase-created* wallet it only
   wrapped a DEK that is now gone, so it opens nothing either.
 
-The same loss happens without you touching anything: IndexedDB is evictable, and Safari's
-Intelligent Tracking Prevention can evict it after roughly seven days without interaction. A
-successful save is **never** a durable backup.
+Browser storage can also be evicted. In a Safari tab, Intelligent Tracking Prevention can remove
+script-writable storage after seven days of Safari use without interaction with the site.
+First-party Home Screen web-app storage is exempt from that ITP rule. See
+[WebKit's storage policy](https://webkit.org/tracking-prevention/#intelligent-tracking-prevention-itp).
+The exemption does not replace a recovery backup or prevent deliberate data deletion. On iOS, a
+Home Screen web app also keeps its storage separate from Safari, so a wallet created in a Safari
+tab is not in the installed app until you import its phrase or restore it with its passkey there.
 
 What survives a wiped vault:
 
@@ -207,7 +219,7 @@ What survives a wiped vault:
 | --- | --- | --- |
 | The written 12/24-word phrase | **Yes** | Standard BIP39 on the standard path, so it re-imports anywhere. |
 | A **syncing** passkey on a passkey-created wallet | **Yes** | The seed re-derives from the PRF output at the fixed public salt. |
-| A device-bound passkey (e.g. Windows Hello) on a passkey-created wallet | Only on that device | It cannot leave the device, and there is no export screen. |
+| A device-bound passkey (e.g. Windows Hello) on a passkey-created wallet | Only on that device | The credential stays on that device; a saved phrase is the portable backup. |
 | A passkey on a **phrase-created** wallet | No | It wraps a DEK; it does not derive the seed. |
 | The recovery code alone | No | It unwraps a DEK; it does not derive the seed. |
 | The passphrase alone | No | Same. |
@@ -215,8 +227,9 @@ What survives a wiped vault:
 Losing only `localStorage` is survivable: unlock once and the app rebuilds the manifest by
 re-deriving addresses from index 0 upward.
 
-Erasing the wallet deliberately is available from the "this device already has a wallet" screen,
-and takes two taps because for a passkey wallet it is unrecoverable.
+Erasing the wallet deliberately is available from the "this device already has a wallet" screen
+and takes two taps. Before erasing, keep a recovery phrase backup or a working passkey that derives
+this wallet's seed.
 
 ## Related
 

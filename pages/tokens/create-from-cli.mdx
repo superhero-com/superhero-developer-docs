@@ -22,7 +22,7 @@ the skill's root. It signs with an in-memory account built from `AE_PRIVATE_KEY`
 
 ## Pre-flight
 
-1. Confirm you have AE for gas (about 0.001 AE for creation, plus whatever you intend to pre-buy):
+1. Confirm you have AE for the transaction fee, execution gas and any buffered initial buy:
 
    ```bash
    node scripts/superhero-wallet.mjs balance
@@ -57,7 +57,7 @@ node scripts/superhero-token-create.mjs create "MYTOKEN" 0.1
 | Parameter | Meaning |
 | --- | --- |
 | Name | Uppercase, digits, dash. Max 20 characters. Unique within its collection |
-| `buy_ae` | AE to spend on an initial buy at creation. Optional, default `0` |
+| `buy_ae` | Target curve cost used to estimate an initial token count. Fees are additional; this is not a strict total-spend cap. Optional, default `0` |
 
 On success, one JSON object on stdout:
 
@@ -70,7 +70,7 @@ On success, one JSON object on stdout:
   "dao_address": "ct_...",
   "community_management_address": "ct_...",
   "initial_buy_ae": 0.1,
-  "estimated_tokens": "131748.00",
+  "estimated_tokens": "132247.81",
   "tx_hash": "th_..."
 }
 ```
@@ -118,6 +118,9 @@ if (overpaid_refund > 0) Chain.spend(Call.caller, overpaid_refund) else ()
 The check is against `price(initial_buy_count)` on the sale, which **already includes the 0.5%
 affiliation fee**. The fee comes out of the buffer and the rest is returned, so you spend the real
 price plus gas.
+
+The numerical estimator can choose a curve cost slightly above or below `buy_ae`. The amount
+actually paid also includes the affiliation fee and network charges.
 
 ProtocolDAO tokens are minted on the net amount: the factory mints
 `(Call.value - overpaid_refund) * 1000`, so you are rewarded on what you spent, not on what you

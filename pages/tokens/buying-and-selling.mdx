@@ -157,7 +157,8 @@ if (existing === undefined) {
 `create_allowance` fails if an allowance already exists, which is why the check matters.
 `change_allowance` takes a signed **delta**, not an absolute value: raising an allowance from 5 to 8
 means passing `3`, and lowering it from 8 to 5 means passing `-3`. `reset_allowance(for_account)`
-clears it entirely.
+sets it to zero but keeps the record. To grant it again after a reset, use `change_allowance`,
+not `create_allowance`.
 
 A standing allowance authorises the sale contract to move that many tokens until you reduce it. Set
 it to exactly the amount you are selling on each sell.
@@ -223,7 +224,8 @@ const sold = await sale.sell(count, minReturn, { omitUnknown: true });
 console.log('sell tx', sold.hash);
 ```
 
-`omitUnknown: true` tells the SDK to ignore ACI entries it cannot decode rather than throwing.
+`omitUnknown: true` tells the SDK to skip emitted events that have no definition in the supplied
+ACIs rather than throwing during event decoding.
 
 ## Why the executed price differs from the quote
 

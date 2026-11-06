@@ -45,7 +45,7 @@ from the characters you typed, not chosen up front:
 1. Every collection in the factory schema publishes an `allowed_name_chars` rule set. The app turns each into a regular expression and tests your name against all of them.
 2. **No collection matches** → a red **Unsupported** badge appears and the submit button is disabled. A name no collection accepts would only fail on-chain, so the UI refuses it first.
 3. **Exactly one matches** → a green chip names it, and there is nothing to choose.
-4. **More than one matches** → the chip becomes a dropdown. Every collection allows `-`, so a name like `A-B` fits several; English is preferred by default.
+4. **More than one matches** → the chip becomes a dropdown. Every collection allows `-`, so a name like `--` fits several; English is preferred by default.
 
 The chip shows the human label, not the on-chain id: the `WORDS` collection is displayed as
 **English**. See [Collections & Naming Rules](/tokens/collections-and-naming) for the full rules.
@@ -75,9 +75,10 @@ two ways of expressing the same thing.
 
 You type an AE figure; the app tells you how many tokens that buys, solving the curve backwards by
 bisection from a starting supply of zero. Quick-pick buttons offer 1, 10, 100, 500 and 100,000 AE.
-At the launch supply those correspond to:
+At the launch supply, the curve-only calculation gives the estimates below. The affiliation
+fee and network charges are additional:
 
-| AE spent | Tokens received (approx.) | Average price paid (AE) | Spot price after the buy (AE) |
+| Curve cost (AE) | Tokens received (approx.) | Average curve price (AE) | Spot price after the buy (AE) |
 | --- | --- | --- | --- |
 | 1 | 437,014 | 2.29e-6 | 4.48e-6 |
 | 10 | 1,400,993 | 7.14e-6 | 1.42e-5 |
@@ -100,9 +101,11 @@ integral multiplied by 1.005 for the 0.5% affiliation fee. Quick-pick buttons of
 | 100,000,000 | 71,838.182846 | 72,197.373760 |
 
 The AE-mode estimate is computed from the bare curve and does not subtract the affiliation fee,
-while the token-mode estimate adds it, so expect the AE mode to deliver slightly fewer tokens than
-it shows. Both estimates are computed from supply zero, which is correct: the token does not exist
-yet. The same helpers price the trade card of an existing token, fed the live supply instead.
+while the token-mode estimate adds it. Creation submits the estimated token count as
+`initial_buy_count` and attaches AE to pay for that count including the fee; it does not reduce
+the count to fit the original AE input. The final payment can therefore exceed that input.
+Both estimates start from supply zero. The same helpers price the trade card of an existing
+token using its live supply.
 
 ## What you sign
 
@@ -164,8 +167,8 @@ spot price of `0.0000001 AE`. Anyone, including you, can buy first afterwards.
 | "Wallet not connected" / no signature prompt | Wallet session dropped | Reconnect and retry |
 | Nothing on the token page after 5 minutes | Transaction still pending, or it failed | Look up the `txHash` from the URL on [aeScan](https://aescan.io) |
 
-A failed creation costs you gas and nothing else. The whole deployment is one transaction, so no
-partial community is left behind.
+A creation that is mined and then reverts still costs the transaction fee and consumed gas.
+The whole deployment is one transaction, so no partial community is left behind.
 
 ## After it is mined
 

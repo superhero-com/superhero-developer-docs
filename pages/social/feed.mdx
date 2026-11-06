@@ -90,8 +90,10 @@ does not outrank a younger dead one.
 Eight of the ten are reader-scalable. Each accepts `low`, `med` or `high`, which multiply that
 weight by **0.6, 1.0 and 1.5** respectively. `med` is the default and the client omits it, so a
 request carries only the signals you changed. In the app these are the **Customize** controls
-next to the sort selector. Because the multipliers scale the weights, `high` on every signal
-leaves the order unchanged; scaling only matters relative to other signals.
+next to the sort selector. Setting every adjustable signal to `high` can change the ranking:
+freshness, the freshness-gated velocity amplifier, tie rotation and the staleness penalty are not
+scaled with those signals. Custom requests also bypass the backend's daily ranking shuffle.
+The app still applies its separate session-seeded shuffle to returned page items.
 
 ### Where each input comes from
 
