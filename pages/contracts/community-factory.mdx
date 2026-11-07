@@ -30,7 +30,7 @@ Four values are fixed, so you never need a node to know them:
 | `fee_precision()` | `100000` | passthrough to `AffiliationTreasury.get_affiliation_fee_precision()` |
 
 `fee_percentage() / fee_precision()` is `500 / 100000`, or 0.5%. Divide the two rather than
-hardcoding 0.005; both are passthroughs and a treasury redeployment could move them.
+hardcoding 0.005, since both are passthroughs to the treasury.
 
 ## Entrypoints
 
@@ -93,8 +93,8 @@ const chars = await factory.allowed_name_chars(collectionId).then((r) => r.decod
 // [ { CharRangeFromTo: [ 65n, 90n ] }, { CharRangeFromTo: [ 48n, 57n ] }, { SingleChar: [ 45n ] } ]
 ```
 
-`CommunityManagement.meta_info` is `map(string, string)`: free-form key/value metadata with
-no schema enforced on chain. The Superhero app writes four keys when it creates a token:
+`CommunityManagement.meta_info` is `map(string, string)`: free-form key/value metadata. The
+Superhero app writes four keys when it creates a token:
 
 | Key | Value |
 | --- | --- |
@@ -103,8 +103,7 @@ no schema enforced on chain. The Superhero app writes four keys when it creates 
 | `website` | a URL |
 | `twitter` | an X handle or URL |
 
-All four are optional and the contract validates none of them. Pass a `Map`, not an
-object. An empty `new Map()` is valid.
+All four are optional. Pass a `Map`, not an object. An empty `new Map()` is valid.
 
 ## Events
 
@@ -128,8 +127,8 @@ it instead of making three follow-up reads.
 otherwise, then spends the full amount to `ak_11111111111111111111111111111111273Yts`, the
 æternity burn address.
 
-**The stored collection id is not the name you passed.** The contract concatenates the name,
-a dash, and the caller's address:
+**The stored collection id is the name plus the caller's address.** The contract concatenates
+the name, a dash, and the caller's address:
 
 ```text
 create_collection("WORDS", ...) called by ak_alice...
@@ -205,7 +204,7 @@ const amount = new BigNumber(onChainPrice.toString())
   .toFixed(0, BigNumber.ROUND_CEIL);
 ```
 
-The client-side estimate only picks a count; the chain always sets the price. Pass `0n` as
+The client-side estimate picks a count; the chain sets the price. Pass `0n` as
 the supply to `calculate_buy_price` because a brand-new community starts at zero supply.
 Overpayment is refunded by the sale contract, so the buffer is safe.
 

@@ -5,10 +5,9 @@ description: "Read chain state directly: the node for contract calls and submiss
 
 # æternity Node & Middleware
 
-The Superhero API is an index over the æternity chain, not the chain itself. For anything it
-does not carry (an arbitrary transaction, an AEX-9 balance, a name's pointers, a contract's
-event log, or submitting a transaction at all), talk to an æternity **node** or its
-**middleware**.
+The Superhero API is an index over the æternity chain. For chain-level data (an arbitrary
+transaction, an AEX-9 balance, a name's pointers, a contract's event log) and for submitting a
+transaction, talk to an æternity **node** or its **middleware**.
 
 ## Node versus middleware
 
@@ -76,7 +75,7 @@ See [Calling contracts](/contracts/calling-contracts) for the contract side.
 | `GET /mdw/v2/aex9/account-balances/{ak}?limit=100` | The v2 form of the same |
 | `GET /mdw/v3/status` | Middleware version and its distance from the chain tip |
 
-`/v3/` is current; `/v2/` paths still work against the same deployment.
+`/v3/` is current; `/v2/` paths also work against the same deployment.
 
 ### Reading posts from the index
 
@@ -131,8 +130,8 @@ records, not the upstream middleware's.
   `retryAfter` field in the body. See [Conventions](/api-reference/conventions#rate-limits).
 - **`limit` is capped at 100** with `400 Maximum limit is 100 items per request`; an `order_by`
   outside the route's sortable set is a `400`.
-- **`page` goes up to 1,000,000.** Deep paging still costs the database a scan of everything
-  before your page, so prefer a `height` or `block_height` filter where you can.
+- **`page` goes up to 1,000,000.** For deep history, filter by `height` or `block_height` rather
+  than paging far in.
 
 Sortable fields on `sync-state`: `id`, `last_synced_height`, `tip_height`, `is_bulk_mode`,
 `backward_synced_height`, `live_synced_height`, `created_at`, `updated_at`. On `txs`: `hash`,
@@ -141,7 +140,7 @@ Sortable fields on `sync-state`: `id`, `last_synced_height`, `tip_height`, `is_b
 
 ### `GET /api/mdw/health`
 
-How far behind Superhero's own index is. Not rate-limited; no parameters.
+The sync position of Superhero's own index. No rate limit; no parameters.
 
 ```bash
 curl -s "https://api.superhero.com/api/mdw/health"
@@ -168,8 +167,8 @@ curl -s "https://api.superhero.com/api/mdw/health"
 | `lag` above 5000, more than 50,000 blocks of backfill left, or the live indexer is not active | `critical` |
 
 Two syncs run independently: a **live** one following the tip, and a **backward** one walking
-from the tip towards genesis. `remainingBlocks` counts down to 0, so it stays large on a fresh
-deployment while live data is already current. Judge freshness from `liveSync`.
+from the tip towards genesis. `remainingBlocks` counts the backward sync down to 0; judge
+freshness from `liveSync`.
 
 `GET /api/stats` gives a shorter summary of the same picture plus `mdwConnected`. See
 [Factory & Contracts](/api-reference/factory-and-contracts).
@@ -188,10 +187,10 @@ deployment while live data is already current. Judge freshness from `liveSync`.
 | Contract event logs | Middleware |
 | Reading contract state, or writing anything at all | Node, through the SDK |
 
-The Superhero API knows about Superhero. The moment your question is about the chain rather than
-the product, it belongs to the middleware or the node. The middleware indexes after the fact and
-the Superhero API indexes after that, so for anything where staleness matters read the node, and
-check `GET /api/mdw/health` before expecting a recent event to be in the API.
+The Superhero API answers questions about Superhero; questions about the chain itself belong to
+the middleware or the node. The node holds current state, the middleware indexes it, and the
+Superhero API indexes from the middleware, so read the node when you need the very latest state,
+and check `GET /api/mdw/health` to see how far the API's index has caught up.
 
 ## Related
 

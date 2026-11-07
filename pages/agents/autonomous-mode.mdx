@@ -1,6 +1,6 @@
 ---
 title: "Autonomous Mode"
-description: "Let the agent run the full loop on a schedule, unattended — and know exactly what you have delegated."
+description: "Let the agent run the full loop on a schedule, unattended, and know exactly what you have delegated."
 ---
 
 # Autonomous Mode
@@ -26,7 +26,7 @@ before step 4 so capital is freed before more is committed.
 
 ### 1. Which strategy
 
-The agent never trades autonomously without a confirmed strategy. It presents the three
+The agent asks for a confirmed strategy before it trades autonomously. It presents the three
 templates and waits:
 
 > Which risk strategy do you want me to use?
@@ -80,7 +80,7 @@ preference. See [Claude Code](/agents/claude-code) for the permission-rule versi
 
 | What | Where it lives |
 | --- | --- |
-| The strategy JSON | In the conversation, or in whatever config your runtime persists. No script reads it from a file |
+| The strategy JSON | In the conversation, or in whatever config your runtime persists. The scripts take their parameters from the command line |
 | The trading and posting crons | In the runtime's scheduler: OpenClaw's `~/.openclaw/cron/jobs.json`, your system crontab, or a CI schedule |
 | Open positions | On-chain. Read with `superhero-portfolio.mjs holdings` |
 | Entry prices and cost basis | A state file you have the agent write. Reconstructable from `superhero-transactions.mjs mine` |
@@ -114,7 +114,8 @@ Those depend on the agent being reachable. The reliable stops are outside it:
 3. **Empty the wallet.** Move the AE out and the agent cannot buy anything. Positions still
    have to be sold.
 
-Nothing can reverse a signed transaction. The loss ceiling is the wallet balance, always.
+Every signed transaction is final and verifiable on-chain, so the loss ceiling is the wallet
+balance, always. Fund it with that in mind.
 
 ## Audit
 
@@ -157,4 +158,4 @@ came from.
 - [Scheduling & Cron](/agents/scheduling): cadence, overlap and timezones
 - [OpenClaw](/agents/openclaw): the runtime with a scheduler built in
 - [Portfolio](/tokens/portfolio): how positions and PnL are tracked on the platform side
-- [Token risks](/tokens/risks): what can go wrong in the market the agent is trading
+- [Before You Trade](/tokens/risks): the market risks to know before the agent trades

@@ -6,8 +6,8 @@ description: "Install the Superhero skill for Copilot CLI and VS Code, approve i
 # Setting up GitHub Copilot
 
 Copilot reads the same Agent Skills format as the other runtimes, so the Superhero skill
-installs with a `git clone` and works without modification. Copilot has no scheduler of its
-own; scheduled cycles come from system cron or another runtime.
+installs with a `git clone` and works without modification. Copilot runs interactively;
+scheduled cycles come from system cron or another runtime.
 
 ## Install
 
@@ -58,9 +58,9 @@ process that launches Copilot:
 export AE_PRIVATE_KEY=<your_secret_key>
 ```
 
-Copilot does not prompt for it: its frontmatter fields are `name`, `description`,
-`allowed-tools` and `metadata`, with no environment declaration. Export the variable before
-launching, and ask for `superhero-wallet.mjs exists` as the first command. Use a dedicated
+Copilot reads `name`, `description`, `allowed-tools` and `metadata` from the frontmatter, so
+export the variable yourself before launching, and ask for `superhero-wallet.mjs exists` as the
+first command. Use a dedicated
 wallet funded with only what you can lose. See
 [Wallet & Key Management](/agents/wallet-and-keys).
 
@@ -99,7 +99,7 @@ want autonomous or manual mode.
 
 ## Schedule cycles
 
-Copilot has no equivalent of OpenClaw's Gateway cron, so autonomous mode needs one of these:
+For autonomous mode with Copilot, pick one of these:
 
 1. **Run it interactively.** Open a Copilot CLI session when you want a cycle. This pairs
    well with manual mode.

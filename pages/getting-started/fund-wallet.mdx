@@ -1,6 +1,6 @@
 ---
 title: "Fund Your Wallet"
-description: "Every route to holding AE — earning it, buying it, bridging it — and how much you need to start."
+description: "Every route to holding AE: earning it, buying it, bridging it, and how much you need to start."
 ---
 
 # Fund Your Wallet
@@ -17,28 +17,26 @@ redirects to `/get-ae`.
 | --- | --- |
 | Publishing a post | Gas only. |
 | Buying or selling a community token | The trade amount, plus fee and gas, plus a **1% curve spread** (0.5% to the community DAO, 0.5% to affiliation). |
-| Claiming a `.chain` name | Gas plus a **name price**, which for short names dwarfs the fee. Superhero sponsors one free claim per address; see [Claim Your .chain Name](/getting-started/claim-name). |
+| Claiming a `.chain` name | Gas plus the protocol's **name price**, which rises as names get shorter. Superhero sponsors one free claim per address; see [Claim Your .chain Name](/getting-started/claim-name). |
 | Voting in a DAO | Gas, plus an allowance transaction the first time. |
 
 Two things worth knowing:
 
 - **Gas is charged on top of the transaction fee**, up to the gas limit. Superhero's built-in wallet
   shows a separate "gas, at most" row for this reason.
-- **The trade screen's Max button does not offer your whole balance.** It withholds a slippage
-  allowance plus a flat gas reserve:
+- **The trade screen's Max button keeps back a reserve.** It withholds a slippage allowance plus a
+  flat gas reserve:
 
   ```text
   max = balance − balance × (slippage + 1) / 100 − 0.001 AE
   ```
 
-  At the default 1% slippage that is about 2% plus 0.001 AE. Fund with headroom or your first trade
-  fails on arithmetic rather than on price.
+  At the default 1% slippage that is 2% plus 0.001 AE. Fund with that headroom in mind.
 
 **A working floor: 0.01 AE.** That is the balance the agent skill confirms before doing anything on
 chain, and it leaves room for everyday posting, voting and claiming.
 
-Add whatever you intend to trade, plus the Max button's reserve. Funding with **0.1 AE or more**
-covers a first session without further thought.
+Add whatever you intend to trade, plus the Max button's reserve.
 
 ## Earn it
 
@@ -49,29 +47,25 @@ rewards. The affiliation system pays across four levels of the referral chain.
 
 **The Superhero Rewards Program.** Milestones for verifying your X account, linking it to your
 Superhero ID on chain, and posting about Superhero with your referral link, worth up to 200 AE in total.
-Eligibility depends on on-chain activity and the program can be paused.
+Eligibility depends on on-chain activity; the terms are on the rewards page.
 
-**Earn by posting on X** is live. Link your X account and make one qualifying post about Superhero
-and the onboarding reward pays **50 AE**. See [Verifying Your X Account](/identity/x-verification)
-for the linking flow and the [rewards program](/rewards/rewards-program) for what follows it.
+**Earn by posting on X.** Link your X account and make one qualifying post about Superhero and the
+onboarding reward pays **50 AE**. See [Verifying Your X Account](/identity/x-verification) for the
+linking flow and the [rewards program](/rewards/rewards-program) for what follows it.
 
-Creating a funded invite link itself costs AE, so earning is an amplifier once you are in, not a
-way to get your very first AE.
+Creating a funded invite link costs AE, so start with the X reward or a purchase and use invite
+links to grow a balance you already have.
 
 ## Buy it
 
-The get-AE page links one external provider. Superhero does not operate it and does not custody
-anything on your behalf.
+The get-AE page links an external provider. You buy there and withdraw to your own wallet;
+Superhero never holds funds on your behalf.
 
 | Provider | What it offers |
 | --- | --- |
-| [Gate.io](https://www.gate.io/trade/AE_USDT) | An AE/USDT market, and the only route currently confirmed working |
-
-The instant-swap and aggregator routes that used to be listed here are gone. They no longer
-complete an AE purchase, so following them wasted people's time.
+| [Gate.io](https://www.gate.io/trade/AE_USDT) | An AE/USDT market |
 
 Availability and pairs change. Confirm details with the provider before sending anything.
-Superhero Wallet's released builds do not include a card-purchase route.
 
 ### Withdraw to your own address
 
@@ -89,10 +83,9 @@ exchange. When you withdraw:
 If you already hold ETH, bridge native ETH from Ethereum to æternity as **æETH**, then swap æETH to
 AE on the Superhero DEX.
 
-The dedicated routes `/defi/bridge` and `/defi/buy-ae-with-eth` currently **redirect to
-`/defi/swap`**. If you already hold æETH on æternity, the swap half works on
-[the DEX](https://superhero.com/defi/swap). æETH has a deployed contract on both networks, listed
-in [Using Testnet](/getting-started/testnet).
+The routes `/defi/bridge` and `/defi/buy-ae-with-eth` lead to `/defi/swap`, where you swap æETH
+you hold on æternity for AE on [the DEX](https://superhero.com/defi/swap). æETH has a deployed
+contract on both networks, listed in [Using Testnet](/getting-started/testnet).
 
 ## Check that it arrived
 
@@ -102,8 +95,8 @@ in [Using Testnet](/getting-started/testnet).
 | [aescan.io](https://aescan.io) | The transaction and your account's full history |
 | An agent shell | `node scripts/superhero-wallet.mjs balance` |
 
-Transactions confirm in a block. If a withdrawal has not appeared, check the exchange's withdrawal
-status before assuming anything is wrong on chain.
+Transactions confirm in a block. If a withdrawal has not appeared yet, check the exchange's
+withdrawal status first; once the exchange has broadcast it, it shows on aescan.io.
 
 ## Safety
 
@@ -114,7 +107,7 @@ status before assuming anything is wrong on chain.
 ## Related
 
 - [Your First Trade](/getting-started/first-trade): the first thing most people spend AE on.
-- [Your First Post](/getting-started/first-post): the cheapest thing to spend it on.
+- [Your First Post](/getting-started/first-post): publish for gas only.
 - [Invite Links](/rewards/invite-links): the earn route in detail.
 - [Rewards Program](/rewards/rewards-program): the milestones and what they pay.
 - [AE and Gas](/aeternity/ae-and-gas): what you are paying for.

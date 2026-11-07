@@ -1,13 +1,14 @@
 ---
 title: "Wrapped AE (WAE)"
-description: "Why native AE cannot be pooled directly, and how to wrap and unwrap it at 1:1."
+description: "How native AE becomes a pool asset, and how to wrap and unwrap it at 1:1."
 ---
 
 # Wrapped AE (WAE)
 
 WAE is an AEX-9 token contract that holds AE and issues an equal balance of WAE against it. It
-exists because the DEX cannot work with native AE directly. Wrapping and unwrapping is always
-1:1 with no price impact and no swap fee. You pay only the æternity transaction fee.
+gives native AE the token form that pools and the router work with. Wrapping and unwrapping is
+always 1:1 with no price impact and no swap fee; each call pays gas at the network's current gas
+price.
 
 Wrap and unwrap at `https://superhero.com/defi/wrap`.
 
@@ -18,21 +19,20 @@ Wrap and unwrap at `https://superhero.com/defi/wrap`.
 | Mainnet | `ct_J3zBY8xxjsRr3QojETNw48Eb38fjvEuJKkQ6KzECvubvEcvCa` |
 | Testnet | `ct_JDp175ruWd7mQggeHewSLS1PFXt9AzThCDaFedxon8mF8xTRF` |
 
-## Why native AE cannot be pooled
+## Why pools hold WAE
 
 AE is the chain's native coin, not a contract. A liquidity pair is a contract that holds balances
 of two AEX-9 token contracts and moves them by calling `transfer` and `transfer_allowance` on
-each.
+each. Wrapping gives AE that same interface:
 
-- A pair contract cannot hold a reserve of native AE the way it holds a token balance.
-- Native AE has no allowance mechanism, and the router moves your tokens by spending an
-  allowance you granted it.
-- The AMM's arithmetic (reserves, total supply, LP mint) is written against token balances and
-  expects both sides to behave identically.
+- A pair holds a WAE reserve the way it holds any other token balance.
+- The router moves WAE by spending an allowance you granted it, like any AEX-9 token.
+- The AMM's arithmetic (reserves, total supply, LP mint) runs against two token balances that
+  behave identically.
 
-Wrapping solves all three. Deposit AE into the WAE contract and you hold an AEX-9 balance that is
-redeemable one-for-one, can sit in a pool reserve, and can be approved for the router. Every
-"AE pool" on the DEX is a WAE pool.
+Deposit AE into the WAE contract and you hold an AEX-9 balance that is redeemable one-for-one, can
+sit in a pool reserve, and can be approved for the router. Every "AE pool" on the DEX is a WAE
+pool.
 
 ## Wrap and unwrap
 
@@ -47,11 +47,11 @@ redeemable one-for-one, can sit in a pool reserve, and can be approved for the r
 4. Confirm in your wallet.
 
 The form checks your balance before enabling the button and names the symbol, the amount needed
-and the amount you have if it is short. The rate is fixed at 1:1 by the contract; slippage and
-deadline settings do not apply.
+and the amount you have if it is short. The rate is fixed at 1:1 by the contract, so there is
+nothing to set for slippage or deadline.
 
-**Leave AE for fees.** Pressing Max in wrap mode fills in your entire AE balance, which leaves
-nothing to pay the transaction fee with. Wrap slightly less than the maximum.
+**Leave AE for fees.** Pressing Max in wrap mode fills in your entire AE balance. Wrap slightly less
+than the maximum so the transaction fee is covered.
 
 ## The WAE contract
 
@@ -64,19 +64,18 @@ nothing to pay the transaction fee with. Wrap slightly less than the maximum.
 | `withdraw(amount)` | Debits `Call.caller`, then `Chain.spend(Call.caller, amount)` and emits `Withdrawal` |
 | `total_supply()` | Returns `Contract.balance`: the contract's own AE balance, not a stored counter |
 
-- **`withdraw` always pays the caller.** There is no recipient argument, which is why the router
+- **`withdraw` always pays the caller.** It takes no recipient argument, which is why the router
   unwraps into itself and then does a separate `Chain.spend(to, amount)`. See the AE-side swap
   entrypoints on [Swapping](/defi/swap).
-- **The peg cannot drift.** `total_supply()` is the contract's AE balance, so total WAE issued and
-  AE held are the same number by construction. There is no oracle and no redemption queue.
+- **The peg holds by construction.** `total_supply()` is the contract's AE balance, so total WAE
+  issued and AE held are the same number. Redemption is immediate.
 - **Withdrawing more than you hold aborts with `WAE: LOW_BALANCE`.** An address that has never
   deposited holds zero.
-- **Only `withdraw` moves AE out.** The contract has no owner-only withdrawal, pause or upgrade
-  entrypoint.
+- **`withdraw` is the one way AE leaves the contract.** It has no owner-only withdrawal, pause or
+  upgrade entrypoint.
 
 Its metadata is fixed: `name` "Wrapped Aeternity", `symbol` "WAE", `decimals` 18. It declares
-`aex9_extensions() = ["allowances"]`: no minting or burning, because `deposit` and `withdraw` are
-the only ways supply changes.
+`aex9_extensions() = ["allowances"]`: supply changes through `deposit` and `withdraw` alone.
 
 ## When the app wraps for you
 
@@ -92,8 +91,8 @@ You rarely need to wrap manually:
   unwrap at 1:1 with zero price impact rather than routing it.
 
 Wrap manually when you want to hold WAE as a token: to grant a router allowance up front, or to
-interact with a pair contract directly. WAE shows up in your wallet as an ordinary AEX-9 token
-and may need to be added manually in some wallets.
+interact with a pair contract directly. WAE shows up in your wallet as an ordinary AEX-9 token;
+add it by contract address if your wallet does not list it.
 
 WAE wraps the chain's own coin; aeETH represents Ethereum-side value moved across a bridge. See
 [Bridging from Ethereum](/defi/bridge).

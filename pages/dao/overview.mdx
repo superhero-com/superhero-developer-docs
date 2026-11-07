@@ -1,6 +1,6 @@
 ---
 title: "How DAOs Work"
-description: "The community DAO lifecycle — deployment, funding, proposals, voting, execution and withdrawal — with the contract and entrypoint at each step."
+description: "The community DAO lifecycle: deployment, funding, proposals, voting, execution and withdrawal, with the contract and entrypoint at each step."
 ---
 
 # How DAOs Work
@@ -67,7 +67,7 @@ interface, so a custom DAO can act on income as it lands. See [The Treasury](/da
 and [Replaceable DAOs](/dao/replaceable-dao).
 
 The other source of treasury funds is the 555 AE paid by whoever opens a vote. It is a
-donation to the DAO, not a refundable deposit.
+contribution to the DAO and stays in the treasury whatever the outcome of the vote.
 
 ## Step 3: opening a proposal
 
@@ -84,7 +84,7 @@ DAOVote.metadata = { subject     : VoteSubjects.subject
 ```
 
 `subject` is the machine-readable action, drawn from a closed set of seven constructors.
-`description` and `link` are free text for humans; nothing on-chain validates the link.
+`description` and `link` are free text for humans; the link is stored as given.
 `add_vote` deploys a fresh `DAOVote` contract, registers it in `DAO.votes` under the next
 sequential id, and returns both the id and the contract.
 
@@ -103,8 +103,8 @@ payable stateful entrypoint add_vote(metadata : DAOVote.metadata) =
 
 - **Exactly 555 AE.** `Call.value` must equal `555 * 10^18` aettos. Attaching more fails
   the same way as attaching less.
-- **The caller's balance is read at call time**, live from the AEX-9 contract. There is no
-  snapshot height and no holding period.
+- **The caller's balance is read at call time**, live from the AEX-9 contract, so a holder can
+  propose as soon as their balance clears the threshold.
 - A missing balance counts as zero, so a community whose threshold is `0` lets any account
   with 555 AE open a proposal.
 
@@ -159,9 +159,8 @@ When `Chain.block_height` reaches `close_height`, `is_closed()` returns true and
 Both thresholds are needed. A proposal with 100% approval and 4% turnout does not pass.
 
 - **`total_vote_stake` is yes plus no**, so revoked votes reduce turnout as well as approval.
-- **`token_total_supply` is read at execution time, not at the close.** A large buy between
-  closing and execution mints new supply and can push a passed vote below the 10% quorum.
-  This is why the execution window is short.
+- **`token_total_supply` is read at execution time.** Supply minted between the close and
+  execution counts in the denominator, so apply a passed vote promptly.
 
 ## Step 6: execution
 
@@ -177,16 +176,16 @@ The window is `vote.close_height() + state.vote_timeout >= Chain.block_height`, 
 `VOTE_RESULT_TIMEOUTED`. `vote_timeout` is 960 key-blocks (about two days) and is readable
 with `vote_timeout()`.
 
-**A passed vote that is not applied in time does nothing.** The treasury is not paid out, the
-moderator is not appointed, and the 555 AE is not returned. Plan for somebody to call
-`apply_vote_subject` promptly. The vote's page in the app shows an Apply action once the
-vote is applicable.
+**Apply a passed vote within the window.** Execution is what pays out the treasury or appoints
+the moderator, so plan for somebody to call `apply_vote_subject` promptly; the 555 AE stays in
+the treasury either way. The vote's page in the app shows an Apply action once the vote is
+applicable.
 
 ## Step 7: withdrawal
 
-After the closing height, every voter calls `withdraw()` on the vote contract to unlock their
-tokens. Withdrawing does not change the recorded outcome. Tokens stay locked until their owner
-withdraws; nothing sweeps them automatically.
+After the closing height, call `withdraw()` on the vote contract to unlock your tokens.
+Withdrawing leaves the recorded outcome unchanged. Tokens stay in the vote contract until their
+owner withdraws them.
 
 ## Following a proposal in the app
 

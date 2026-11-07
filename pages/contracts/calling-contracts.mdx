@@ -187,16 +187,16 @@ const gasLimit = Math.ceil(Number(dry.result.gasUsed) * 1.3);
 await sale.buy(count, { amount, gasLimit, omitUnknown: true });
 ```
 
-Two caveats:
+Two things to plan for:
 
 - **State moves.** A buy that lands after several other buys in the same micro block touches
   different map entries and can use more gas than the dry run measured. The 30% margin above
   is a starting point, not a guarantee.
-- **`create_community` is expensive.** It deploys four contracts in one transaction (a
+- **`create_community` does the most work.** It deploys four contracts in one transaction (a
   `CommunityManagement`, a `DAO`, an `AffiliationBondingCurveTokenSale`, and the AEX-9 token
   the sale creates in its own `init`), then makes three more cross-contract calls to wire them
-  together, and optionally performs an initial buy on top. Do not trim its gas limit
-  aggressively; let the SDK use its default unless you have measured repeatedly.
+  together, and optionally performs an initial buy on top. Keep the SDK's default gas limit
+  for it unless you have measured repeatedly.
 
 You can also set `gasPrice` explicitly. Leave it alone unless you are fighting for inclusion;
 the SDK's default tracks the node's minimum.

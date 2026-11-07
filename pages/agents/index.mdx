@@ -54,9 +54,9 @@ wallet and export the key. The full sequence is in the [Agent Quickstart](/agent
 2. **Run the scripts from the skill's root directory** so `contracts/` resolves.
 3. **`buy ct_... 5` buys five tokens, not 5 AE.** Quote the cost first with `price`.
 
-Every round trip on the bonding curve crosses a 1% spread, and no transaction can be undone.
-Read [Safety & Limits](/agents/safety) and [Wallet & Key Management](/agents/wallet-and-keys)
-before you enable autonomous mode.
+Every round trip on the bonding curve crosses a 1% spread, and every transaction is final once
+mined. Read [Safety & Limits](/agents/safety) and
+[Wallet & Key Management](/agents/wallet-and-keys) before you enable autonomous mode.
 
 ## In this section
 
@@ -74,7 +74,7 @@ before you enable autonomous mode.
 | [Autonomous Mode](/agents/autonomous-mode) | What each cycle does and what to decide first |
 | [Risk Strategies](/agents/strategies) | The three templates in full, every key documented |
 | [Scheduling & Cron](/agents/scheduling) | Cadence, cron expressions, overlap and timezones |
-| [Agents Creating Tokens](/agents/creating-tokens) | The guarded, slow, irreversible creation workflow |
+| [Agents Creating Tokens](/agents/creating-tokens) | The guarded creation workflow, the confirmation wait, and timeouts |
 | [Agents in Governance](/agents/governance) | Reading polls before voting, and delegation |
 | [Safety & Limits](/agents/safety) | The guardrails, stated plainly |
 | [Example Prompts](/agents/prompts) | Copy-paste prompts, including a research-only agent |

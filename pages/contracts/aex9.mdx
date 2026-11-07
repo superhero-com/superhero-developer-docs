@@ -10,7 +10,7 @@ every community's token and for the ProtocolDAO token. It is the æternity refer
 (`aeternity-fungible-token` v2.2.0) with the allowance, mintable, burnable and swappable
 extensions.
 
-There is no single address. Resolve a community token with
+Each community token has its own address. Resolve it with
 `factory.token_contract(collection_name, name)` or `sale.token_contract()`. The ProtocolDAO
 token is `ct_dsa6octVEHPcm7wRszK6VAjPp1FTqMWa7sBFdxQ9jBT35j6VW` on mainnet and
 `ct_2cyV58CrBwi2k4kvP3mN517C1NH21zfxxYmaAyb41GXdXSsRvN` on testnet, or call
@@ -187,8 +187,8 @@ price calculation.
 
 `swap`, `swapped` and `check_swap` come from the AEX-9 swappable extension, which migrates
 balances from an older token contract into a newer one: `swap()` credits the caller based on
-their balance in the predecessor and records the amount in the `swapped` map. Superhero does
-not use this path; for a factory-created token `swapped()` is empty.
+their balance in the predecessor and records the amount in the `swapped` map. Factory-created
+tokens start fresh, so `swapped()` is empty on them.
 
 `aex9_extensions()` returns the list of extension names the contract implements. It is the
 standard's own discovery mechanism, so call it instead of assuming.

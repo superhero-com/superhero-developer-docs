@@ -61,22 +61,22 @@ by `0.05`. Silence is the single biggest term in the whole formula.
 
 - **Caps make the score a presence signal, not a size one.** Volume is capped at 5,000 AE and
   carries 0.20 of the 0.35 trading weight, so 5,000 AE and 500,000 AE of daily volume score
-  identically; 25 active wallets and 2,500 score the same. Above the caps the score stops
-  distinguishing, which is exactly where the largest tokens live.
+  identically; 25 active wallets and 2,500 score the same. To compare large tokens by size, order
+  by `market_cap` or volume instead.
 - **Log normalisation front-loads the first few units.** On the buy-count signal, going from 0 to 5
   buys scores `0.48` while going from 20 to 40 adds only `0.18`. Every signal is normalised against
   a fixed cap rather than the token's own size, so a small token's first few trades and posts buy
   far more score than a large token's next hundred.
 - **Sells count exactly as much as buys.** Sell count and buy count share the same weight and the
-  same cap, so a token being dumped scores the same on that axis as one being accumulated. The
-  score measures *activity*, not direction.
+  same cap, so a token being sold scores the same on that axis as one being bought. The score
+  measures *activity*, not direction.
 - **Social activity is 65% of it.** Posts, comments and distinct authors carry 0.86 of the social
   weight between them, so a token its community is talking about climbs the list.
 - **Decay dominates a quiet token.** A token with an excellent pre-decay score and twelve hours of
   silence keeps about 11% of it. Most of the movement in the trending list between refreshes is the
   decay term, not new activity.
-- **It is a lagging indicator.** A momentum score describes activity that has already happened. On
-  a curve where price rises with every buy, acting on it means buying after the price has moved.
+- **It describes activity that has already happened.** On a curve where price rises with every buy,
+  the price has moved by the time the score reports it. Confirm direction from the trade flow.
 
 ### Refresh cadence
 
@@ -85,8 +85,8 @@ by `0.05`. Silence is the single biggest term in the whole formula.
 | Active refresh | every 2 hours (`0 */2 * * *`) | Tokens with trade, post, tip or read activity in the last 120 minutes, up to 250 per run |
 | Stale backfill | every 6 hours (`30 */6 * * *`) | Tokens whose score is older than 30 minutes, up to 150 per run, oldest first |
 
-So `trending_score` on a token record can be up to two hours behind, and on a quiet token
-considerably more. `trending_score_update_at` tells you exactly how stale your copy is.
+`trending_score` on a token record is the value from the last refresh, and `trending_score_update_at`
+tells you when that was. For the current value, call the score endpoint below.
 
 `GET /api/tokens/{address}/score` **recomputes** the score on the spot and returns the full
 breakdown (every signal's `raw`, `cap` and `normalized` value, the two component scores, the decay
@@ -136,7 +136,7 @@ list.
 If you are building on the list endpoint:
 
 - Use `order_by=trending_score` when you want the trending set.
-- Do **not** use it when you want to find a specific token by name. A token that plainly exists can be absent from the gated result.
+- Omit it when you want to find a specific token by name, since the gate filters the result.
 
 ## Ranking
 
@@ -169,7 +169,7 @@ whatever the scale is. For an absolute bar, pull the current trending list
 Never act on the score alone. The pre-buy checklist:
 
 1. Read the score: `node scripts/superhero-trending.mjs token-info ct_...`
-2. Check the trade flow: `node scripts/superhero-transactions.mjs token ct_... 30`. Many small buyers suggest organic demand; one large buyer suggests a pump with exit risk.
+2. Check the trade flow: `node scripts/superhero-transactions.mjs token ct_... 30`. Many small buyers suggest broad demand; one large buyer suggests a single position.
 3. Check price performance: `node scripts/superhero-trending.mjs performance ct_...`
 
 ## Reading it from the CLI
@@ -193,6 +193,6 @@ top-ten by trending score and nowhere by holder count deserves a closer look.
 
 - [Reading a Token Page](/tokens/token-page): the other signals to weigh the score against
 - [Transaction History](/tokens/transactions): the trade flow that confirms or contradicts a rising score
-- [Risks](/tokens/risks): why momentum signals are double-edged on a bonding curve
+- [Before You Trade](/tokens/risks): how to read momentum signals on a bonding curve
 - [Trending API](/api-reference/trending): the endpoints behind the trending list, with the full signal-by-signal derivation
 - [Agent trading strategies](/agents/strategies): the full strategy templates

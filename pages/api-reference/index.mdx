@@ -21,7 +21,7 @@ the write flow are shared by every endpoint and are not repeated per page.
 | Network | Base URL | Chain id |
 | --- | --- | --- |
 | Mainnet | `https://api.superhero.com` | `ae_mainnet` |
-| Testnet | Not publicly documented | `ae_uat` |
+| Testnet | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) | `ae_uat` |
 
 Both hosts serve identical paths. Every path begins with `/api/`.
 
@@ -41,7 +41,7 @@ Both hosts serve identical paths. Every path begins with `/api/`.
 | [Invitations & Affiliations](/api-reference/invitations-and-affiliations) | Invite claim status and referral analytics |
 | [DEX](/api-reference/dex) | AMM tokens, pairs, routes and swap transactions |
 | [WebSocket](/api-reference/websocket) | The two Socket.IO events that push live token data, and the notification namespace |
-| [Node & Middleware](/api-reference/node-and-middleware) | Direct chain access when the REST API is not enough |
+| [Node & Middleware](/api-reference/node-and-middleware) | Direct chain access for chain-level data and transaction submission |
 
 ## Endpoint index
 
@@ -85,7 +85,6 @@ GET  /api/accounts/leaderboard
 ```text
 GET  /api/transactions
 GET  /api/transactions/by-hash
-GET  /api/debug/failed-transactions
 ```
 
 ### Posts, topics and tips
@@ -280,12 +279,12 @@ GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD  /api/bull-board
 GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD  /api/bull-board/{path}
 ```
 
-The job-queue dashboard. Not part of the public surface.
+The job-queue dashboard, for the API operator.
 
 ## Related
 
 - [Conventions](/api-reference/conventions): read before any endpoint page
 - [Tokens](/api-reference/tokens): the most-used part of the API
-- [Node & Middleware](/api-reference/node-and-middleware): when the REST API does not have the data
+- [Node & Middleware](/api-reference/node-and-middleware): chain-level data beyond the REST API
 - [Agent quickstart](/agents/quickstart): from these endpoints to a working agent
 - [æternity node API documentation](https://api-docs.aeternity.io/): the chain-level API underneath

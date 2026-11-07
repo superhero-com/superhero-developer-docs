@@ -1,6 +1,6 @@
 ---
 title: "Attention Markets"
-description: "Why pricing attention with a bonding curve produces a usable market signal — and what that signal does not tell you."
+description: "Why pricing attention with a bonding curve produces a usable market signal, and how to read it well."
 ---
 
 # Attention Markets
@@ -20,9 +20,9 @@ a price for `#ThingThatHappenedAnHourAgo`. A bonding curve removes the counterpa
   so price encodes net conviction rather than the temporary balance of resting orders.
 - **Solvency is structural.** The sell curve sits strictly below the buy curve at every supply
   level, so the reserve held by the sale contract is always enough to redeem the entire circulating
-  supply. There is no bank-run state.
+  supply, whatever order the sells arrive in.
 
-The cost of that guarantee is the spread. Superhero sets it at 1%: half to the token's DAO
+The spread is what funds that guarantee. Superhero sets it at 1%: half to the token's DAO
 treasury, half to the affiliation chain. See [Where the Money Goes](/concepts/value-flow).
 
 ## The curve
@@ -45,8 +45,8 @@ Two design consequences fall straight out of the constants:
 - At supply zero the marginal price is `0.001 - 0.0009999 = 0.0000001 AE`. The curve starts almost
   free, which makes being first meaningfully rewarding.
 - The exponent is small (`1e-8`), so the curve is nearly linear for the first few hundred thousand
-  tokens and then bends hard. Only 10–20% of the total supply is expected to be reached, which gives
-  a noticeable price increase right from the start of the curve.
+  tokens and then bends hard. The curve is tuned so that trading happens within the first 10–20% of
+  the total supply, which gives a noticeable price increase right from the start.
 
 ## A worked example
 
@@ -83,7 +83,7 @@ materially fewer tokens. The price encodes who was early.
 **Round trip.** If the first buyer sells immediately at the same supply, the sell curve returns
 `0.995` of the curve value, about **0.995 AE** against the **1.005 AE** they actually paid (the
 curve cost plus the 0.5% affiliation fee). The round trip costs them roughly 1% of the gross,
-before gas, so the curve does not reward churn.
+before gas, so the curve rewards holding over churn.
 
 ## The social loop
 
@@ -114,9 +114,9 @@ score = (0.35 * trading_score + 0.65 * social_score) * freshness_decay
 normalized(raw, cap) = ln(1 + min(raw, cap)) / ln(1 + cap)
 ```
 
-Capping before the logarithm means a signal stops helping entirely once it saturates (the 5,001st
-AE of 24-hour volume adds nothing), and the logarithm means the first few units of any signal are
-worth far more than the next few. Both work against brute-force manufacturing of a score.
+Capping before the logarithm means a signal saturates at its cap (the 5,001st AE of 24-hour volume
+adds nothing), and the logarithm means the first few units of any signal are worth far more than
+the next few. Both reward genuine, broad activity over brute-force manufacturing of a score.
 
 | Group | Signal | Weight in group | Cap (24h) |
 | --- | --- | --- | --- |
@@ -132,7 +132,7 @@ worth far more than the next few. Both work against brute-force manufacturing of
 | Social | Reads of mentioning posts | 0.06 | 200 |
 
 **Social activity is weighted almost twice as heavily as trading**: community activity dominates
-ranking. **Buys and sells count equally**, at 0.20 each, so a token being dumped trends exactly as
+ranking. **Buys and sells count equally**, at 0.20 each, so a token with heavy selling trends as
 hard as a token being accumulated. The score measures activity, not direction.
 
 The decay term is a Hacker-News-style gravity function on time since the *most recent* activity of
@@ -143,22 +143,22 @@ freshness_decay = 1 / (1 + age_hours / 2) ^ 1.15
 ```
 
 At two hours idle a token keeps about half its pre-decay score; at a day, about a twentieth. Scores
-are refreshed on a cron (every two hours for tokens with recent activity, every six for a stale
-backfill), so a score you read may be up to two hours behind the window it describes. Tokens flagged
-`unlisted` are skipped entirely.
+are refreshed on a cron (every two hours for tokens with recent activity, every six for the rest),
+so a score you read describes a window up to two hours old. Tokens flagged `unlisted` are left out
+of the ranking.
 
-Trending *tags* are a different mechanism that happens to share a word. They may not have tokens at
-all, and their `score` and `source` are **pushed in by external providers** through
-`POST /api/trending-tags` behind an API-key guard, not computed from Superhero activity. `source` is
-a free-form string naming the provider platform, for example `x`, `facebook` or `github`.
+Trending *tags* are a separate mechanism. They need not have tokens, and their `score` and `source`
+are **supplied by external providers** through `POST /api/trending-tags` behind an API-key guard,
+alongside the activity-based token scores. `source` is a free-form string naming the provider
+platform, for example `x`, `facebook` or `github`.
 
 A rising trending score means attention is accelerating; a falling score means it is fading. Read
-that as a claim about attention, not about price. `trending_score` is a value between 0 and 1;
-choose entry and exit thresholds accordingly.
+it as a signal about attention, and read the price for the market. `trending_score` is a value
+between 0 and 1; choose entry and exit thresholds accordingly.
 
-The trending score is a *derived* number, not a protocol quantity: no contract reads it, no vote
-depends on it, and the weights above are backend configuration that can change with a deploy. Treat
-it as a ranking aid, not as ground truth. See [The Trending Score](/tokens/trending-score).
+The trending score is a *derived* number computed off-chain: no contract reads it, no vote depends
+on it, and the weights above are backend configuration. Use it as a ranking aid alongside the
+on-chain figures. See [The Trending Score](/tokens/trending-score).
 
 ## Related
 
@@ -166,5 +166,5 @@ it as a ranking aid, not as ground truth. See [The Trending Score](/tokens/trend
 - [Curve Parameters & Units](/tokens/curve-parameters): aettos, decimals, and the exact constants.
 - [Where the Money Goes](/concepts/value-flow): the 1% spread, split to the fraction, on both sides of a trade.
 - [The Trending Score](/tokens/trending-score): what the API returns and how the app sorts by it.
-- [Risks](/tokens/risks): the trading risks stated plainly, with the mitigations that exist.
+- [Before You Trade](/tokens/risks): the trading risks stated plainly, and how to manage them.
 - [Trending tokens on superhero.com](https://superhero.com/trends/tokens): the live market, sorted by market cap.

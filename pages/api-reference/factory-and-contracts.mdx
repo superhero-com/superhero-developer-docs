@@ -110,7 +110,7 @@ curl -s "https://api.superhero.com/api/tokens?collection=CHINESE&limit=20"
 
 ## Detecting a factory upgrade
 
-There is no version field and no upgrade notification. Instead:
+The factory address is the version signal:
 
 1. **`GET /api/factory` returns `address`.** Cache it; a change means a new factory is live.
 2. **Every token carries `factory_address`.** Tokens minted by an older factory keep pointing at
@@ -121,9 +121,8 @@ When `address` changes, re-derive everything you hold that depends on it: the fa
 the collection ids and the `AffiliationTreasury` address, which is `affiliation_address` on the
 same response.
 
-The social posting contract (`ct_2Hyt9ZxzXra5NAzhePkRsDPDWppoatVD7CtHnUoHVbuehwR8Nb` on mainnet),
-governance and DEX addresses are not covered by this endpoint; see
-[Contract addresses](/contracts/addresses).
+For the social posting contract (`ct_2Hyt9ZxzXra5NAzhePkRsDPDWppoatVD7CtHnUoHVbuehwR8Nb` on
+mainnet), governance and DEX addresses, see [Contract addresses](/contracts/addresses).
 
 ## `GET /api/contracts`
 
@@ -157,8 +156,8 @@ curl -s "https://api.superhero.com/api/stats"
 | `uptime` | string | Human-readable, e.g. `3d 4h 12m 8s` |
 | `uptimeDurationSeconds` | number | The same as a number |
 
-Read `mdwConnected` and the gap between `currentBlockNumber` and `lastSyncedBlockNumber` before
-trusting that a recent trade is indexed. `GET /api/mdw/health` gives a more detailed version of
+Read `mdwConnected` and the gap between `currentBlockNumber` and `lastSyncedBlockNumber` to
+confirm that a recent trade is indexed. `GET /api/mdw/health` gives a more detailed version of
 the same picture; see [Node & Middleware](/api-reference/node-and-middleware). For platform
 metrics rather than indexer health, use [Analytics](/api-reference/analytics).
 
@@ -168,4 +167,4 @@ metrics rather than indexer health, use [Analytics](/api-reference/analytics).
 - [Invitations & Affiliations](/api-reference/invitations-and-affiliations): the affiliation treasury reached through the factory
 - [Community factory](/contracts/community-factory): what the contract itself does
 - [Collections and naming](/tokens/collections-and-naming): the naming rules from a creator's point of view
-- [Contract addresses](/contracts/addresses): the addresses this endpoint does not cover
+- [Contract addresses](/contracts/addresses): the social, governance and DEX contract addresses

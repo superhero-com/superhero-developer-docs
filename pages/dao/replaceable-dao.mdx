@@ -5,9 +5,9 @@ description: "The ReplaceableDAO interface a custom DAO must implement, and how 
 
 # Replaceable DAOs
 
-Sophia contracts are immutable once deployed, and Superhero's contracts have no proxy, no
-admin key and no migration hook. A community that wants different governance rules cannot
-patch `DAO.aes`. What it can do is deploy a **different DAO contract** and vote to hand over
+Sophia contracts are immutable once deployed, and Superhero's contracts run without a proxy or
+an admin key, so the rules a community lives under are the code it voted for. A community that
+wants different governance rules deploys a **different DAO contract** and votes to hand over
 control. `ReplaceableDAO.aes` defines the interface that makes that possible, and `ChangeDAO`
 is the vote that performs it.
 
@@ -21,7 +21,7 @@ A contract that implements all three entrypoints can be the target of a `ChangeD
 
 | Entrypoint | Signature | Purpose |
 | --- | --- | --- |
-| `is_dao` | `() : bool` | Must return `true`. Blocks transfers to non-DAO addresses. |
+| `is_dao` | `() : bool` | Must return `true`. Confirms the target is a DAO before anything moves. |
 | `get_community_management` | `() : option(CommunityManagement)` | The linked community management contract, or `None`. |
 | `record_sale_transaction` | `(address, int) : unit`, stateful, payable | Receive sale proceeds with the buyer and buy price as arguments. |
 
@@ -37,16 +37,16 @@ stateful payable entrypoint record_sale_transaction(buyer: address, buy_price: i
 The AE arrives with the call; the **buyer** and the **buy price** arrive as arguments. A
 replacement DAO can therefore act on income the moment it lands: split it between a treasury
 and a rewards pool, credit it per buyer, forward a share to a partner contract. The token sale
-calls it with `protected = true`, so an aborting DAO does not block a trade, and calls it with
-zero value as a probe on `set_beneficiary`, so the entrypoint must accept zero-value calls.
+calls it with `protected = true`, so a trade completes even if the DAO call aborts, and calls it
+with zero value as a probe on `set_beneficiary`, so the entrypoint must accept zero-value calls.
 
 ### `is_dao`
 
 `ChangeDAO` transfers ownership of the token sale, the beneficiary rights to all future
 proceeds, and the accumulated treasury, in one call. `is_dao()` returning `true` is a type
 check that the target is at least a DAO-shaped contract: an account address, the token
-address or an unrelated contract does not answer the call. It is not a trust check, since any
-contract can implement `is_dao() = true`.
+address or an unrelated contract does not answer the call. It is a shape check, since any
+contract can implement `is_dao() = true`, so verify the target's source yourself before voting.
 
 ## Build a replacement DAO
 
@@ -55,9 +55,9 @@ contract can implement `is_dao() = true`.
    interface, so a mismatched arity or a missing `payable` fails at the call site.
 2. **Decide what it does with authority.** The replacement becomes the owner and beneficiary
    of the existing `AffiliationBondingCurveTokenSale`, and the owner of the existing
-   `CommunityManagement`. If it does not expose equivalents of `add_vote` and
-   `apply_vote_subject`, the community loses the ability to appoint moderators or change its
-   write threshold, because those actions can only be reached by the sale's owner.
+   `CommunityManagement`. Expose equivalents of `add_vote` and `apply_vote_subject` so the
+   community keeps the ability to appoint moderators and change its write threshold; those
+   actions are reached through the sale's owner.
 3. **Point it at the existing `CommunityManagement`.** `apply_vote_subject` asserts
    `get_community_management() == new_dao.get_community_management()` and aborts the whole
    migration with `NEW_DAO_HAS_TO_REFERENCE_SAME_COMMUNITY_MANAGEMENT` if they differ. The
@@ -66,7 +66,7 @@ contract can implement `is_dao() = true`.
    deployment.
 4. **Deploy it** to the same network, and check that `is_dao()` answers `true` from an
    external call before proposing anything.
-5. **Fund nothing.** The treasury transfers with the migration; the target should start empty.
+5. **Start it empty.** The treasury transfers with the migration.
 6. **Publish the source and the bytecode hash** so voters can verify that the deployed
    contract at the proposed address is the code they are being asked to approve.
 
@@ -84,8 +84,8 @@ A `ChangeDAO` proposal is an ordinary DAO vote:
    beneficiary and owner, and ownership of `CommunityManagement`. On the way it checks that the
    target references the same community management contract.
 
-If nobody applies it inside the window, the vote expires and nothing moves. The 555 AE is
-spent and the proposal has to be reopened.
+Apply it inside the window: a vote that passes its window expires, the 555 AE stays with the
+treasury, and the migration needs a new proposal.
 
 ### What the migration transfers
 
@@ -98,29 +98,28 @@ spent and the proposal has to be reopened.
 | The moderator roster, mute list, threshold and metadata | Untouched | They live in `CommunityManagement`, which is not redeployed |
 | The AEX-9 token, its supply and its holders | Untouched | Not owned by the DAO |
 | The bonding curve and its reserve | Untouched | Held by the sale contract, which is not replaced |
-| The vote history | **Not transferred** | `DAO.votes` stays on the old contract, which keeps answering `votes()` |
+| The vote history | Stays on the old DAO | `DAO.votes` stays on the old contract, which keeps answering `votes()` |
 
 Because `CommunityManagement.set_owner` is called in the same transaction, the
 `AddModerator`, `DeleteModerator`, `ChangeMinimumTokenThreshold` and `ChangeMetaInfo`
 subjects keep working after a migration, provided the replacement DAO implements equivalents
 of `add_vote` and `apply_vote_subject` to reach them.
 
-A community's governance history after a migration is split across two contracts, and the
-new DAO's vote ids restart at zero.
+After a migration, read older votes from the old DAO and newer ones from the new DAO, whose
+vote ids start at zero.
 
-## What a `ChangeDAO` vote commits to
+## Before voting on a `ChangeDAO` proposal
 
-- **It is irreversible by the old DAO.** Reversing a migration requires the *new* DAO to offer
-  a `ChangeDAO` equivalent.
-- **`is_dao()` proves nothing about intent.** Any contract can pass the check.
-- **The vote approves an address.** Unless the source is published and the deployed bytecode
-  matches it, holders are approving the proposer's word.
-- **Governance is whatever the replacement implements**, and that could be a single owner key.
-- **The treasury moves in the same transaction.** There is no staged handover, trial period or
-  clawback.
-
-Before voting, check that the source is published, that the bytecode at the proposed address
-matches it, that the replacement implements proposals and voting, and who controls it.
+- **The handover completes in one transaction.** Treasury, sale ownership and beneficiary
+  rights move together at execution.
+- **Reversal goes through the new DAO.** Undoing a migration needs the *new* DAO to offer a
+  `ChangeDAO` equivalent.
+- **`is_dao()` is a shape check.** Verify the contract behind the address, since any contract
+  can return `true`.
+- **The vote approves an address.** Check that the source is published and that the deployed
+  bytecode at the proposed address matches it.
+- **Governance becomes whatever the replacement implements.** Read its proposal and voting
+  entrypoints and find out who controls it.
 
 ## Related
 

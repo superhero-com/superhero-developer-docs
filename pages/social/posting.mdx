@@ -1,14 +1,14 @@
 ---
 title: "Posting"
-description: "Publish a post on chain from the app, the command line or the SDK — the contract call, the ids, the encoding conventions and the limits."
+description: "Publish a post on chain from the app, the command line or the SDK: the contract call, the ids, the encoding conventions and the limits."
 ---
 
 # Posting
 
 A Superhero post is a contract call. The text and any attached media go into the `Tipping` v3
 contract's state, the caller's address is recorded as the author, and the contract returns an
-integer id. The contract has no edit and no delete entrypoint, so a published post is
-permanent.
+integer id. Once published, the post is final: nobody can censor it or quietly edit it, and
+anyone can verify it against the contract.
 
 ## The data model
 
@@ -44,7 +44,7 @@ Both posting entrypoints return the new `tip_id` and emit
 `PostWithoutTipReceived(address, string)` (the author and the title), so indexers can follow
 new content without polling state.
 
-Tipping v3 has no tipping entrypoint. Tips are plain AE transfers with a payload; see
+Tips are plain AE transfers with a payload rather than contract calls; see
 [Tipping](/social/tipping).
 
 ## Addresses
@@ -60,9 +60,8 @@ These are `CONTRACT_V3_ADDRESS` in the app's per-network configuration.
 
 The contract returns a bare integer. The indexer forms the API id as that value plus `_v` plus
 the contract version (`_v3` today), so a post created as `3903` is referenced everywhere as
-`3903_v3`. If the middleware hands the indexer a transaction with no return value, the id falls
-back to the **last eight characters of the transaction hash** plus the same suffix, which is
-why an occasional id is not numeric.
+`3903_v3`. When a transaction carries no return value, the id is the **last eight characters of
+the transaction hash** plus the same suffix, so some ids are not numeric.
 
 In-app links drop the suffix again: a post link is `/post/` plus the id with `_v3` stripped, or
 a human-readable slug the API generates for SEO. The resolver at `/post/:slug` tries, in order:
@@ -99,8 +98,8 @@ renderer agree on; the contract does not enforce any of it.
 | Token display envelope | `#SYMBOL{mode=advanced}` | An optional suffix asking for a richer rendering. The symbol is never modified. |
 | Comment marker | `comment:<parent post id>` | First entry in `media`, marking the post as a reply. |
 
-The API does not index raw `ak_` mentions; a bare address in the text renders as a plain link.
-An unparseable envelope payload falls back to the plain tag. See
+Use the `[account:…]` form for mentions; a bare `ak_` address in the text renders as a plain
+link. An unparseable envelope payload falls back to the plain tag. See
 [Hashtags & Topics](/social/hashtags-and-topics) for the envelope's option grammar.
 
 ## Limits
@@ -115,8 +114,6 @@ Limits are enforced at three layers:
 | Media entries, indexed | 5 | The indexer keeps the first five valid entries and drops the rest |
 | Media entries, on chain | Unbounded | The contract stores the whole list |
 | Topics per post | 10 | The indexer, each at most 50 characters after normalization |
-| Editing | Not possible | The contract has no update entrypoint |
-| Deletion | Not possible | The contract has no delete entrypoint |
 
 The 280-character limit is a client-side constant; a post written through the SDK or the CLI is
 not bound by it. The copy the API serves is normalised on the way in: trimmed, CRLF converted
@@ -126,14 +123,14 @@ back from the contract if you need the original.
 
 ### What counts as a media entry
 
-The indexer does not store the `media` list verbatim. Each entry must be a parseable URL with
-an `http:` or `https:` scheme, and must either end in `.jpg`, `.jpeg`, `.png`, `.gif`,
-`.webp`, `.mp4`, `.webm` or `.mov`, or be hosted on `imgur.com`, `giphy.com`, `youtube.com` or
-`vimeo.com` (or a subdomain of one). Everything else is dropped from the indexed `media` array,
-and only the first five survivors are kept.
+The indexer filters the `media` list. Each entry must be a parseable URL with an `http:` or
+`https:` scheme, and must either end in `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.mp4`,
+`.webm` or `.mov`, or be hosted on `imgur.com`, `giphy.com`, `youtube.com` or `vimeo.com` (or a
+subdomain of one). Everything else is dropped from the indexed `media` array, and the first five
+valid entries are kept.
 
-A comment's `comment:3903_v3` marker is therefore never in the API's `media` field; `tx_args`
-still carries the raw list. If any raw media entry contains the substring `hidden`, the indexer
+Read the raw list, including a comment's `comment:3903_v3` marker, from `tx_args`; the API's
+`media` field holds the filtered attachments. If any raw media entry contains the substring `hidden`, the indexer
 sets `is_hidden = true` on the post, which removes it from the feeds and from popular ranking. See
 [Moderation](/social/moderation).
 
@@ -149,8 +146,6 @@ the composer requires that token's hashtag before the Post button enables. On su
 4. Calls `post_without_tip(content, media)` through the connected wallet.
 5. Suffixes the returned id with `_v3`, optimistically inserts the post into the feed cache,
    and reconciles against `GET /api/posts/` once the backend has indexed it.
-
-If the backend returns `404` on the first fetch, the app keeps its optimistic copy and retries.
 
 ## Posting from the command line
 
@@ -208,14 +203,15 @@ The ACI ships with the agent skill at `contracts/Tipping_v3.aci.json`.
 
 ## Cost
 
-A post is a single stateful contract call with no payable amount, so you pay gas only. Gas
-follows the network's gas price and the size of the stored text.
+A post is one transaction: a stateful contract call with no payable amount. It pays gas at the
+network's current gas price, which scales with the size of the stored text.
 
 ## Permanence
 
-A published post is permanent and public. It lives on chain, where no one, Superhero, a community
-DAO or a moderator included, can alter or remove it. Community moderation manages chat-room
-access; see [Moderation](/social/moderation).
+A published post is public and belongs to its author. It lives on chain, where nobody, Superhero,
+a community DAO or a moderator included, can censor it or quietly edit it, and anyone can verify
+it. Attached media lives at the URL you give, so choose a durable host for it. Community
+moderation manages chat-room access; see [Moderation](/social/moderation).
 
 ## Related
 

@@ -71,8 +71,8 @@ different scales:
 | Includes tokens never traded | No | Yes |
 | Includes `unlisted` tokens | Yes | No |
 
-Both values arrive as JSON strings because they are decimal columns; `total_market_cap_sum` is
-not a big integer.
+Both values arrive as JSON strings because they are decimal columns; parse `total_market_cap_sum`
+as a decimal.
 
 ## Daily series
 
@@ -108,9 +108,10 @@ day's end. Do not divide by 1e18.
 
 - The range is clamped to **365 days**; a wider `start_date` is moved forward, not rejected.
 - With neither date, `start_date` and `end_date` both default to today, so you get a single row.
-- Each day is an aggregate query; a full year is 365 of them. Cached for 20 seconds.
-- `token_sale_addresses` is accepted but the series is always platform-wide. For a per-token
-  series use `GET /api/tokens/{address}/history`.
+- Each day is one aggregate query, so narrow the range to the days you chart. Cached for 20
+  seconds.
+- `token_sale_addresses` is accepted; the series is platform-wide. For a per-token series use
+  `GET /api/tokens/{address}/history`.
 
 ## Totals
 
@@ -132,8 +133,8 @@ aettos scale too.
 count to traders of those tokens. Unknown addresses are dropped; if none resolves to a token the
 answer is `{ "total_users": 0 }`. Cached for 20 seconds.
 
-`total-created-tokens` is scoped to the current factory, so it does not match `total_tokens`
-from `past-24-hours`, which counts every token.
+`total-created-tokens` is scoped to the current factory; `total_tokens` from `past-24-hours`
+counts every token.
 
 ## AE price and fiat rates
 
@@ -181,8 +182,8 @@ dataSource · isFallback
 ```
 
 Every figure is denominated in `currency`, default `usd`. `dataSource` is `coingecko` or
-`fallback`, and `isFallback` says the server is serving the last known good snapshot because the
-upstream was unreachable. Check them before treating the numbers as current.
+`fallback`, and `isFallback` is true when the server is serving the last known good snapshot.
+Read them to know how fresh the numbers are.
 
 ## `GET /api/analytics` and `GET /api/analytics/summary`
 
@@ -198,7 +199,7 @@ upstream was unreachable. Check them before treating the numbers as current.
 | `force_pull` | `false` | Recompute and rewrite the cached rows for the range before answering |
 
 Without `address` the rows come from the cached daily table. With `address` they are computed
-live, so an address-scoped call is slower and always current.
+live, so an address-scoped call is always current.
 
 `GET /api/analytics/summary` returns `{ "total_unique_accounts": <n> }` for the range. This is a true
 distinct count over the whole range, not a sum of per-day distincts. Both dates are optional;
@@ -210,8 +211,8 @@ omitting them makes it all-time.
 | --- | --- |
 | `past-24-hours`, `summary` | Computed live on every request |
 | `analytics` without `force_pull` | Read from the daily table, rebuilt **hourly** (re-pulling the last 7 days each tick) |
-| `analytics` with `force_pull=true` | Recomputed synchronously for the whole requested range first, which is slow for a wide range |
-| `analytics` with `address` | Always live; `force_pull` irrelevant |
+| `analytics` with `force_pull=true` | Recomputed synchronously for the whole requested range before answering; keep the range narrow |
+| `analytics` with `address` | Always live; `force_pull` has no effect |
 | `daily-market-cap-sum`, `total-unique-users` | Live, cached 20 seconds |
 | `daily-trade-volume`, `daily-unique-active-users`, `daily-created-tokens-count`, `total-market-cap`, `total-created-tokens` | Live on every request, uncached |
 | `coins/aeternity/*` | From a snapshot refreshed from CoinGecko every **10 minutes** |

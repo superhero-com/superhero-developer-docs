@@ -14,14 +14,11 @@ flow) apply everywhere and are not repeated on the endpoint pages.
 | Network | Base URL | Chain id |
 | --- | --- | --- |
 | Mainnet | `https://api.superhero.com` | `ae_mainnet` |
-| Testnet | Not publicly documented | `ae_uat` |
+| Testnet | Run your own from [superhero-api](https://github.com/superhero-com/superhero-api) | `ae_uat` |
 
 Both hosts serve the same paths. Every path is relative to the base and begins with `/api/`. The
 only versioned prefix is `/api/v2/mdw/*`, the indexed chain mirror. See
 [Node & Middleware](/api-reference/node-and-middleware).
-
-Outside production the server also serves Swagger UI at `/api` and the OpenAPI 3 document at
-`/api-json`.
 
 ## Authentication
 
@@ -31,7 +28,7 @@ Outside production the server also serves Swagger UI at `/api` and the OpenAPI 3
 curl -s "https://api.superhero.com/api/tokens?limit=3&order_by=market_cap&order_direction=DESC"
 ```
 
-**Writes are authorised by wallet signature.** There is no login endpoint and no token to store.
+**Writes are authorised by wallet signature.** Your wallet key is the only credential you need.
 Every mutating flow is three steps:
 
 1. `POST` the challenge endpoint with your `ak_...` address. It returns a `nonce` (or
@@ -120,7 +117,7 @@ family:
 | --- | --- | --- |
 | `/api/tokens`, `/api/accounts`, `/api/posts`, `/api/trending-tags`, `/api/tips`, `/api/invitations` and the other list endpoints | `400`: `Limit must be between 1 and 100` (wording varies per endpoint) | `400`: `Page must be greater than or equal to 1` |
 | `/api/v2/mdw/*` | `400`: `Maximum limit is 100 items per request` | `400`: `Page must be greater than or equal to 1` |
-| `/api/dex/*` lists | Silently clamped to 100 | Silently clamped to 1 |
+| `/api/dex/*` lists | Clamped to 100 | Clamped to 1 |
 
 Read `meta.itemsPerPage` rather than assuming your `limit` was honoured. `page` on
 `/api/v2/mdw/*` is capped at 1,000,000.
@@ -138,7 +135,7 @@ to `market_cap` and an unrecognised `order_direction` to `DESC`, with no error.
 | `GET /api/tokens/{address}/history` | A bare JSON array. Still takes `page` and `limit`; you have reached the end when a page comes back empty |
 | `GET /api/accounts/{address}/portfolio/history` | A bare JSON array of snapshots, bounded by `startDate`, `endDate` and `interval` rather than by pages |
 | `GET /api/accounts/leaderboard` | `items` plus a different `meta`: `page`, `limit`, `totalItems`, `totalPages`, `window`, `sortBy`, `sortDir` and `timeFilter`. Note `page`, not `currentPage` |
-| `GET /api/feed` | Keyset pagination: `items` plus `next_cursor`. Pass the cursor back as `cursor`; there is no page number |
+| `GET /api/feed` | Keyset pagination: `items` plus `next_cursor`. Pass the cursor back as `cursor` to get the next page |
 
 The analytics series endpoints return bare arrays and the totals endpoints return a scalar or a
 small object. See [Analytics](/api-reference/analytics).
@@ -185,7 +182,7 @@ code to number.
 
 ## Units
 
-The API mixes two conventions. Values in trade records and OHLC candles are in whole units (AE,
+The API uses two conventions. Values in trade records and OHLC candles are in whole units (AE,
 whole tokens). Values read live from a contract (a token's `market_cap`, `total_supply` and
 `dao_balance`) are raw (aettos, base units).
 
@@ -205,8 +202,8 @@ is aettos, on a transaction or an OHLC candle it is AE. They differ by exactly 1
 unavailable every key except `ae` is `null`.
 
 `decimals` is a **string** in `TokenDto`, not a number. Parse it before using it as an exponent.
-Most numeric token fields are strings for the same reason: they are big integers that do not
-survive a `double`.
+Most numeric token fields are strings for the same reason: they are big integers, so parse them
+with `BigInt` or a decimal library rather than `Number`.
 
 ## Errors
 
@@ -222,7 +219,7 @@ Failures are ordinary HTTP status codes with a JSON body carrying `statusCode`, 
 
 Request bodies and DTO-bound query parameters (the leaderboard, portfolio history) are validated
 strictly: an unknown property is a `400`, and declared types are coerced (`"5"` becomes `5`).
-Individually bound query parameters (most list endpoints) ignore unrecognised keys silently.
+Individually bound query parameters (most list endpoints) ignore unrecognised keys.
 
 ## Rate limits
 
@@ -234,9 +231,8 @@ Individually bound query parameters (most list endpoints) ignore unrecognised ke
 | Response when exceeded | `429` |
 | Body | `{ "status": 429, "message": "Rate limit exceeded. Maximum 10 requests per minute.", "retryAfter": <seconds> }` |
 
-`retryAfter` is a field in the JSON body, in seconds. There is no `Retry-After` header and no
-`X-RateLimit-*` headers. Because the key includes the route path, the budget is spent separately
-on each guarded endpoint.
+Read `retryAfter` from the JSON body, in seconds, to schedule your retry. Because the key
+includes the route path, the budget is spent separately on each guarded endpoint.
 
 ### Guarded routes
 
@@ -291,15 +287,15 @@ daily analytics rows hourly, AE fiat rates every ten minutes, and trending score
 
 ## Versioning and deprecation
 
-There is no version negotiation. The OpenAPI document declares version `1.0`, `GET /api/stats`
-reports the deployed package version as `apiVersion`, and no header or path segment selects a
-version. `/api/v2/mdw/*` is a name inherited from the middleware's own API.
+One version of the API is served at a time, on every path. The OpenAPI document declares version
+`1.0` and `GET /api/stats` reports the deployed package version as `apiVersion`. `/api/v2/mdw/*`
+is a name inherited from the middleware's own API.
 
 Deprecation is by annotation. A retired parameter keeps validating and stops having an effect:
 
 | What | Status |
 | --- | --- |
-| `GET /api/contracts` | Deprecated. Still returns a single-element array naming the community factory. Use `GET /api/factory` |
+| `GET /api/contracts` | Deprecated. Returns a single-element array naming the community factory. Use `GET /api/factory` |
 | `includeOnChain` on both profile read endpoints | Accepted and ignored; profiles are served from indexed data |
 | `window` on `GET /api/posts/popular` | Accepted and ignored; popular ranking is all-time |
 | `points` and `maxCandidates` on `GET /api/accounts/leaderboard` | Accepted and ignored |
@@ -310,4 +306,4 @@ Deprecation is by annotation. A retired parameter keeps validating and stops hav
 - [Tokens API](/api-reference/tokens): the `TokenDto` these unit rules apply to, field by field
 - [Accounts API](/api-reference/accounts): the portfolio and leaderboard endpoints with the camelCase date parameters
 - [Profile API](/api-reference/profile): the challenge/signature write flow end to end
-- [Node & Middleware](/api-reference/node-and-middleware): when the REST API does not have the data
+- [Node & Middleware](/api-reference/node-and-middleware): chain-level data beyond the REST API

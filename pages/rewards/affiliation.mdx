@@ -12,7 +12,7 @@ the buyer.** Rewards accumulate in 30-day periods, and `withdraw()` pays the cur
 previous period.
 
 The percentages, the payout period length and the qualification thresholds are constants in
-the contract; they cannot change without redeploying it.
+the contract, fixed for the life of the deployment.
 
 ## The split
 
@@ -73,15 +73,15 @@ total_price        = bonding_curve_price + affiliation_amount
 
 The sale forwards `affiliation_amount` as the attached value of
 `record_sale_transaction(buyer, bonding_curve_price)`, so the `transaction_value` the treasury
-splits is the curve price, excluding the fee itself. Selling pays no affiliation fee:
-`sell()` never touches the treasury.
+splits is the curve price, excluding the fee itself. The affiliation fee is charged on buys;
+`sell()` makes no call to the treasury.
 
-## Levels with no inviter
+## Shorter referral chains
 
 The treasury credits levels by walking the referral map upward, one level per entry in
-`[300, 125, 50, 25]`, and stops at the first account with no inviter. There is no reallocation
-and no fallback recipient: a level with no inviter is not credited, and that portion of the
-fee remains in the treasury contract's balance.
+`[300, 125, 50, 25]`, through every account that has an inviter. Each level is credited to the
+inviter at that depth; the portion for a level with no inviter stays in the treasury
+contract's balance.
 
 | Chain depth above the buyer | Credited to inviters |
 | --- | --- |
@@ -103,8 +103,9 @@ Two entrypoints write into it:
 
 - `redeem_invitation_code(invitee_address)`: the normal path. Someone opens an invite link,
   the one-time key inside it signs this call, and the caller's wallet address is attached to
-  the inviter who funded the code. See [Invite Links](/rewards/invite-links). It rejects
-  `INVITER_EQUAL_INVITEE`, so you cannot redeem your own code into your own wallet.
+  the inviter who funded the code. See [Invite Links](/rewards/invite-links). It returns
+  `INVITER_EQUAL_INVITEE` when the inviter's own wallet is the invitee, so share each code with
+  someone else.
 - `register_invitation(inviter_address)`: attaches the caller to an inviter directly. Any
   account can call it once to name its inviter; no funded code and no action by the named
   inviter are required.
@@ -115,9 +116,9 @@ Two read entrypoints get you back out:
 - `get_affiliation_tree(address)` returns the inviter address directly, and
   `affiliation_tree()` returns the whole map.
 
-**The attachment is permanent.** Both write paths require the caller not to be in the map
-already (`INVITEE_ALREADY_REGISTERED`), and no entrypoint deletes from `affiliation_tree`.
-Once an address has an inviter it keeps that inviter for the life of the contract.
+**The attachment is permanent.** Each address is attached once (a second attempt on either
+write path returns `INVITEE_ALREADY_REGISTERED`), and it keeps that inviter for the life of
+the contract.
 
 ## Unique invitees: the withdraw gate
 
@@ -146,17 +147,16 @@ Rewards card renders the set as completed entries and the map as per-invitee pro
 toward 10 AE. Calling `withdraw()` early reverts with `MINIMUM_ACCOUNTS_THRESHOLD_NOT_REACHED`;
 the app also renders this as `MINIMUM_OF_4_ACCOUNTS_SHALL_BUY`.
 
-- **Only direct invitees count.** A buy deep in your downline accrues rewards to you at levels
-  2–4, but only your own level-1 invitees can qualify you.
+- **Direct invitees open the gate.** A buy deep in your downline accrues rewards to you at
+  levels 2–4; your own level-1 invitees are the ones who qualify you.
 - **The 10 AE is cumulative.** Ten 1 AE buys qualify an invitee exactly as one 10 AE buy does.
-- **It is measured on the curve price**, so the 0.5% affiliation fee on top does not count
-  toward the invitee's 10 AE.
-- **`ThresholdReached` is terminal.** Once the fourth invitee crosses 10 AE the per-invitee
-  accounting is discarded and the withdraw gate never re-closes.
+- **It is measured on the curve price.** The 10 AE is the invitee's spend at the curve price,
+  before the 0.5% affiliation fee on top.
+- **`ThresholdReached` is permanent.** Once the fourth invitee crosses 10 AE the gate stays
+  open for good.
 
-An account that has never invited anyone has no key in the map. Reading `get_unique_invitee`
-for such an address raises a `Key does not exist` map error rather than returning an empty
-state; the app displays zero progress.
+An account that has not invited anyone yet has no key in the map, so `get_unique_invitee`
+returns a `Key does not exist` map error for it; treat that as zero progress, as the app does.
 
 ## Payout periods
 
@@ -171,7 +171,7 @@ entrypoint get_payout_period() : int =
 
 The index is `floor(unix_time_ms / 2_592_000_000)`. It advances on its own every 30 days, and
 the boundary is global (shared by every account) rather than a per-account anniversary.
-Periods are 30 days, not calendar months, so they drift against the calendar.
+Periods are 30 days long rather than calendar months.
 
 Rewards are credited into the bucket for whichever period is current when the buy is mined:
 
@@ -180,9 +180,8 @@ state { payout_periods[get_payout_period() = {}] @ payout_period =
           payout_period{ [inviter = 0] @ current_reward = current_reward + reward }}
 ```
 
-**Rewards accumulate in 30-day periods. `withdraw()` pays the current and previous period;
-earlier periods are no longer claimable.** `get_accumulated_rewards` sums exactly those two
-buckets:
+**Rewards accumulate in 30-day periods. `withdraw()` pays the current and previous period.**
+`get_accumulated_rewards` sums exactly those two buckets:
 
 ```sophia
 entrypoint get_accumulated_rewards(account: address): int =
@@ -191,13 +190,12 @@ entrypoint get_accumulated_rewards(account: address): int =
 ```
 
 A reward is therefore claimable for between 30 and 60 days, depending where in a period it
-was earned: a reward credited on the first day of a period survives that period plus the whole
-of the next one; a reward credited on the last day of a period has 30 days left. The balance
-shown in the app is the last two buckets, not a lifetime total.
+was earned: a reward credited on the first day of a period stays claimable through that period
+plus the whole of the next one; a reward credited on the last day of a period has 30 days
+left. The balance shown in the app is the sum of those two buckets.
 
-- If you are accruing rewards but have not yet reached the 4 × 10 AE gate, the clock is
-  running: rewards earned more than two periods before you qualify are no longer claimable by
-  the time you can call `withdraw()`.
+- Work toward the 4 × 10 AE gate early: rewards accrued before you qualify follow the same
+  30 to 60 day window, so the sooner the gate opens, the more of them `withdraw()` pays.
 - Once qualified, withdraw at least once every 30 days.
 
 `withdraw()` requires only the threshold:
@@ -207,8 +205,8 @@ require(state.unique_invitees[Call.caller = WaitingForInvitations(Set.new(), {})
         "MINIMUM_ACCOUNTS_THRESHOLD_NOT_REACHED")
 ```
 
-It takes no arguments and pays the full two-bucket sum to `Call.caller`. There is no partial
-withdrawal. Calling it with nothing accrued succeeds and spends zero.
+It takes no arguments and pays the full two-bucket sum to `Call.caller` in one call. Calling
+it with nothing accrued succeeds and spends zero.
 
 ## `redemption_fee_cover`
 
@@ -239,8 +237,8 @@ require(Call.value == (redemption_fee_cover + invitation_amount) * List.length(i
         "INVITATION_AMOUNT_AND_FEE_NOT_MATCHING")
 ```
 
-The 0.001 AE floor covers the invitee's redemption gas with room to spare. The value check is
-**exact equality**, not a minimum, so attach exactly `(cover + amount) × count`.
+The 0.001 AE floor funds the invitee's redemption transaction. The value check is **exact
+equality**, so attach exactly `(cover + amount) × count`.
 
 The CLI's help text gives the same arithmetic:
 
@@ -251,9 +249,9 @@ Redemption fee cover: 0.001 AE per invite.
 
 At registration the contract spends `redemption_fee_cover` to each one-time invite address.
 `revoke_invitation_code` returns the `invitation_amount` of an unredeemed code to the inviter;
-it rejects `ALREADY_REDEEMED` if the code has been claimed and `CALLER_NOT_INVITER` if anyone
-other than the registering address calls it. On success the code is deleted from state, so
-the same one-time address cannot be re-registered.
+it returns `ALREADY_REDEEMED` if the code has been claimed and `CALLER_NOT_INVITER` if a
+different address from the registering one calls it. On success the code is deleted from
+state; each one-time address is registered once.
 
 ## Contract surface
 
@@ -294,8 +292,8 @@ the same one-time address cannot be re-registered.
 | `record_sale_transaction(buyer, transaction_value)` | Payable. Called by the token sale on every buy; credits the affiliation share into the current period's bucket. Requires `Call.value >= (500 * transaction_value) / 100000`. |
 | `withdraw()` | Pays the caller's two-bucket balance in full. Requires `ThresholdReached`. |
 
-The token sale calls `record_sale_transaction` with `protected = true`, so a failure inside
-the treasury does not abort the buy. The entrypoint accepts calls from any account with AE
+The token sale calls `record_sale_transaction` with `protected = true`, so the buy completes
+independently of the treasury call. The entrypoint accepts calls from any account with AE
 attached.
 
 `get_invitation_code` returns field 0 as the inviter, field 1 as the amount in aettos, and
@@ -303,7 +301,7 @@ field 2 as the already-claimed flag.
 
 ## Find the contract
 
-The treasury is resolved from the CommunityFactory rather than hardcoded:
+The treasury is resolved from the CommunityFactory:
 
 - The web app fetches the factory address from its API, initialises the factory through
   `bctsl-sdk`, and calls `affiliationTreasury()` on it.

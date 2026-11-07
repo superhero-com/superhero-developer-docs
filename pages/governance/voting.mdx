@@ -5,15 +5,15 @@ description: "Cast, change and revoke a vote on an æternity governance poll, an
 
 # Voting on Polls
 
-Voting on a governance poll is one transaction that pays gas only. Nothing is locked,
-nothing is transferred, and you can change your mind as often as you like until the poll
-closes.
+Voting on a governance poll is one transaction that pays gas at the network's current gas
+price. Your AE stays in your wallet, and you can change your mind as often as you like until
+the poll closes.
 
 ## Read the poll first
 
-Option numbers are **0-based** and fixed at deployment in whatever order the author chose.
-They are not alphabetical, "Yes" is not always `0`, and two polls on the same subject may
-number their options differently.
+Option numbers are **0-based** and fixed at deployment in the order the author chose, so read
+the option map before you vote: "Yes" may sit at any index, and two polls on the same subject
+may number their options differently.
 
 ```bash
 node scripts/superhero-governance.mjs info <poll_address>
@@ -82,12 +82,11 @@ Revoking removes your vote entirely, so the poll counts you as not having voted:
   your balance again. To abstain rather than hand your weight back to your delegatee, revoke
   your delegation too; see [Delegation](/governance/delegation).
 
-You can vote again after revoking, as long as the poll is still open. `revoke_vote` itself is
-not restricted to open polls. The script checks that you have actually voted before
-submitting a revocation, so a revoke on a poll you never voted in fails locally rather than
-costing a transaction.
+You can vote again after revoking, as long as the poll is open. `revoke_vote` itself works on
+open and closed polls alike. The script checks that you have voted before submitting a
+revocation, so a revoke on a poll you never voted in stops locally, before any transaction.
 
-## Nothing is locked
+## Your AE stays liquid
 
 | | Governance poll | Community DAO vote |
 | --- | --- | --- |
@@ -95,18 +94,18 @@ costing a transaction.
 | Tokens transferred to the contract | No | Yes |
 | Balance immobilised while voting | No | Yes, until you revoke or withdraw |
 | What is counted | Your AE balance at the poll's close height | The token amount you locked |
-| Changing your mind | Call `vote` again | Rejected: `revoke_vote` first |
-| Revoking after the close | Allowed | Rejected: `VOTE_ALREADY_CLOSED` |
+| Changing your mind | Call `vote` again | `revoke_vote` first, then `vote` |
+| Revoking after the close | Allowed | `withdraw()` instead; revoke is for open votes |
 | Withdrawal step after closing | None | Required |
 | Minimum to participate | None | The amount you stake, plus an allowance |
 
-The `Poll` contract has no token field, no allowance surface and no withdrawal entrypoint. It
-records which option your address chose; the weight behind that is computed off-chain from
-your AE balance and your delegations at the close height. Your AE stays liquid and spendable
-the whole time.
+The `Poll` contract records which option your address chose; the weight behind that is
+computed off-chain from your AE balance and your delegations at the close height. Your AE stays
+liquid and spendable the whole time.
 
-**Your weight is not fixed when you vote.** Spending AE after voting reduces the weight behind
-your choice; receiving AE increases it. What matters is your balance when the poll closes.
+**Your weight is read at the close, not when you vote.** Spending AE after voting reduces the
+weight behind your choice; receiving AE increases it. What matters is your balance when the
+poll closes.
 
 The snapshot only exists once the poll has closed:
 
@@ -114,18 +113,17 @@ The snapshot only exists once the poll has closed:
 | --- | --- |
 | Open, with a future close height | The current height; the figures move as balances move |
 | Closed | The close height: fixed |
-| Open-ended (`close_height = None`) | The current height, forever. There is never a snapshot |
+| Open-ended (`close_height = None`) | The current height, for as long as the poll runs |
 
-An open poll's percentages are a live reading, so two people loading the same open poll an
-hour apart can legitimately see different numbers.
+An open poll's percentages are a live reading and move with balances.
 
-**There is no minimum balance to vote.** An account with nothing in it can cast a vote that
-records normally, emits a `Vote` event and appears in `votes()`. It contributes zero stake,
-but it is counted in the backend's `voteCount`, the address count the app shows as "Total
-Votes". See [Polls](/governance/polls).
+**Any account can vote, whatever its balance.** The vote records normally, emits a `Vote` event
+and appears in `votes()`. Its stake is the account's AE balance, and every vote counts in the
+backend's `voteCount`, the address count the app shows as "Total Votes". See
+[Polls](/governance/polls).
 
-Nothing about a governance poll executes on-chain. Acting on a result is a separate, off-chain
-process. See [Community DAOs](/dao) for the system where a passing vote moves money.
+A governance poll records opinion; acting on a result is a separate, off-chain process. See
+[Community DAOs](/dao) for the system where a passing vote executes on chain.
 
 ## Vote from the app
 
@@ -148,8 +146,8 @@ the CLI's `info` output.
 ## After voting
 
 The app posts a `contractEvent` notification to the governance backend immediately after every
-vote and revocation so the backend re-indexes promptly. If you vote through your own client and
-skip that call, expect your vote to take longer to appear in stake-weighted results. The vote
+vote and revocation so the backend re-indexes promptly. If you vote through your own client,
+call `contractEvent` too so your vote appears in stake-weighted results promptly. The vote
 itself is on-chain and counted regardless.
 
 ## Related

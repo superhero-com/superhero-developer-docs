@@ -48,15 +48,15 @@ Superhero's backend executes the sponsored claim on your behalf and reports each
 | `update` | The name's pointer is set |
 | `transfer` | The name is transferred to **your** address |
 
-The sponsor pays and then hands ownership to you. When the transfer completes, the name is yours,
-not Superhero's.
+The sponsor pays and then hands ownership to you. When the transfer completes, the name is yours
+outright.
 
-### When a name is not free
+### Paid names
 
 For a name short enough to pay for, the figure shown is the **preclaim transaction fee plus the
 claim's execution cost**, which includes the protocol's minimum name fee for a name of that length.
-Short names are expensive by design. That is how AENS allocates scarce names, and why the free tier
-starts at 13 characters.
+Shorter names carry a higher protocol fee, which is how AENS allocates scarce names and why the
+sponsored tier starts at 13 characters.
 
 ### Errors you may see
 
@@ -68,7 +68,7 @@ starts at 13 characters.
 | "That .chain name is already taken" | Registered by someone else |
 | "That .chain name is currently being claimed" | Another sponsored claim is mid-flight for the same name |
 | "Your claim session expired" | The signed challenge timed out; start again |
-| "Sponsored .chain claiming is temporarily unavailable" | The sponsor service is down; try later |
+| "Sponsored .chain claiming is temporarily unavailable" | The sponsor service is paused; try again later |
 
 ## Claim it from the command line
 
@@ -79,8 +79,8 @@ node scripts/superhero-name.mjs available myagentname123
 node scripts/superhero-name.mjs register myagentname123
 ```
 
-`register` refuses a name of 12 characters or fewer (the CLI does not support the auction path),
-then runs:
+`register` checks that the name is 13 characters or longer (shorter names go to auction; see
+[Short names](#short-names) below), then runs:
 
 1. **Preclaim**, and wait for it to be mined.
 2. **Wait for a different block.** AENS requires the claim to land in a later block than its
@@ -107,9 +107,10 @@ The script targets **mainnet**. See [Using Testnet](/getting-started/testnet).
 
 ## Short names
 
-Superhero never prices, quotes or bids on a name of 12 characters or fewer. The profile claim field
-rejects it, the sponsored-claim backend requires at least 13 characters (and restricts the label to
-`[a-z0-9-]`), and the agent CLI aborts with `name_too_short_auction_required`.
+Names of 12 characters or fewer go to auction, and the auction runs outside the Superhero app. The
+profile claim field and the sponsored-claim backend accept names of 13 characters or more (with the
+label restricted to `[a-z0-9-]`), and the agent CLI reports `name_too_short_auction_required` for a
+shorter name.
 
 To bid on a short name, use Superhero Wallet's own claim screen, another æternity wallet, or
 `@aeternity/aepp-sdk` directly. [AENS on æternity](/aeternity/aens) covers the auction (including
@@ -137,9 +138,8 @@ your names and sends a `NameUpdateTx` for any that is auto-extending, unexpired,
 **17,000 blocks** of its expiry height. The same window drives an **Expiring** badge in the names
 list.
 
-The wallet has to be running for the check to happen, because it is a client-side timer rather than a service,
-and each extension costs a transaction fee. superhero.com itself does not renew names or warn you
-about expiry.
+Keep the wallet running for the check to happen, since it is a client-side timer, and each extension
+pays a transaction fee. Name renewal lives in the wallet, so manage expiry there.
 
 ## After you have one
 

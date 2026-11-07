@@ -29,8 +29,8 @@ events each one emits, and how to call all of it from JavaScript.
 | [`AddressLink`](/contracts/address-link) | Identity: provider-keyed links from an address to an X handle, AENS name or nostr key |
 
 `DAO`, `DAOVote`, `CommunityManagement`, `AffiliationTreasury`, `VoteSubjects`, `Set`, `Frac`
-and `FungibleTokenFull` have no ACI file of their own: the compiler inlines them into
-`CommunityFactory.aci.json`. Load the factory ACI when you need any of those interfaces.
+and `FungibleTokenFull` are inlined by the compiler into `CommunityFactory.aci.json`. Load the
+factory ACI when you need any of those interfaces.
 
 ## How the pieces fit together
 

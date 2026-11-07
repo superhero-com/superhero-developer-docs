@@ -112,9 +112,9 @@ datatype event =
 | `Sell` | `23104635772480053538972224151762463181492989144154121566848232077119925570281` |
 | `PriceChange` | `3577134775049335318224940963029268892731434609492265317583808375263764302639` |
 
-The traded token **count** is not in any of these. Get it from the transaction's call
-arguments or from the paired `Mint` / `Burn` event on the token contract. The `total_supply`
-in `Buy` and `Sell` is the supply **before** the trade.
+For the traded token **count**, use the transaction's call arguments or the paired `Mint` /
+`Burn` event on the token contract. The `total_supply` in `Buy` and `Sell` is the supply
+**before** the trade.
 
 ### DAO
 
@@ -261,7 +261,7 @@ provider id may not. `prefaens` is the provider id for a preferred AENS name.
 
 ### Tipping v4
 
-Not part of Superhero's social layer, which runs v3, but in the same contract family:
+Superhero's social layer runs v3; v4 is in the same contract family:
 
 ```sophia
 datatype event = PostViaBurnReceived(tip_id, address, string, TokenContract)
@@ -364,10 +364,10 @@ Two operational notes:
 
 - **Paginate.** The response carries a `next` field with a relative path. Follow it until it
   is absent; do not assume one page is the whole history.
-- **Logs lag the transaction.** A transaction hash is available the moment it is mined, but
-  the middleware may not have indexed its *logs* yet, so a `tx_hash`-filtered query can return
-  an empty list for a transaction that emitted events. Retry, or reconcile in a later
-  catch-up pass.
+- **Logs follow the transaction.** A transaction hash is available the moment it is mined, and
+  the middleware indexes its *logs* shortly after, so a `tx_hash`-filtered query made right
+  away can return an empty list for a transaction that emitted events. Retry, or reconcile in
+  a later catch-up pass.
 
 ## Live subscriptions
 
@@ -393,11 +393,11 @@ The subscribe message is a JSON object with up to four fields:
 | `source` | optional; `mdw` or `node` |
 
 Unsubscribing sends the identical object with `op` flipped to `Unsubscribe`. Reconnect on a
-timeout: a dropped socket is silent, and the gap is otherwise invisible.
+timeout, then catch up on the gap from `/v3/contracts/logs`.
 
-The Superhero API republishes decoded token activity on its own WebSocket, which is usually
-the easier integration if you only care about tokens. It emits two channels, `token-updated`
-and `token-history`. See [WebSocket API](/api-reference/websocket).
+The Superhero API republishes decoded token activity on its own WebSocket, which is the easier
+integration if you are working with tokens. It emits two channels, `token-updated` and
+`token-history`. See [WebSocket API](/api-reference/websocket).
 
 ## Related
 

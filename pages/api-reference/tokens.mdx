@@ -37,7 +37,7 @@ the plain token name:
 # Resolve by name
 curl -s "https://api.superhero.com/api/tokens/SUPERHERO"
 
-# The same token, by its sale address — take sale_address from the response above
+# The same token, by its sale address: take sale_address from the response above
 curl -s "https://api.superhero.com/api/tokens/ct_YOUR_SALE_ADDRESS"
 ```
 
@@ -65,7 +65,7 @@ curl -s "https://api.superhero.com/api/tokens/ct_YOUR_SALE_ADDRESS"
 | `name` | string | Token name, e.g. `SUPERHERO` |
 | `symbol` | string | Ticker |
 | `decimals` | **string** | Decimal places. `18` for factory-minted tokens. Parse before use |
-| `rank` | number | Position in the market-cap ranking across the current factory. 1 is highest. `2147483647` means not yet ranked |
+| `rank` | number | Position in the market-cap ranking across the current factory. 1 is highest. `2147483647` marks an unranked token |
 | `holders_count` | number | Distinct holding addresses |
 | `price` | string | Current **buy** price per token, in **AE** |
 | `price_data` | `PriceDto` | The same buy price in all nine currencies |
@@ -74,7 +74,7 @@ curl -s "https://api.superhero.com/api/tokens/ct_YOUR_SALE_ADDRESS"
 | `market_cap` | string | Market capitalisation in **aettos**. `total_supply * price` |
 | `market_cap_data` | `PriceDto` | Market cap in all nine currencies, all on the aettos scale |
 | `total_supply` | string | The sale contract's `total_supply()`, in **token base units** |
-| `circulating_supply` | string or null | The middleware's AEX-9 `eventSupply`, in **base units**. Null when the middleware did not answer |
+| `circulating_supply` | string or null | The middleware's AEX-9 `eventSupply`, in **base units**. Null until the middleware supplies a value |
 | `dao_balance` | string | AE held by the token's DAO, in **aettos** |
 | `trending_score` | number | Score driving the trending list. A decimal in `[0, 1]`, six decimal places |
 | `trending_score_update_at` | string | ISO 8601 timestamp of the last score recompute |
@@ -210,7 +210,7 @@ Paginated holder rows, ordered by `balance` descending, filtered to `balance > 0
 
 A holder's share of supply is `balance / total_supply` (both in base units, so the scaling
 cancels). Requesting holders for a token whose holder table is empty enqueues a background sync,
-so a second request a few seconds later often returns more.
+so request again a few seconds later to read the synced rows.
 
 ```bash
 curl -s "https://api.superhero.com/api/tokens/SUPERHERO/holders?limit=20&page=1"
@@ -239,9 +239,9 @@ Each window carries these eleven fields:
 | `volume` | string or null | Window volume in **whole tokens** |
 
 Prices are trade buy prices in AE, the same scale as `TokenDto.price`; `volume` is already in
-whole tokens. The data is rebuilt every five minutes, so a brand-new trade is not reflected
-immediately, and a token with no indexed transactions returns 404. The same structure is inlined
-on `TokenDto.performance`.
+whole tokens. The data is rebuilt every five minutes; for the very latest trade, read the
+`token-history` WebSocket event or `GET /api/transactions`. A token with no indexed transactions
+returns 404. The same structure is inlined on `TokenDto.performance`.
 
 ```bash
 curl -s "https://api.superhero.com/api/tokens/SUPERHERO/performance"

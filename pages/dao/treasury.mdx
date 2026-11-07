@@ -5,9 +5,8 @@ description: "Where a community DAO's AE comes from, how to read the balance on-
 
 # The DAO Treasury
 
-A community DAO holds plain AE. There is no separate vault contract, no wrapped balance and
-no staking position. The treasury is the AE balance of the `DAO` contract, and the only way
-it leaves is a payout vote that passes and is applied in time.
+A community DAO holds plain AE. The treasury is the AE balance of the `DAO` contract, and it
+leaves through a payout vote that passes and is applied in time.
 
 ## Where the money comes from
 
@@ -17,8 +16,8 @@ it leaves is a payout vote that passes and is applied in time.
 | Opening a proposal | 555 AE per vote opened | `add_vote(metadata)`, which is payable |
 | A `ChangeDAO` migration into this DAO | The whole balance of the old DAO | `Chain.spend` from the old DAO |
 
-Nothing else pays the treasury. Sells do not, because the 1% spread is charged on the buy
-side; tips and posts do not, because they settle through `Tipping_v3`, not the token sale.
+Those are the three sources. The 1% spread is charged on the buy side, so sells carry no DAO
+share; tips and posts settle through `Tipping_v3`, outside the token sale.
 
 The DAO's share is not computed as a percentage. The sale sets the redemption reserve aside
 first and forwards what is left:
@@ -33,7 +32,7 @@ state.dao_contract.record_sale_transaction(
 the curve price and the DAO receives the residual `0.5%`. Setting the payout obligation aside
 before the treasury is paid is what keeps the reserve solvent.
 
-The call is `protected = true`, so a DAO call that aborts does not block the trade; the AE
+The call is `protected = true`, so a trade completes even if the DAO call aborts; the AE then
 stays in the sale contract. See [Value flow](/concepts/value-flow) and
 [Fees & Slippage](/tokens/fees-and-slippage).
 
@@ -53,16 +52,16 @@ The token sale also calls `record_sale_transaction` with zero value and placehol
 as a probe, at deployment and on every `set_beneficiary`, to check the entrypoint exists. A
 DAO must accept zero-value calls to be a beneficiary.
 
-## The 555 AE is not refundable
+## The 555 AE contribution
 
-The 555 AE paid on `add_vote` is a donation to the DAO. It lands in the treasury and no
-entrypoint returns it: not on rejection, not on expiry, and not on success. There is no
-`refund`, no `cancel_vote` and no author-only withdrawal.
+The 555 AE paid on `add_vote` is a contribution to the DAO. It lands in the treasury and stays
+there whatever the outcome: on rejection, on expiry and on success alike.
 
-- A failed proposal costs its author 555 AE, which stays with the community.
-- The treasury grows every time somebody proposes something, whatever the outcome.
-- If a passed vote is not applied within the roughly two-day execution window, the 555 AE is
-  still spent and the proposal has to be opened again at full price.
+- The treasury grows every time somebody proposes something.
+- Opening a proposal commits 555 AE to the community, so prepare the proposal and its support
+  before you open it.
+- Apply a passed vote within the roughly two-day execution window; a proposal that expires is
+  opened again with a new 555 AE contribution.
 
 ## Read the balance
 
@@ -117,14 +116,13 @@ stable public identifier for a community across the app.
 
 ## What the treasury can be spent on
 
-Only two of the seven vote subjects move money:
+Two of the seven vote subjects move money:
 
 - `VotePayout(recipient)` sends the **entire** DAO balance to one account.
 - `VotePayoutAmount(recipient, amount)` sends a **specified** amount to one account.
 
-There is no multi-recipient payout, no streaming, no vesting and no budget primitive. A
-community that wants to split a grant between three contributors runs three proposals, or
-pays one address that then distributes off-protocol. A `ChangeDAO` vote also moves the whole
+Each payout goes to one account. To split a grant between three contributors, run three
+proposals, or pay one address that then distributes. A `ChangeDAO` vote also moves the whole
 balance, as part of a migration; see [Replaceable DAOs](/dao/replaceable-dao).
 
 ## Related

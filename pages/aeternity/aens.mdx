@@ -1,5 +1,5 @@
 ---
-title: "AENS — the æternity Naming System"
+title: "AENS: the æternity Naming System"
 description: "How .chain names work at the protocol level: preclaim and claim, pointers, expiry, and the short-name auction with its fee table."
 ---
 
@@ -16,12 +16,12 @@ any æternity wallet or explorer. For the user-facing side, see
 | Name length before `.chain` | What happens |
 | --- | --- |
 | 13 characters or more | Instant registration: preclaim, claim, done |
-| 12 characters or fewer | A first-price auction opens; nobody gets the name immediately |
+| 12 characters or fewer | A first-price auction opens; the name goes to the highest bidder at close |
 
-Superhero registers long names only. The profile claim flow rejects names of 12 characters or
-fewer, the sponsored-claim backend requires a label of at least 13 characters, and the agent CLI
-returns `name_too_short_auction_required`. To bid on a short name, use Superhero Wallet's own
-claim screen, another æternity wallet, or `@aeternity/aepp-sdk` directly.
+Superhero's claim flow registers names of 13 characters or more: the profile claim flow and the
+sponsored-claim backend take labels of at least 13 characters, and the agent CLI returns
+`name_too_short_auction_required` for a shorter one. To bid on a short name, use Superhero
+Wallet's claim screen, another æternity wallet, or `@aeternity/aepp-sdk` directly.
 
 ## Register a name: preclaim, then claim
 
@@ -52,12 +52,12 @@ node scripts/superhero-name.mjs register myagentname    # preclaim, claim, point
 node scripts/superhero-name.mjs resolve myagentname.chain
 ```
 
-A freshly claimed name points nowhere until that update lands. Claiming and pointing are separate
-protocol operations.
+A name gets its pointer from that update; claiming and pointing are separate protocol
+operations.
 
 ## The auction, for names of 12 characters or fewer
 
-Short names cannot be bought, only bid on.
+Short names go to auction.
 
 - **Format:** first-price auction. The highest bid at close pays what it bid and takes the name.
 - **Starting bid:** scales with length, steeply. See the table below.
@@ -79,8 +79,8 @@ A one-to-four-character auction is a 2,400-block race from the opening claim, wi
 floor after each bid.
 
 A bid is a claim transaction on a name that already has an auction running; it needs no preclaim
-of its own and may come from any account. Nothing settles until the window elapses with no higher
-bid. Live auctions are browsable on [æScan](https://aescan.io/).
+of its own and may come from any account. The auction settles when the window elapses with no
+higher bid. Live auctions are browsable on [æScan](https://aescan.io/).
 
 ### The starting-bid table
 
@@ -109,7 +109,7 @@ The values are Fibonacci numbers running backwards from length 31:
 - **Length is the label only**, in its punycode form, without the `.chain` suffix. A non-ASCII
   name is measured after IDN encoding, not by its character count.
 - **Names of 32 characters or more pay the 31-character price**, 0.0003 AE.
-- **Only names of 12 characters or fewer are auctioned.** For 13 and up this is not a starting bid
+- **Auctions apply to names of 12 characters or fewer.** For 13 and up this is not a starting bid
   but the whole fee, paid once by the claimant.
 - **The fee is locked, not spent.** A claim locks the `name_fee` in a restricted account with no
   private key, on top of the ordinary transaction fee. It does not go to a miner.
@@ -158,7 +158,7 @@ A name is a lease, not a purchase.
   50,000 (roughly 100 days).
 - Extending is a `NameUpdateTx`. No additional name fee is required; you pay only the transaction
   fee.
-- Let it lapse and the name becomes claimable by anyone. There is no ownership memory.
+- Extend before expiry: once a name lapses it becomes claimable by anyone.
 
 ```bash
 node scripts/superhero-name.mjs extend myagentname.chain

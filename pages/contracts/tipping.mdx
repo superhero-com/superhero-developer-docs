@@ -7,11 +7,11 @@ description: "The post registry contract: data model, direct posting, and delega
 
 `Tipping.aes` is the content layer. Every post published through Superhero is a row in this
 contract's state, keyed by an increasing integer and attributed to an æternity address. Once
-mined, a post cannot be edited or deleted. Moderation happens at the application layer, not
-here.
+mined, a post is a permanent record its author owns: nobody can censor it or quietly edit it,
+and anyone can verify it on chain. Moderation happens at the application layer.
 
-Despite the name, **v3 has no tipping entrypoints.** It declares four entrypoints, none of them
-payable. Tips on Superhero are spend transactions. See
+**v3 is the posting contract.** It declares four entrypoints, none of them payable; tips on
+Superhero are spend transactions. See
 [Tips are spend transactions](#tips-are-spend-transactions).
 
 | Network | Address |
@@ -30,15 +30,14 @@ The ACI is `Tipping_v3.aci.json`.
 | `post_without_tip_sig` | `(title: string, media: list(string), author: address, sig: signature) => int` | stateful |
 | `get_state` | `() => Tipping.state` |  |
 
-Both posting entrypoints return the new `tip_id`. Neither is payable, so a post costs only the
-transaction fee and gas.
+Both posting entrypoints return the new `tip_id`. Neither is payable, so a post pays the
+transaction fee and gas, with no posting fee.
 
-`tip_id` is assigned as `Map.size(state.tips)`, so ids are dense and sequential from 0. There
-is no delete, so ids are never reused. The Superhero API serves them suffixed: post `0`
-becomes `0_v3`.
+`tip_id` is assigned as `Map.size(state.tips)`, so ids are dense, sequential from 0 and never
+reused. The Superhero API serves them suffixed: post `0` becomes `0_v3`.
 
-The contract does not constrain the length of `title`, the number of `media` entries, or their
-format. The only `require` in the contract is the signature check in `post_without_tip_sig`.
+The contract accepts any `title` length, any number of `media` entries and any format for
+them; its one `require` is the signature check in `post_without_tip_sig`.
 
 ## Tips are spend transactions
 
@@ -53,7 +52,7 @@ Earlier versions of the contract family did tip on chain:
 | --- | --- |
 | `Tipping_v1` | `tip(url, title)`, `retip(tip_id)`, `pre_claim`, `claim`: oracle-backed URL tipping |
 | `Tipping_v2` | adds `tip_token`, `tip_direct`, `tip_token_direct`, `retip_token` |
-| `Tipping_v3` | none (posting only) |
+| `Tipping_v3` | posting only |
 | `Tipping_v4` | `post_via_burn(title, media, token, token_amount)`: posting paid by burning an AEX-9 |
 
 v3 is what Superhero's social layer runs against.
@@ -104,8 +103,8 @@ One event per successful post, from either entrypoint. Indexers subscribe to it 
 polling `get_state()`. Its middleware topic hash is in the
 [event catalogue](/contracts/events).
 
-The event carries the title but **not** the media list and **not** the `tip_id`. To
-reconstruct a full post from an event you need the call arguments or a `get_state()` read.
+The event carries the author and the title. For the media list and the `tip_id`, read the
+call arguments or `get_state()`.
 
 ## Direct posting
 
@@ -137,8 +136,8 @@ console.log('tip_id:', result.decodedResult.toString());
 console.log('tx:', result.hash);
 ```
 
-`media` is a plain array of strings. The contract does not validate or interpret them. They
-are opaque references that the frontend renders as links or embeds.
+`media` is a plain array of strings, stored as opaque references that the frontend renders as
+links or embeds.
 
 ## Delegated posting
 
@@ -168,7 +167,7 @@ function prefix_message_hashed(msg : string) : bytes(60) =
 
 ### The concatenation
 
-**There is no separator.** `concat` folds `String.concat` over the media list starting from
+**Join with no separator.** `concat` folds `String.concat` over the media list starting from
 the title, in list order. The signed message is exactly:
 
 ```text
@@ -218,11 +217,11 @@ const signature = signMessage(hash(message), secretKey);
 Note what is being signed: the **32-byte inner digest**, not the text. Handing a wallet's
 `signMessage` the raw post text produces a different digest and the call reverts.
 
-## Notes
+## Running a relayer
 
-The signature carries no nonce, so a relayer should verify a signature locally before spending
-gas and keep track of the signed posts it has already submitted. `AddressLink`, by contrast,
-takes an explicit `nonce` on every signed write.
+A relayer verifies each signature locally before spending gas and keeps track of the signed
+posts it has already submitted, since the post signature is verified without a nonce.
+`AddressLink`, by contrast, takes an explicit `nonce` on every signed write.
 
 ## Related
 

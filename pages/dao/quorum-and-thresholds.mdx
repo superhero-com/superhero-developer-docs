@@ -12,7 +12,7 @@ converts the time periods into key-blocks.
 
 | Rule | Value | Check |
 | --- | --- | --- |
-| Cost to open a vote | Exactly 555 AE, paid to the DAO, non-refundable | `Call.value == 555 * (10 ^ 18)`, else `ADD_VOTE_DAO_DONATION_MISSMATCH` |
+| Cost to open a vote | Exactly 555 AE, paid into the DAO treasury | `Call.value == 555 * (10 ^ 18)`, else `ADD_VOTE_DAO_DONATION_MISSMATCH` |
 | Who can open a vote | A holder at or above the community's minimum token threshold, measured at call time | `Option.default(0, token.balance(Call.caller)) >= minimum_token_threshold` |
 | Default minimum token threshold | 1 token (`10^18`), until a vote changes it | Set by the factory at creation |
 | Voting period | 6,720 key-blocks, about 2 weeks | `close_height = Chain.block_height + (60 / 3) * 24 * 7 * 2` |
@@ -23,11 +23,10 @@ converts the time periods into key-blocks.
 | Ballot | Binary: in favour or against | `vote_option = bool` |
 | Voting power | Linear in tokens staked; tokens are locked while the vote stands | `vote_state[option] + amount` |
 | Description length | At most 300 characters | `String.length(metadata.description) =< 300` |
-| One vote per address | A second `vote` is rejected, not merged | `VOTER_ALREADY_VOTED` |
+| One vote per address | Revoke before voting again; a second `vote` is rejected | `VOTER_ALREADY_VOTED` |
 
-The vote contract only tallies. Both the approval and participation checks are made by
-`apply_vote_subject` at execution time, so a vote can show a passing tally and still abort
-when applied.
+The vote contract tallies. `apply_vote_subject` makes both the approval and the participation
+checks at execution time, against the token supply at that moment.
 
 ## The two periods, in key-blocks
 
@@ -47,16 +46,16 @@ DAO.vote_timeout     =                (60 / 3) * 24 * 2        =    960 key-bloc
 A proposal opened at key-block height `H` closes at roughly `H + 6720`, and must be applied
 before roughly `H + 7680`.
 
-These are targets, not guarantees: proof-of-work block times vary, so the wall-clock length
-of a two-week vote drifts by hours in either direction. The app converts the remaining block
-count at exactly three minutes per block, so every date it shows is an estimate.
+Block times are targets: proof-of-work block times vary, so the wall-clock length of a two-week
+vote can drift by hours. The app converts the remaining block count at three minutes per block,
+so treat every date it shows as an estimate.
 
 ## Fixed or per-community?
 
 The voting period, execution window, 555 AE cost, 55% approval and 10% quorum are literals in
-the contracts. Every community deployed by the same factory gets the same constants. No
-entrypoint writes them and none of the seven vote subjects touches them, so a community cannot
-vote itself a shorter voting period or a cheaper proposal fee.
+the contracts. Every community deployed by the same factory gets the same constants, fixed for
+the life of the contract: no entrypoint writes them and none of the seven vote subjects touches
+them.
 
 Two qualifications:
 
@@ -100,23 +99,21 @@ A worked case, for a token with 1,000,000 tokens in supply:
 | Fails on quorum | 40,000 | 0 | 100% | 4.0% | Below 10% |
 | Fails on both | 20,000 | 20,000 | 50.0% | 4.0% | Below both |
 
-Unanimous support from a small turnout is still a failed proposal, and the 555 AE is still
-spent.
+Unanimous support from a small turnout fails on quorum; the 555 AE stays in the treasury.
 
-Revoking a vote reduces both numerator and denominator. A proposal that is comfortably passing
-can drop below the participation quorum if enough voters on either side revoke before the
-closing height.
+Revoking a vote reduces both numerator and denominator, so participation can drop below the
+quorum if voters on either side revoke before the closing height.
 
 ## Why each number is what it is
 
 | Number | Purpose |
 | --- | --- |
-| 555 AE to open | Spam resistance. Proposals cost real money, so the queue cannot be flooded and every proposal carries economic commitment. |
+| 555 AE to open | Spam resistance. Every proposal carries an economic commitment, so the queue stays meaningful. |
 | Two-week period | Enough time for a globally distributed holder base to notice a proposal and act on it. |
-| 55% approval | A supermajority rather than a bare majority, so a proposal that barely splits the community does not move the treasury. |
-| 10% participation | Prevents low-turnout capture: a handful of tokens cannot decide a payout because nobody else was watching. |
-| Two-day execution window | Limits how long a passed but unapplied proposal stays live, so a stale decision cannot be applied months later. |
-| Token locking | Prevents the same balance being moved between addresses and voted more than once on the same proposal. |
+| 55% approval | A supermajority rather than a bare majority, so moving the treasury takes a clear majority. |
+| 10% participation | Broad turnout: a payout needs a tenth of the supply to take part. |
+| Two-day execution window | Keeps execution close to the decision: a passed proposal is applied within two days of closing. |
+| Token locking | Makes each balance count once per proposal. |
 
 ## Related
 

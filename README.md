@@ -29,8 +29,8 @@ and lints every pull request and deploys on every push to `main`. The custom dom
 `public/CNAME`; the canonical URL for `og:url` and the social card comes from the `SITE_URL`
 repository variable, passed to the build as `NEXT_PUBLIC_SITE_URL`.
 
-Static hosting has no server redirects. A moved page keeps a small client-side redirect page
-at its old path (see `pages/identity/profile-registry.tsx`).
+Static hosting handles a moved page with a small client-side redirect page at its old path
+(see `pages/identity/profile-registry.tsx`).
 
 Brand assets live in `public/` and come from the Superhero app's own `public/` directory:
 the mark, the wordmark, the favicon set and the social card.
@@ -75,7 +75,7 @@ pages/
 ## Editing
 
 Every page follows the same shape: double-quoted `title` and `description` frontmatter, an H1,
-one to three sentences of opening prose, task-oriented sections, and a `## Read more` section of
+one to three sentences of opening prose, task-oriented sections, and a `## Related` section of
 internal links. Plain MDX only, with no imports and no components.
 
 Five things break the build, and `scripts/lint-mdx.py` catches all of them: unquoted

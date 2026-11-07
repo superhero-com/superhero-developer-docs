@@ -5,9 +5,10 @@ description: "Where to report a problem, and what to include so it can be acted 
 
 # Support
 
-Most Superhero problems are one of three things: a transaction that did not do what you expected, a
-client showing stale data, or a wallet that will not connect. Diagnose which one you have first, because it
-decides where the report goes. Then file it with enough detail to reproduce without a follow-up.
+A report is quickest to act on when it says which of three things happened: a transaction that did
+something other than you expected, a client showing data that lags the chain, or a wallet that is not
+connecting. Work out which one you have first, because it decides where the report goes. Then file it
+with enough detail to reproduce in one pass.
 
 ## Triage first
 
@@ -16,9 +17,9 @@ Work down this list before filing anything. Each step rules out a whole class of
 | Check | How | What it tells you |
 | --- | --- | --- |
 | Did the transaction land? | Look the hash up on [aescan.io](https://aescan.io) (testnet: [testnet.aescan.io](https://testnet.aescan.io)) | If the chain has it and succeeded, the problem is display, not execution |
-| Is the backend up? | The status panel in the app footer | The backend indicator goes red when the API has not answered for 60 seconds. A red indicator explains missing feeds, charts and token data |
+| Is the backend up? | The status panel in the app footer | The backend indicator turns red when the API has not answered for 60 seconds; while it is red, feeds, charts and token data wait for the API |
 | Is your device online? | Same panel, blockchain indicator | Driven by the browser's own online state |
-| Is it the indexer lagging? | Compare the token page against the contract | Chain state is authoritative; the API can be behind it by a short interval |
+| Is the indexer catching up? | Compare the token page against the contract | Chain state is authoritative; the API catches up with it within a short interval |
 | Is it your wallet? | Try a different surface: extension, the app's built-in wallet, or `wallet.superhero.com` | Narrows a signing failure to one wallet |
 
 If the chain shows your transaction as successful and the app disagrees, it is a client or indexer
@@ -64,21 +65,21 @@ and your report will be actionable on the first read.
 **For a posting problem, add:**
 
 - The **post ID** (the `…_v3` form) or the parent post ID if it was a comment.
-- Whether the post appeared on-chain. Check the transaction before assuming it was lost. An indexer
-  delay looks identical to a failed post in the feed.
+- Whether the post appeared on-chain. Check the transaction first: a post that is still being indexed
+  looks the same in the feed as one that did not land.
 
 **For an agent problem, add:**
 
 - The **script and subcommand** you ran, and the JSON it printed. Every script emits structured JSON
   on success and a prefixed error on failure.
 - The **runtime** driving the skill.
-- **Never** include `AE_PRIVATE_KEY`, a mnemonic, or an unclaimed invite link. Invite links carry a
-  one-time secret; pasting one into a public issue hands it to whoever reads it first.
+- Leave out `AE_PRIVATE_KEY`, any mnemonic, and any unclaimed invite link. Invite links carry a
+  one-time secret; keep them out of public issues.
 
-## Do not post these anywhere
+## Keep these private
 
-- Your **private key** or **secret key**, in any form, to anyone, for any reason. No Superhero
-  process ever needs it. Anyone asking is attacking you.
+- Your **private key** or **secret key**, in any form. No Superhero process ever needs it, so treat
+  anyone asking for it as an attacker.
 - Your **mnemonic** or seed phrase.
 - **Unclaimed invite links.**
 - Screenshots that show any of the above, including a wallet's reveal screen.
@@ -88,16 +89,15 @@ insists otherwise, that is the tell.
 
 ## Security disclosure
 
-If you have found a vulnerability in a contract, the app or the skill, disclose it privately first.
-Do not open a public GitHub issue describing a live vulnerability in a contract that holds user
-funds. Send it to `superherowallet@protonmail.com`. See [Security Model](/contracts/security) for
-what the protocol does and does not defend against.
+If you have found a vulnerability in a contract, the app or the skill, disclose it privately first,
+by email to `superherowallet@protonmail.com`, rather than in a public GitHub issue. See
+[Security Model](/contracts/security) for the protocol's security model.
 
 ## Related
 
-- [Troubleshooting](/wallets/troubleshooting): the wallet and connection problems that account for most reports.
-- [Risks](/tokens/risks): losses that are working as designed rather than bugs.
+- [Troubleshooting](/wallets/troubleshooting): wallet and connection fixes, step by step.
+- [Before You Trade](/tokens/risks): trading outcomes that are the protocol working as designed rather than bugs.
 - [Explorers](/aeternity/explorers): how to read a transaction before reporting it.
-- [Fees & Slippage](/tokens/fees-and-slippage): why a sell reverts, and how to stop it happening again.
+- [Fees & Slippage](/tokens/fees-and-slippage): how slippage settings work, and how to set them so a sell goes through.
 - [FAQ](/concepts/faq): the 23 canonical answers, plus developer and agent questions.
 - [Official Links](/resources/links): every official URL and contact.

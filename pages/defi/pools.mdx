@@ -7,8 +7,8 @@ description: "Provide liquidity, earn the 0.3% swap fee, value your position, an
 
 Providing liquidity means depositing both sides of a pair into a pool and receiving LP tokens
 that represent your share of it. In exchange you earn the 0.3% fee on every swap that routes
-through your pool, all of it unless the factory's protocol-fee switch is on. You also take on
-impermanent loss, worked through below with real numbers.
+through your pool, all of it while the factory's protocol-fee switch is off, which is its default.
+Impermanent loss is worked through below with real numbers.
 
 Manage positions at `https://superhero.com/defi/pool`: the add or remove form is on the left and
 your positions on the right.
@@ -25,14 +25,14 @@ your positions on the right.
 **Match the ratio.** For an existing pool the app compares your two amounts against the current
 reserve ratio. If they differ by more than **1%** it blocks with a ratio-mismatch message and
 offers the optimal counter-amount for each side. Take the suggestion: a constant-product pool
-only accepts proportional deposits, and the surplus on one side buys you nothing.
+mints against proportional deposits, and any surplus on one side does not add to your share.
 
 ```text
 lpMinted  = totalSupply × min( amountA / reserveA , amountB / reserveB )
 yourShare = lpMinted / totalSupply × 100
 ```
 
-The `min` is why an off-ratio deposit wastes the larger side: the smaller ratio sets the mint.
+The smaller ratio sets the mint, which is why the deposit should match the reserve ratio.
 
 Minimum amounts are your desired amounts minus your slippage tolerance, clamped to at least one
 aetto. The deadline is `Date.now()` plus your configured minutes, in milliseconds. Every router
@@ -59,7 +59,7 @@ the router computes the optimal counter-amount with `quote` and aborts with
 
 Adding liquidity to a pair that does not exist yet creates it in the same transaction: the router
 calls `factory.create_pair` when `get_pair` returns `None`. Anyone can create a pair of any two
-distinct AEX-9 tokens; there is no separate "create pool" step.
+distinct AEX-9 tokens by adding the first liquidity; that is the whole create step.
 
 `min_liquidity` is an `option(int)` and only has an effect when the pair is being created. The
 client passes `1000`, which becomes the pool's permanently locked floor. On the very first `mint`
@@ -74,10 +74,9 @@ else
 ```
 
 `mint_update(None, ...)` credits `state.locked_liquidity` rather than any address and emits a
-`LockLiquidity` event, so those 1000 units can never be burned. That keeps the pool from being
-drained to a zero-supply state where the price of an LP token would be undefined. The first
-provider into a new pool pays for it; later providers are unaffected. Read the value back with
-`minimum_liquidity()`.
+`LockLiquidity` event, so those 1000 units stay locked. That keeps the pool from ever reaching zero
+supply, so an LP token always has a defined price. The first provider into a new pool funds it;
+later providers are unaffected. Read the value back with `minimum_liquidity()`.
 
 ## Value a position
 
@@ -93,11 +92,10 @@ The remove form computes exactly this before submitting, reading `reserveA`, `re
 minimum amounts it will accept. `GET /api/dex/pairs/<address>` returns the same three numbers.
 
 Reserves grow as fees accumulate while total supply does not, so the same LP balance redeems for
-more tokens over time. That growth is your fee income; fees are never paid out as a separate
-stream.
+more tokens over time. That growth is your fee income; you collect it by removing liquidity.
 
-`total_supply` includes the permanently locked `min_liquidity`, so a pool's LP tokens never all
-belong to somebody. On a pool of any real size the 1000 locked units are a rounding error.
+`total_supply` includes the permanently locked `min_liquidity`, so the locked units are always part
+of the total. On a pool of any real size the 1000 locked units are negligible.
 
 ## Where the 0.3% goes
 
@@ -142,8 +140,8 @@ providers keep the whole 0.3%.
 `k_last` holds `reserve0 * reserve1` as of immediately after the most recent liquidity event, is
 written only while the fee is on, and is zeroed the first time `mint_fee` runs with the fee off.
 While the switch is off, `k_last()` reads `0` on every pair that has seen a liquidity event,
-which is a cheap way to check the regime from outside. For the current value of `k`, multiply the two
-reserves.
+which is a quick way to check the regime from outside. For the current value of `k`, multiply the
+two reserves.
 
 ## The pair contract
 
@@ -160,7 +158,7 @@ is a plain entrypoint:
 | `token0()`, `token1()` | The two token contracts, sorted by contract address |
 | `factory()` | The factory that created this pair |
 | `meta_info()` | The LP token's own `name`, `symbol` and `decimals` |
-| `aex9_extensions()` | `["allowances"]`: LP tokens are not mintable or burnable from outside |
+| `aex9_extensions()` | `["allowances"]`: LP tokens are minted and burned by the pair itself |
 
 The LP token's metadata is composed from the two underlying tokens: `name` is
 `"<A name> vs <B name>"`, `symbol` is `"<A symbol>/<B symbol>"`, and `decimals` is always **18**
@@ -175,20 +173,20 @@ them, and anyone may call either:
 - `sync()` raises reserves to match balances, so a stray transfer becomes everyone's.
 - `skim(to)` lowers balances to match reserves, paying the excess to `to`.
 
-Tokens sent directly to a pair address are therefore not a donation to the pool: until somebody
-calls `sync`, anyone can take them with `skim`. Always add liquidity through the router.
+Always add liquidity through the router: tokens sent directly to a pair address are credited to the
+pool when somebody calls `sync`, and until then anyone can claim them with `skim`.
 `burn` divides by balances rather than reserves (`amount0 = liquidity * balance0 / total_supply`),
 and under normal conditions the two are equal.
 
 **The price accumulators are oracle inputs.** On the first state change in each new block
 timestamp, the pair adds the reserve ratio in UQ112x112 fixed point, multiplied by the elapsed
 milliseconds. Sample two heights and divide the difference by the time between them for a
-manipulation-resistant average price. Superhero prices from the instantaneous ratio and does not
-read them.
+manipulation-resistant average price. Superhero prices from the instantaneous ratio; the
+accumulators are there for your own contracts to read.
 
-**Nobody owns a pair.** `owner()` returns `Contract.address`. There is no admin key, no pause and
-no upgrade path on a pair. `fee_to_setter` on the factory is the only privileged role in the AMM,
-and its power is limited to `set_fee_to` and `set_fee_to_setter`.
+**A pair owns itself.** `owner()` returns `Contract.address`: a pair has no admin key, pause or
+upgrade path. `fee_to_setter` on the factory is the one privileged role in the AMM, and its power is
+limited to `set_fee_to` and `set_fee_to_setter`.
 
 ## Remove liquidity
 
@@ -287,28 +285,24 @@ d = 5.00                →  −25.46%
 ### Fees are the other side of the trade
 
 Impermanent loss is the cost of providing liquidity; the swap fee is the revenue: the full 0.3%
-while the protocol-fee switch is off, 0.25% if it is turned on. A pool with heavy volume and a
-stable price ratio is profitable; a pool with thin volume and a volatile ratio is not. Before
-committing, compare the pair's volume against its price movement on
-[the pool explorer](/defi/explore).
+while the protocol-fee switch is off, 0.25% if it is turned on. A pool with steady volume and a
+stable price ratio earns more than it gives up. Before committing, compare the pair's volume
+against its price movement on [the pool explorer](/defi/explore).
 
-## Other risks
+## Before you provide
 
-- **Thin pools cut both ways.** If you are the only meaningful provider, your position is what
-  everyone trades against, and you absorb the full price impact of every large swap.
-- **Both assets are exposed.** A community token that goes to zero takes your pool share with it,
-  however well the other side performed.
+- **In a thin pool, your position is the market.** If you are the only meaningful provider, every
+  large swap trades against your position, and you earn its fee.
+- **Both assets are exposed.** Your position follows the value of both tokens in the pair.
 - **LP tokens are ordinary AEX-9 tokens** with the `allowances` extension. An LP balance transfers
-  like any other token; losing it, or granting an allowance to the wrong contract, loses the
-  position.
-- **DEX prices are not bonding-curve prices.** A token's pool can quote something very different
-  from its curve price, and nothing arbitrages the two automatically. See
-  [the DeFi overview](/defi).
+  like any other token, so keep it safe and grant allowances to the router alone.
+- **DEX prices and bonding-curve prices are independent.** A token's pool can quote a different
+  price from its curve; check both before providing. See [the DeFi overview](/defi).
 
 ## Related
 
 - [Swapping](/defi/swap): the trades your pool earns fees from, and where price impact comes from.
 - [Wrapped AE](/defi/wrapped-ae): why an "AE pool" is really a WAE pool.
 - [Exploring the DEX](/defi/explore): check a pair's depth and volume before providing.
-- [Token risks](/tokens/risks): the risks of the underlying assets you would be pooling.
+- [Before You Trade](/tokens/risks): what to know about the community tokens you would be pooling.
 - [What is impermanent loss? (Uniswap Labs)](https://support.uniswap.org/hc/en-us/articles/20904453751693-What-is-Impermanent-Loss): the same mechanism on a constant-product AMM.

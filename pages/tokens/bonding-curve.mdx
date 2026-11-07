@@ -7,8 +7,8 @@ description: "The exponential curve that prices every Superhero community token,
 
 Every Superhero community token is priced by one deterministic function of its own supply. Buying
 mints new tokens and moves you up the curve; selling burns tokens and moves you down it. Because
-price is computed from supply, there is always a quote and always liquidity. There is no order book, no
-matching engine and no counterparty on the other side of your trade.
+price is computed from supply, there is always a quote and always liquidity: the contract itself is
+the counterparty, with no order book or matching engine in between.
 
 Superhero uses an **exponential** curve, implemented by the `BondingCurveExponential` contract. The
 contract evaluates `e^x` as a bounded Taylor series in integer arithmetic (at most 100 terms,
@@ -138,9 +138,9 @@ from supply 10,000,000, where spot is `1.052709e-4 AE`:
 | 50,000,000 | 21,699.788231 | 4.33996e-4 | +312.3% |
 
 Buying 10,000,000 tokens in one transaction doubles the supply and costs a 54% premium to spot.
-Splitting the order does **not** help: the curve is path-independent, so ten buys of 1,000,000 from
-a rising supply cost exactly the same total as one buy of 10,000,000. Only trade size and starting
-supply change your average price.
+Splitting the order gives the same total: the curve is path-independent, so ten buys of 1,000,000
+from a rising supply cost exactly the same as one buy of 10,000,000. Trade size and starting supply
+are what set your average price.
 
 A large sell realises an average price below the quoted spot for the same reason, in reverse.
 `minimal_return_required` protects you from that. See
@@ -186,8 +186,7 @@ small per trade, meaningful in aggregate. Spot prices at a few reference supplie
 | 100,000,000 | 1.718382e-3 | 1.709790e-3 |
 | 200,000,000 | 6.389156e-3 | 6.357210e-3 |
 
-The curve is tuned on the expectation that only **10–20% of the total supply** will ever be reached,
-which is why the interesting price action is packed into the first couple of hundred million tokens.
+The price action is concentrated in the first couple of hundred million tokens of supply.
 
 ## Why the reserve is always solvent
 
@@ -197,7 +196,7 @@ supply back to the curve is always possible.
 
 At a supply of 10,000,000 tokens, buyers have paid in `518.09 AE` in total, and selling every one of
 those tokens back would return `515.50 AE`. The `2.59 AE` difference is the DAO's accumulated
-spread, and it never has to be given back.
+spread, and it stays with the DAO.
 
 ## The spread
 
@@ -207,8 +206,8 @@ community DAO and 0.5% to the affiliation system.
 
 From the buyer's side: you hand over `1.005 ×` the curve integral and can immediately sell back for
 `0.995 ×` it, so a round trip at unchanged supply returns `0.995 / 1.005 = 0.99502…` of what you
-paid, a **0.995% loss on an instant round trip**. See [Fees & Slippage](/tokens/fees-and-slippage)
-for the full breakdown and [Risks](/tokens/risks) for what that means for a position.
+paid, a **0.995% cost on an instant round trip**. See [Fees & Slippage](/tokens/fees-and-slippage)
+for the full breakdown and [Before You Trade](/tokens/risks) for what that means for a position.
 
 ## Compared with other curve families
 
@@ -224,10 +223,10 @@ for the full breakdown and [Risks](/tokens/risks) for what that means for a posi
 | Fee model | 1% spread baked into two curves | Implementation-defined | Explicit swap fee (e.g. 0.30%) to LPs |
 | Rug-pull surface | No LP to withdraw | No LP to withdraw | LPs can remove liquidity |
 
-Two practical consequences. There is no liquidity to pull: the reserve is held by the sale contract
-and is sufficient to redeem everything. And an exponential curve punishes large late buys much
-harder than a constant-product pool of comparable depth. The price impact of doubling the supply
-is a factor of `e^(k·supply)`, not a bounded ratio.
+Two practical consequences. The reserve is held by the sale contract and always covers the full
+supply, so liquidity cannot be withdrawn. And an exponential curve prices large buys steeply: the
+price impact of doubling the supply is a factor of `e^(k·supply)`, so size a late buy against the
+slippage table above.
 
 Community tokens trade only against their own curve. Superhero's AMM for ordinary token pairs is
 [the DEX](/defi/swap).
@@ -264,5 +263,5 @@ when a caller passes a whole-token count where the contract expected token decim
 - [Fees & Slippage](/tokens/fees-and-slippage): the 1% spread, the affiliation split and the slippage guards
 - [Buying & Selling](/tokens/buying-and-selling): how to execute against the curve and defend a sell with `minimal_return_required`
 - [Bonding curve contract reference](/contracts/bonding-curve): the entrypoint-level reference for `BondingCurveExponential`
-- [Risks](/tokens/risks): what the curve's shape means for a position you hold
+- [Before You Trade](/tokens/risks): what the curve's shape means for a position you hold
 - [Bonding Curves Explained](https://yos.io/2018/11/10/bonding-curves/): background on the general mechanism

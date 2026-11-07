@@ -6,9 +6,9 @@ description: "The seven things a community DAO can decide, their parameter shape
 # Proposals & Vote Subjects
 
 A proposal's action is a value of the Sophia variant type `VoteSubjects.subject`, which has a
-fixed list of seven constructors compiled into the contract. **The set is closed.** If an action
-is not one of the constructors below, no vote can express it. Changing the set means deploying
-a different DAO implementation and migrating to it with a `ChangeDAO` vote.
+fixed list of seven constructors compiled into the contract. **The set is closed.** Every vote
+expresses one of the constructors below. To add new actions, deploy a different DAO
+implementation and migrate to it with a `ChangeDAO` vote.
 
 ## The subjects
 
@@ -43,25 +43,23 @@ summary decodes the subject in this order before asking you to sign.
 
 ### Payout amounts and the treasury balance
 
-`add_vote` validates only that `Call.value` is 555 AE and that the caller holds the minimum
-token threshold; it does not compare a payout amount to the DAO's balance. `apply_vote_subject`
-executes the subject with `Chain.spend(receiver, amount)`, which aborts if the balance is
-insufficient and leaves the vote unapplied. If no application succeeds inside the execution
-window, the proposal expires.
+`add_vote` validates that `Call.value` is 555 AE and that the caller holds the minimum token
+threshold. The payout amount is checked at execution: `apply_vote_subject` runs
+`Chain.spend(receiver, amount)`, which needs the treasury balance to cover the amount, and a
+vote that is not applied inside the execution window expires.
 
-- **Check the treasury before you propose an amount, and leave headroom.** The balance can fall
-  between proposal and execution: another payout vote may apply first, and treasury income only
+- **Check the treasury before you propose an amount, and leave headroom.** The balance can move
+  between proposal and execution: another payout vote may apply first, and treasury income
   arrives on buys.
 - **`VotePayout` spends `Contract.balance`**: whatever is there at execution, including zero,
-  so it cannot fail this way.
+  so it always applies.
 
-Any number of proposals can be open at once, including conflicting ones. If two payout votes
-both pass, both can be applied, in whatever order people call `apply_vote_subject`, until the
-balance runs out.
+Any number of proposals can be open at once. If two payout votes both pass, both can be
+applied, in the order people call `apply_vote_subject`, as long as the balance covers them.
 
 `ChangeMetaInfo` **replaces** the whole metadata map. `CommunityManagement.change_meta_info`
-takes a complete `map(string, string)`; there is no per-key update, so a proposal that changes
-one field must carry every other field unchanged.
+takes a complete `map(string, string)`, so a proposal that changes one field carries every
+other field unchanged.
 
 ## The `ChangeDAO` safeguard
 
@@ -87,16 +85,17 @@ working after a migration**, because the new DAO becomes the owner that `Communi
 Two guards protect the migration:
 
 - **`is_dao()` must return `true`.** An account address, a token address or an unrelated
-  contract does not answer that call, so the migration cannot be applied to one.
+  contract does not answer that call, which keeps the migration pointed at a DAO contract.
 - **The target must already reference the same `CommunityManagement`.** Deploy the
   replacement DAO pointing at the existing community management contract before the vote is
-  applied; otherwise the whole transaction reverts and nothing moves.
+  applied; a mismatch reverts the whole transaction.
 
 `set_beneficiary` on the sale also runs its own `verify_dao` probe against the new address, so
-a target whose `record_sale_transaction` is not payable fails there.
+make `record_sale_transaction` payable on the target.
 
-`is_dao()` is a shape check, not a trust check. Any contract can return `true` from it. Read
-[Replaceable DAOs](/dao/replaceable-dao) before voting on a `ChangeDAO` proposal.
+`is_dao()` is a shape check: any contract can return `true` from it, so verify the target's
+published source. Read [Replaceable DAOs](/dao/replaceable-dao) before voting on a `ChangeDAO`
+proposal.
 
 ## The metadata record
 
@@ -112,9 +111,9 @@ DAOVote.metadata = { subject     : VoteSubjects.subject
 | `description` | Free text explaining the proposal to voters. At most 300 characters. |
 | `link` | A reference URL, such as a forum thread, a spec or a budget. |
 
-Only `subject` and the description length are enforced by the contract: `DAOVote.init`
-requires `String.length(metadata.description) =< 300`. There is no title field. The link is
-free text supplied by whoever opened the vote; the app runs it through a URL-safety check
+The contract enforces `subject` and the description length: `DAOVote.init` requires
+`String.length(metadata.description) =< 300`. The link is free text supplied by whoever opened
+the vote; the app runs it through a URL-safety check
 before rendering it as a hyperlink, and any client that surfaces it should do the same.
 
 ## Who may open a proposal
@@ -122,9 +121,8 @@ before rendering it as a hyperlink, and any client that surfaces it should do th
 The same rule covers all seven subjects: a holder who owns at least the community's
 `minimum_token_threshold` at the moment of the call can open a vote by calling
 `DAO.add_vote(metadata)` with exactly 555 AE attached. The balance is read live from the AEX-9
-contract for `Call.caller`; there is no snapshot and no holding period. There is no
-moderator-only subject and no proposal whitelist. Moderators are appointed by vote but hold
-no proposal rights of their own.
+contract for `Call.caller` at the moment of the call. The same rule applies to every account,
+moderators included: proposal rights come from holding the threshold.
 
 ## Open a proposal
 
@@ -148,7 +146,7 @@ description = "Pay 100 AE to the contributor who built the community bot, \
 link        = "https://forum.aeternity.com/t/..."
 ```
 
-`100000000000000000000` is 100 AE in aettos (`100 * 10^18`). A vote is not editable after it
+`100000000000000000000` is 100 AE in aettos (`100 * 10^18`). The subject is final once the vote
 is opened, so check the digit count before you sign; the Superhero wallet's transaction summary
 shows the decoded subject and its payload.
 
