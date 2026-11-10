@@ -67,7 +67,8 @@ The passphrase is scored locally with zxcvbn, with no network call. The rules:
   fallback to a length rule.
 
 The passphrase cannot be changed after creation. To change it, recreate the wallet from the
-recovery phrase. See [Backup & Recovery](/wallets/backup-and-recovery).
+recovery phrase in the installed app, the only place that offers import. See
+[Backup & Recovery](/wallets/backup-and-recovery).
 
 ### Recovery code
 
@@ -225,7 +226,7 @@ What survives a wiped vault:
 | The passphrase alone | No | Same. |
 
 Losing only `localStorage` is survivable: unlock once and the app rebuilds the manifest by
-re-deriving addresses from index 0 upward.
+re-deriving the wallet's single account, at index 0.
 
 Erasing the wallet deliberately is available from the "this device already has a wallet" screen
 and takes two taps. Before erasing, keep a recovery phrase backup or a working passkey that derives

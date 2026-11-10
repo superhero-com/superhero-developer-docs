@@ -43,8 +43,9 @@ curl -s "https://api.superhero.com/api/tokens?limit=3&order_by=market_cap&order_
 2. Sign `message` with the private key for that address.
 3. `POST` the submit endpoint with the nonce, the signature and the value you are claiming.
 
-The server verifies the signature against the address in the request. Endpoints that use this
-pattern:
+For address links, the AddressLink contract verifies the signature when the server submits the
+transaction; the other flows verify it on the server. Either way a bad signature is a `400`.
+Endpoints that use this pattern:
 
 | Flow | Challenge | Submit |
 | --- | --- | --- |
@@ -81,6 +82,11 @@ GET  /api/notifications/{address}/feed?limit=50    ->  Authorization: Bearer {to
 ```
 
 `GET /api/notifications/web-push/vapid-public-key` is public and needs no token.
+
+**Operator dashboards need a session cookie.** `/api/bcl-affiliation/analytics*`,
+`/api/bcl-affiliation/tree`, their `/preview` pages and the `GET /api/analytics/journey/*` reports
+require an operator login through `/api/bcl-affiliation/auth/login`; without it they return
+`401`.
 
 **Two endpoints take an API key.** `POST /api/trending-tags` and
 `PATCH /api/dex/tokens/{address}/listed` accept it as either header:
@@ -126,8 +132,10 @@ Pass `page` (1-based) and `limit` to walk it.
 
 ### The `limit` cap is 100
 
-100 is both the default and the maximum. What happens when you exceed it depends on the endpoint
-family:
+For most list endpoints 100 is both the default and the maximum. Exceptions include `/api/feed`
+(default 20, silently clamped to 50) and the search routes (`/api/search` defaults to 5 and
+`/api/accounts/search` to 8, both capped at 20); topics, comments and token rankings also use
+smaller defaults. What happens when you exceed 100 depends on the endpoint family:
 
 | Endpoint family | `limit=101` | `page=0` |
 | --- | --- | --- |
@@ -136,7 +144,8 @@ family:
 | `/api/dex/*` lists | Silently clamped to 100 | Silently clamped to 1 |
 
 Read `meta.itemsPerPage` rather than assuming your `limit` was honoured. `page` on
-`/api/v2/mdw/*` is capped at 1,000,000.
+`/api/v2/mdw/txs` and `/api/v2/mdw/key-blocks` is capped at 1,000,000, and on the other mirror
+routes at 500.
 
 ### Invalid `order_by`
 
@@ -255,7 +264,7 @@ on each guarded endpoint.
 
 | Route |
 | --- |
-| `GET` and `GET {id}` on `/api/v2/mdw/txs`, `/api/v2/mdw/micro-blocks`, `/api/v2/mdw/key-blocks`, `/api/v2/mdw/sync-state`, `/api/v2/mdw/plugin-sync-state` |
+| `GET` and `GET {id}` on `/api/v2/mdw/txs`, `/api/v2/mdw/key-blocks`, `/api/v2/mdw/sync-state`, `/api/v2/mdw/plugin-sync-state` |
 | `GET /api/announcements` |
 | `POST /api/notifications/devices/challenge`, `POST /api/notifications/devices`, `DELETE /api/notifications/devices` |
 | `POST /api/notifications/preferences/challenge`, `GET` and `POST /api/notifications/{address}/preferences` |
@@ -298,7 +307,6 @@ Several endpoints are served from an in-process cache rather than recomputed per
 | `GET /api/tokens/{address}/performance`, `.../performance-raw` | 60 seconds |
 | `GET /api/accounts` | 60 seconds |
 | `GET /api/feed` | 15 seconds |
-| `GET /api/analytics/total-unique-users` | 20 seconds |
 | `GET /api/accounts/leaderboard` | up to 60 seconds; snapshot windows are rebuilt every ten minutes |
 
 Some values are recomputed on a schedule: token performance and `rank` every five minutes, the
@@ -307,9 +315,9 @@ daily analytics rows hourly, AE fiat rates every ten minutes, and trending score
 
 ## Versioning and deprecation
 
-There is no version negotiation. The OpenAPI document declares version `1.0`, `GET /api/stats`
-reports the deployed package version as `apiVersion`, and no header or path segment selects a
-version. `/api/v2/mdw/*` is a name inherited from the middleware's own API.
+There is no version negotiation. The OpenAPI document declares version `1.0`. `GET /api/stats`
+includes `apiVersion` only when the server is started through npm, and api.superhero.com omits
+it. No header or path segment selects a version. `/api/v2/mdw/*` is a name inherited from the middleware's own API.
 
 Deprecation is by annotation. Check each parameter's scope: an annotation does not necessarily
 mean it is ignored in every request mode.

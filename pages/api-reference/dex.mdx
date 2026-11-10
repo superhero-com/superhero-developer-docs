@@ -110,7 +110,8 @@ when one side of the pair is WAE.
 
 ## `PairTransactionDto`
 
-One row per swap or liquidity event.
+One row per router transaction, keyed by `tx_hash`. A multi-hop swap is recorded once, against
+the last hop's pair; earlier hops get no row and no volume.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -124,8 +125,8 @@ One row per swap or liquidity event.
 | `ratio1` | string | Raw reserve ratio: `reserve1 / reserve0` |
 | `total_supply` | string | Sum of raw reserves: `reserve0 + reserve1` |
 | `volume0` / `volume1` | string | Traded volume per side for swaps; `0` for liquidity operations |
-| `market_cap0` / `market_cap1` | string | Market cap denominated in each token |
-| `market_cap` | string | Pool market cap |
+| `market_cap0` / `market_cap1` | string | Not populated; always `"0"` |
+| `market_cap` | string | Not populated; always `"0"` |
 | `swap_info` | `SwapInfoDto` or null | Present for swaps |
 | `pair_mint_info` | `LiquidityInfoDto` or null | Present for liquidity operations |
 | `created_at` | string | ISO 8601 |

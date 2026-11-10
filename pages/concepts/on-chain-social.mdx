@@ -15,7 +15,7 @@ Each post is a `PostWithoutTip` variant holding two things:
 
 | Field | Type | Contents |
 | --- | --- | --- |
-| `tip_meta.sender` | `address` | The author. `Call.caller` for a direct post, the recovered signer for a delegated one |
+| `tip_meta.sender` | `address` | The author. `Call.caller` for a direct post; for a delegated one, the `author` argument, after the contract verifies its signature |
 | `tip_meta.title` | `string` | The post text (the whole body, not a headline) |
 | `tip_meta.timestamp` | `int` | `Chain.timestamp` at the moment of posting |
 | `media` | `list(string)` | Media URLs or identifiers attached to the post |
@@ -24,7 +24,8 @@ Posts live in a map indexed by a monotonically increasing integer `tip_id`, whic
 returns. This gives a deterministic, append-only ordering of every post ever published. `get_state()` returns
 the whole map, so anyone can reconstruct the complete post history without trusting an indexer.
 
-The contract has exactly three entrypoints. There is no edit, and there is no delete.
+The contract has three callable entrypoints (plus `init`, run once at deployment). There is no
+edit, and there is no delete.
 
 ```text
 post_without_tip(title: string, media: list(string))            -> int
@@ -49,7 +50,8 @@ threading is a client convention over an on-chain string.
 which is what lets a mention survive the mentioned user renaming themselves.
 
 The 280-character limit in the composer is a client default, not a contract rule. The contract
-accepts any string; you pay gas proportional to its size.
+accepts any string; a longer post costs more, because the transaction fee grows with its byte
+size.
 
 **Superhero does not host media.** The composer has no upload. Both attachment buttons are pickers
 over third-party catalogues, and what they store is that provider's URL:
@@ -156,8 +158,9 @@ The key convention belongs to the client that writes it. If you build a client t
 lists, read the existing set before assuming `ak_` addresses.
 
 **Write thresholds.** The same contract holds a `minimum_token_threshold`, the minimum balance of
-the community's token required for write access in that community. It raises the cost of spamming a
-community without granting anyone the power to erase what is already there.
+the community's token required to enter its token-gated chat room and to open DAO votes. Feed
+posting is not gated. It raises the cost of spamming the chat without granting anyone the power
+to erase what is already there.
 
 Both levers are governed rather than administered. Muting requires `require_moderator()`, meaning
 membership of `moderator_accounts`. Everything else requires `require_owner()`, and the owner is the

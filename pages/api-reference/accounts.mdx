@@ -47,19 +47,18 @@ curl -s "https://api.superhero.com/api/accounts/ak_2ruXgsLy9jMwEqsgyQgEsxw8chYDf
 | `links` | object or null | Verified address links, see below |
 | `profile` | object or null | Profile payload, see [Profile](/api-reference/profile) |
 | `public_name` | string or null | Resolved display name |
-| `x_username` | string or null | Legacy X handle field |
 
 `links` holds the current, verified identity:
 
 | Key | Meaning |
 | --- | --- |
 | `x` | Verified X handle |
-| `bio` | Verified bio text |
+| `bio` | Self-declared bio text, wallet-signed |
 | `prefaens` (also `prefered_aens_name`) | Preferred `.chain` name |
-| `site` | Verified website |
+| `site` | Self-declared website, wallet-signed |
 
 `links`, `profile` and the top-level fields are three generations of the same data; read
-`links.x`, then `profile.x_username`, then `x_username`, and strip a leading `@`.
+`links.x`, then `profile.x_username`, and strip a leading `@`.
 
 ## `GET /api/accounts`
 

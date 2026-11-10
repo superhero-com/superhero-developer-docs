@@ -30,7 +30,7 @@ The preclaim-and-claim flow uses two transactions at different key-block heights
 1. **Preclaim.** Pick a random salt, hash it together with the name, and publish only the hash
    as a commitment (`cm_…`). The name itself is not in this transaction, so nobody watching the
    mempool learns what you are claiming.
-2. **Claim.** In a *later* block, publish the name and the salt. The protocol recomputes the
+2. **Claim.** At a *later* key-block height, publish the name and the salt. The protocol recomputes the
    hash, matches it against your commitment, and awards the name or opens an auction.
 
 The commitment is what makes front-running pointless: by the time the name is public, your
@@ -74,10 +74,11 @@ Registering an available short name requires an auction.
 | 1 to 4 | 29,760 blocks | 2,400 blocks | ~62 days, now ~5 days |
 
 Before Ceres a bid restarted the full timeout. From Ceres a bid extends the auction **by up to
-120 key blocks**: there are always at least 120 generations (roughly six hours) left to outbid
+240 key blocks**: there are always at least 240 generations (roughly twelve hours) left to outbid
 after any successful bid, so the end moves only when it would otherwise fall inside that window.
-A one-to-four-character auction is a 2,400-block race from the opening claim, with a six-hour
-floor after each bid.
+A one-to-four-character auction is a 2,400-block race from the opening claim, with a twelve-hour
+floor after each bid. The AENS protocol specification still gives 120; the node that mainnet
+runs uses 240.
 
 A bid is a claim transaction on a name that already has an auction running; it needs no preclaim
 of its own and may come from any account. Nothing settles until the window elapses with no higher

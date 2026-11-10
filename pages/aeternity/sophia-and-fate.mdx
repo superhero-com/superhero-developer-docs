@@ -47,8 +47,9 @@ already executing on the call stack; that runtime check prevents reentrant contr
 integer in aettos or token-decimals. See [AE & Gas](/aeternity/ae-and-gas).
 
 **Types are checked, then checked again.** The compiler is strict, and FATE re-checks at runtime:
-each FATE operation is typed, and a type mismatch raises an exception that reverts the call. A
-malformed call does not corrupt state; it fails.
+each FATE operation is typed, and a type mismatch is a runtime error: the call fails with return
+type `error`, its state changes are discarded, and it is charged its full gas limit. A malformed
+call does not corrupt state; it fails.
 
 ## Entrypoint annotations
 
@@ -143,10 +144,9 @@ version the contract was built with.
 FATE runs directly on æternity's state tree rather than on a general byte-code machine bolted on
 top of one.
 
-- **Typed instructions.** Type errors raise an exception and revert, rather than reinterpreting
-  bytes.
-- **A restricted memory model and high-level instructions.** Contracts are smaller and use less
-  gas than equivalent EVM contracts.
+- **Typed instructions.** Type errors fail the call rather than reinterpreting bytes.
+- **A restricted memory model and high-level instructions.** æternity's FATE documentation
+  reports that contracts tend to be smaller than their EVM equivalents.
 - **Native access to chain features.** AENS names and oracles are reachable from contract code as
   protocol primitives, not through a precompile.
 

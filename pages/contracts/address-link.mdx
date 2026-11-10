@@ -123,9 +123,13 @@ from the middleware, legacy username, raw address. The X handle is returned sepa
 | `LINK_NOT_FOUND` | no link exists for this provider |
 | `NO_LINKS` | the address has no links at all |
 | `NOT_PROVIDER_OWNER` | the caller does not own the provider namespace |
-| `PRINCIPAL_NOT_FOUND` | the AENS name does not resolve |
-| `PRINCIPAL_MISMATCH` | only the name owner can link or unlink |
-| `INVALID_PRINCIPAL` | the principal string is malformed |
+| `PRINCIPAL_NOT_FOUND` | the `.chain` name has no active registration (never claimed, in auction, expired or revoked) |
+| `PRINCIPAL_MISMATCH` | the signer does not own the `.chain` name, or a non-name principal is not the signer's address |
+| `INVALID_PRINCIPAL` | the principal (after any `did:ae:` prefix) contains a colon |
+| `EMPTY_PRINCIPAL` / `PRINCIPAL_TOO_LONG` | the principal is empty or longer than 200 characters |
+| `INVALID_DID` | not `did:ae:` followed by a subject |
+| `EMPTY_VALUE` / `VALUE_TOO_LONG` / `INVALID_VALUE` | the value is empty, longer than 200 characters, or contains a colon |
+| `PROVIDER_NOT_FOUND` | no such provider is registered |
 
 ## Events
 

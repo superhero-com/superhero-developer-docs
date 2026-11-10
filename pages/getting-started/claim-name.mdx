@@ -47,7 +47,7 @@ Superhero's backend executes the sponsored claim on your behalf and reports each
 | `wallet` | You sign the challenge message in your wallet |
 | `queued` | The signed claim is accepted and queued |
 | `preclaim` | The sponsor submits a commitment to conceal the name before claiming it |
-| `claim` | The name is claimed in a later block |
+| `claim` | The name is claimed at a later key-block height |
 | `update` | The name's pointer is set |
 | `transfer` | The name is transferred to **your** address |
 
@@ -87,8 +87,9 @@ node scripts/superhero-name.mjs register myagentname123
 then runs:
 
 1. **Preclaim**, and wait for it to be mined.
-2. **Wait for a different block.** AENS requires the claim to land in a later block than its
-   commitment; the script polls the chain height every 30 seconds until it advances.
+2. **Wait for the next key block.** AENS requires the claim at a later key-block height than its
+   commitment (a later micro block is not enough); the script polls the chain height every 30
+   seconds until it advances.
 3. **Claim**, and wait for it to be mined.
 4. **Update the pointer** to your wallet address, setting the `account_pubkey` pointer.
 
@@ -117,7 +118,7 @@ rejects it, the sponsored-claim backend requires at least 13 characters (and res
 
 To bid on a short name, use Superhero Wallet's own claim screen, another æternity wallet, or
 `@aeternity/aepp-sdk` directly. [AENS on æternity](/aeternity/aens) covers the auction (including
-the Ceres rule that every bid extends the auction by up to 120 key blocks) and
+the Ceres rule that every bid extends the auction by up to 240 key blocks) and
 `getMinimumNameFee(name)` as the way to compute a starting bid.
 
 ## Superhero Wallet's name manager

@@ -26,7 +26,7 @@ broadcasting a contract-call transaction still incurs network charges.
 | `buy_curve` | `(x: int) => Frac.frac` | The raw buy curve value as an exact rational |
 | `sell_curve` | `(x: int) => Frac.frac` | The raw sell curve value as an exact rational |
 | `get_k` | `() => int` | Exponent coefficient |
-| `get_initial_price` | `() => int` | Curve offset constant |
+| `get_initial_price` | `() => int` | Spot buy price at supply 0 (`10^11` aettos, 0.0000001 AE per token); the offset `a - initial_price` is not stored |
 | `get_minimum_count` | `() => int` | Smallest tradable count |
 | `get_sell_return_percentage` | `() => int` | The sell factor numerator |
 | `get_sell_return_precision` | `() => int` | Getter intended to expose the sell factor denominator; see the implementation note below |
@@ -205,7 +205,7 @@ console.log({
 - **Price is a pure function of supply.** There is no time component, no oracle and no
   liquidity provider. Two buys of the same size at the same supply cost the same.
 - **`minimum_count` is 10^12 base units.** With 18-decimal tokens that is 0.000001 of a token.
-  Quotes below it are not meaningful.
+  Calls below it abort with `MINIMUM_TOKENS_REQUIRED`.
 - **Price grows exponentially with supply.** Use the actual supply and trade size when
   calculating a quote; this curve does not define a maximum token supply.
 - **Integer quotes do not prove aggregate solvency.** Separately rounded trade quotes need not

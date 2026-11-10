@@ -33,14 +33,14 @@ curl -s "https://api.superhero.com/api/profile/ak_2ruXgsLy9jMwEqsgyQgEsxw8chYDfv
 | `address` | string | The `ak_...` |
 | `public_name` | string | Resolved display name. **Never null**: it falls back to the address |
 | `profile.fullname` | string | Display name from the legacy profile cache. `""` when unset |
-| `profile.bio` | string | The verified `links.bio` if present, else the cached bio, else `""` |
-| `profile.site` | string or null | The verified `links.site` |
+| `profile.bio` | string | The wallet-signed `links.bio` if present, else the cached bio, else `""` |
+| `profile.site` | string or null | The wallet-signed `links.site` |
 | `profile.avatarurl` | string | `""` when unset |
 | `profile.username` | string or null | Legacy custom username |
 | `profile.prefered_aens_name` | string or null | The verified `links.prefaens`. Note the one-`r` spelling |
 | `profile.x_username` | string or null | The verified `links.x` |
 | `profile.chain_name` | string or null | The account's `chain_name` first, then the cached copy |
-| `profile.chain_expires_at` | string or null | When the `.chain` name expires |
+| `profile.chain_expires_at` | string or null | Legacy cached value, not refreshed; check expiry through AENS |
 | `profile.followers_count` / `following_count` | number | Single-profile read only, and only when the social-graph feature is enabled |
 
 The display name resolves as:
@@ -185,30 +185,27 @@ name-based principal and check current AENS ownership.
 
 ### Linking X
 
-The X value comes from an OAuth round trip rather than being typed. Two accepted claim bodies:
-
-```json
-{ "address": "ak_...", "x_access_token": "..." }
-```
+The X value comes from an OAuth round trip rather than being typed. The claim body is the PKCE
+form; any other property, such as `x_access_token`, is a `400`:
 
 ```json
 { "address": "ak_...", "x_code": "...", "x_code_verifier": "...", "x_redirect_uri": "https://superhero.com/profile/x/callback" }
 ```
 
-The second is the PKCE form: redirect the user to X, receive the code at your redirect URI, and
+Redirect the user to X, receive the code at your redirect URI, and
 post the code, verifier and redirect URI; the backend exchanges the code itself. From there the
 flow is identical: claim returns `message` plus `verification_token`, the wallet signs it,
 `submit` returns a `txHash`.
 
 ```text
-POST /api/address-links/x/claim            { address, x_access_token }  or  { address, x_code, x_code_verifier, x_redirect_uri }
+POST /api/address-links/x/claim            { address, x_code, x_code_verifier, x_redirect_uri }
 POST /api/address-links/x/submit           { address, value, nonce, signature, verification_token }
 POST /api/address-links/x/unclaim          { address }
 POST /api/address-links/x/unclaim/submit   { address, nonce, signature }
 ```
 
 Read the result back from `GET /api/accounts/{address}` as `links.x`, falling back to
-`profile.x_username` and then the legacy top-level `x_username`.
+`profile.x_username`.
 
 ## Sponsored `.chain` name registration
 
@@ -243,18 +240,19 @@ The claim body is `address`, `name`, `challenge_nonce`, `challenge_expires_at` a
 
 Registration is asynchronous and takes four on-chain transactions. Poll
 `GET /api/profile/{address}/chain-name-claim`, which returns `status` plus, as they happen,
-`preclaim_tx_hash`, `claim_tx_hash`, `update_tx_hash`, `transfer_tx_hash`, an `error`, and the
-name's expiry under `expires_at` (older responses use `approximate_expire_time`,
-`approximateExpireTime`, `expire_time` or `expireTime`).
+`preclaim_tx_hash`, `claim_tx_hash`, `update_tx_hash`, `transfer_tx_hash`, an `error` and a
+`retry_count`. It carries no expiry: read `expire_height` or `approximate_expire_time` from the
+middleware's `GET /v3/names/{name}`.
 
 ## X posting reward
 
-All four routes carry the per-IP rate limit: 10 requests per minute per route, returning `429`
+All five routes carry the per-IP rate limit: 10 requests per minute per route, returning `429`
 with a `retryAfter` field. See [Conventions](/api-reference/conventions#rate-limits).
 
 | Method & path | Purpose |
 | --- | --- |
 | `GET /api/profile/{address}/x-posting-reward` | Read status. No signature |
+| `GET /api/profile/{address}/x-posting-reward/history` | List the X reward payouts sent to the address. No signature |
 | `POST /api/profile/x-posting-reward/recheck-challenge` | Get a challenge for `address` |
 | `POST /api/profile/{address}/x-posting-reward/recheck` | Run the capped scan |
 | `POST /api/profile/{address}/x-reward/referral-link` | Get a referral link |

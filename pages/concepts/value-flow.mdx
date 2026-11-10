@@ -123,8 +123,10 @@ treasury cannot block a buy.
 
 Selling is not the buy flow in reverse.
 
-**It is two transactions, not one.** AEX-9 has no transfer-from without prior approval, so you first
-grant the sale contract an allowance over your tokens, then call sell:
+**It is usually two transactions.** AEX-9 has no transfer-from without prior approval, so you first
+grant the sale contract an allowance over your tokens, then call sell. With a sufficient standing
+allowance `sell` alone works, but the app, bctsl-sdk and the agent CLI always send the allowance
+step first:
 
 ```text
 1. create_allowance(sale_account, count)      on the community AEX-9 token
@@ -195,7 +197,7 @@ The sale contract's trading entrypoints:
 | `sell` | `sell(count: int, minimal_return_required: int) -> int` | Stateful, **not** payable, returns the AE paid out |
 | `price` | `price(count: int) -> int` | The buy-side counterpart |
 | `buy` | `buy(count: int) -> unit` | Stateful, payable |
-| `buy_with_affiliation` | `buy_with_affiliation(count: int, affiliation_rewardee: address) -> unit` | Stateful, payable |
+| `buy_with_affiliation` | `buy_with_affiliation(count: int, affiliation_rewardee: address) -> unit` | Stateful, payable; factory-only (`ONLY_FACTORY_CAN_CALL`), used for the creator's initial buy |
 
 There is a `buy_with_affiliation` and no `sell_with_affiliation`: referral rewards accrue on buys
 only. Likewise the factory's `mint_protocol_dao_token(int, address)` is called on buys only. See
@@ -276,7 +278,7 @@ Count transactions, not trades:
 | --- | --- |
 | Post or comment | 1 |
 | Buy a token | 1 |
-| **Sell a token** | **2**: allowance, then sell |
+| **Sell a token** | **2**: allowance, then sell (1 with a sufficient existing allowance) |
 | Create a token | 1 (deploys management, DAO, sale and token contracts; reuses the factory's curve and affiliation treasury) |
 | Open a DAO vote | 1, plus a **555 AE** payment to the DAO |
 | Create a governance poll | 2: deploy, then register |

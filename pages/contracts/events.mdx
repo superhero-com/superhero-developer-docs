@@ -275,7 +275,7 @@ datatype event = PostViaBurnReceived(tip_id, address, string, TokenContract)
 ## Name collisions: filter by contract, always
 
 The topic hash is computed from the name alone. It carries no contract identity and no
-argument types. Three names collide across the suite:
+argument types. Two names collide across the suite:
 
 | Name | Emitted by | Arguments |
 | --- | --- | --- |
@@ -283,7 +283,6 @@ argument types. Three names collide across the suite:
 | `Vote` | `Poll` | `(address, address, int)` |
 | `RevokeVote` | `DAOVote` | `(address, bool, int)` |
 | `RevokeVote` | `Poll` | `(address, address)` |
-| `AddModerator` / `DeleteModerator` / `ChangeMinimumTokenThreshold` | `CommunityManagement` events | also `VoteSubjects.subject` constructor names |
 
 A `Vote` log from a governance poll and a `Vote` log from a community DAO have the same topic
 hash and different argument shapes. An indexer that matches on `topics[0]` alone and then
@@ -368,8 +367,8 @@ read its raw logs from the node's `GET /v3/transactions/{hash}/info` response.
 
 Two operational notes:
 
-- **Paginate.** The response carries a `next` field with a relative path. Follow it until it
-  is absent; do not assume one page is the whole history.
+- **Paginate.** The response carries a `next` field with a path relative to the middleware base
+  URL (append it after `/mdw`). Follow it until it is absent; do not assume one page is the whole history.
 - **Logs lag the transaction.** A transaction hash is available the moment it is mined, but
   the middleware may not have indexed its *logs* yet, so its logs can be missing from the
   indexed history. Retry, or reconcile in a later

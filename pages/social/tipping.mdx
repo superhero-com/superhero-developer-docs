@@ -32,8 +32,9 @@ There is nothing to claim, no vesting, and no minimum enforced by the protocol.
 
 The `Tipping` v3 contract is not involved: it stores posts, has no `payable` entrypoint and
 holds no balance. (A companion `Tipping_v3_Getter` contract adds one read helper,
-`get_tip_by_id(c : Tipping, tip_id : int) : option(Tipping.tip)`, for fetching a single post
-without pulling the whole state.)
+`get_tip_by_id(c : Tipping, tip_id : int) : option(Tipping.tip)`, which returns a single post.
+It calls `get_state()` internally, so the VM still loads every post and its gas grows with the
+post count; it only shrinks the response.)
 
 Practical consequences:
 
@@ -49,7 +50,10 @@ Practical consequences:
 2. The payload is decoded from its `ba_…` form to a string. It must start with `TIP_PROFILE`
    or `TIP_POST`, otherwise the transaction is skipped.
 3. For a `TIP_POST:` payload, everything after the colon is taken as a post id and looked up
-   directly by `id`. A miss leaves the tip unattached to a post.
+   directly by `id`. A miss leaves the tip unattached to a post. The recipient is **not**
+   checked: any spend with that payload counts toward the post's tip totals and popular
+   ranking, whoever receives the AE. Only a `tip-received` notification requires that the post's
+   author was paid.
 4. Self-tips are dropped, not stored. For a post tip that means `sender == post.sender_address`
    (tipping your own post), and for a profile tip `sender == receiver`.
 5. The row is keyed on `tx_hash`, so reprocessing the same transaction is idempotent.
@@ -101,7 +105,7 @@ sorts by value rather than lexically. `type` holds the **whole decoded payload**
 not on the bare word `TIP_POST`.
 
 Tip signals also feed the popular feed: `tipsAmountAE`, `tipsCount` and `uniqueTippers` are
-three of the eight weighting inputs a reader can scale, all computed with self-tips excluded.
+three of the eight weighting inputs a reader can scale, all computed with tips from the post's own author excluded.
 See [The Feed](/social/feed).
 
 ## Tipping an address that has never used Superhero

@@ -89,7 +89,9 @@ The response is `{ data: [...], next }`. Each element carries `hash`, `block_hei
 `{ type, value }`) and `return`. Filter to `tx.function === 'post_without_tip'`, then read the
 post body from `arguments[0].value` and the attached links from `arguments[1].value`.
 
-`next` is a **path**, not a full URL. Concatenate it onto the middleware origin to page.
+`next` is a **path** relative to the middleware base URL, without its `/mdw` prefix. Append it to
+the same base you queried (for example `https://mainnet.aeternity.io/mdw`); appending it to the
+bare origin returns `405`.
 
 ### Name resolution
 
@@ -118,22 +120,21 @@ The Superhero API re-indexes a slice of middleware data under its own paths:
 | `GET /api/v2/mdw/txs/{hash}` | One transaction |
 | `GET /api/v2/mdw/key-blocks` | Key blocks, filterable by `hash`, `height`, `beneficiary`, `miner`, `version` |
 | `GET /api/v2/mdw/key-blocks/{hash}` | One key block |
-| `GET /api/v2/mdw/micro-blocks` | Micro blocks |
-| `GET /api/v2/mdw/micro-blocks/{hash}` | One micro block |
 | `GET /api/v2/mdw/sync-state` | Indexer sync state |
 | `GET /api/v2/mdw/plugin-sync-state` | Per-plugin sync state |
 | `GET /api/mdw/health` | Middleware health check |
 
 These take an `includes` parameter for nested relations: `keyBlock`, `keyBlock.txs`,
-`microBlocks`, `txs.keyBlock` and similar, comma-separated. An array relation is truncated to
-**50** items per parent. Response shapes are the mirror's own `Tx`, `KeyBlock` and `MicroBlock`
-records, not the upstream middleware's.
+`txs.keyBlock` and similar, comma-separated. An array relation is truncated to **50** items per
+parent. Response shapes are the mirror's own `Tx` and `KeyBlock` records, not the upstream
+middleware's. Micro blocks are not mirrored; key blocks keep a `micro_blocks_count`.
 
 - **Rate-limited.** 10 requests per minute per IP per route path, returning `429` with a
   `retryAfter` field in the body. See [Conventions](/api-reference/conventions#rate-limits).
 - **`limit` is capped at 100** with `400 Maximum limit is 100 items per request`; an `order_by`
   outside the route's sortable set is a `400`.
-- **`page` goes up to 1,000,000.** Deep paging still costs the database a scan of everything
+- **`page` goes up to 1,000,000** on `txs` and `key-blocks`; `sync-state` and `plugin-sync-state`
+  stop at 500. Deep paging still costs the database a scan of everything
   before your page, so prefer a `height` or `block_height` filter where you can.
 
 Sortable fields on `sync-state`: `id`, `last_synced_height`, `tip_height`, `is_bulk_mode`,

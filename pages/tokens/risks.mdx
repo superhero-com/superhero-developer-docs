@@ -85,7 +85,7 @@ Nothing about a community token expires. If everybody loses interest, the contra
 prices and the curve keeps working, but:
 
 - There is no one to trade against except the curve, and no activity to move it.
-- Whatever the DAO treasury accumulated stays there. Opening a DAO vote costs **555 AE** paid by the proposer, so a treasury worth less than 555 AE is effectively unspendable: nobody will rationally pay more to propose a payout than the payout is worth. See [DAO voting](/dao/voting).
+- Whatever the DAO treasury accumulated stays there. Opening a DAO vote costs **555 AE**, paid into the same treasury. A passing `VotePayout` pays out the whole balance, deposit included, so a small treasury is still spendable; the proposer risks the 555 AE only if the vote fails or is not applied in time. See [DAO voting](/dao/voting).
 - Governance requires a quorum of 10% of the token stake and 55% approval within two weeks. In an abandoned community that quorum may be unreachable, which freezes the treasury, the moderator set and the write threshold as they are.
 
 The curve computes your sell quote from the remaining supply, at the price the last trades left
@@ -99,7 +99,7 @@ integer-rounding analysis. See [Reserve accounting and rounding](/concepts/value
 | Slippage between quote and fill | Other trades land before yours. Guarded by your slippage tolerance on a buy and by `minimal_return_required` on a sell. Both revert rather than fill badly, and a revert still costs gas |
 | A sell with no floor | `minimal_return_required` of 0 means "fill me at any price". On a falling curve that is exactly wrong |
 | Standing allowances | Selling requires granting the sale contract an AEX-9 allowance. Leaving a large one in place authorises that contract to move that many tokens until you reduce it |
-| Two-step sells | A sell is two transactions. If the second fails, you have granted an allowance and still hold the tokens |
+| Two-step sells | In the app and CLI a sell is two transactions. If the second fails, you have granted an allowance and still hold the tokens |
 | Front-running | Anyone watching the mempool can place a buy ahead of yours, pushing you further up the curve. Your tolerance bounds the damage; it does not prevent it |
 
 ## 7. Smart contract risk

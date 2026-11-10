@@ -15,8 +15,9 @@ screen defaults to the **Trending** sort; choose **Market Cap** if you want that
 ## Buy
 
 1. Open a token from the trending list. You land on `/trends/tokens/<token name>`.
-2. Choose the **Trade** tab. The token page's tabs are Feed, Trade, Info, Transactions and Holders;
-   the last three appear once the token exists on chain.
+2. On a phone, choose the **Trade** tab (tabs: Feed, Trade, Info, Transactions and Holders; for a
+   name with no token yet, Trade, Transactions and Holders are shown locked). On a wider screen
+   the trade card is in the right-hand column.
 3. Press **Connect** if you have not already. Trading needs a connected account.
 4. Make sure **Buy** is selected, and enter an amount. The two fields are linked: type AE and it
    shows the tokens you would receive, or type tokens and it shows the AE required.
@@ -106,7 +107,9 @@ Superhero's built-in wallet names the call rather than showing raw bytes:
 
 - **Buy tokens**: *"Spends the AE attached to this call to buy tokens from this sale contract."*
 - **Sell tokens**: *"Sells your tokens back to this sale contract for AE."*
-- **Lets another account spend your tokens up to this amount**: the allowance step of a sell.
+- **Approve token spending** (*Lets another account spend your tokens up to this amount*): the
+  allowance step of your first sell of a token. Later sells show **Change token spending
+  approval**, with the amount as a change rather than a total.
 
 Check two things on that screen every time: the **contract address** matches the token you meant,
 and the **AE amount** matches the payment and buffer you reviewed. Token amounts are shown in raw base units, not scaled by

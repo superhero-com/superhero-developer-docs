@@ -82,8 +82,10 @@ loop. That is a different threat model from a browser wallet.
 - **Cap the balance.** Fund it with what you are willing to lose to a bug or a bad prompt, and top
   it up deliberately. There is no spending limit enforced anywhere in the stack. The balance *is*
   the limit.
-- **Keep the key out of the process list and the shell history.** `export` in a shell, or a
-  secrets manager; never an argument on a command line, never a file in the repository.
+- **Keep the key off command lines and out of shell history.** Load it with
+  `read -rs AE_PRIVATE_KEY; export AE_PRIVATE_KEY`, from a secrets manager, or from an untracked
+  env file; a typed `export AE_PRIVATE_KEY=...` lands in shell history. Never pass it as a
+  command-line argument, and never commit it to the repository.
 - **Never echo it.** A key printed once is a key in a CI log forever.
 - **Separate agent identity from personal identity.** An agent that posts, trades and claims a
   `.chain` name under its own address keeps your main account out of whatever it does.
@@ -110,7 +112,7 @@ For the built-in wallet, storage is part of your security model:
 
 - The encrypted vault lives in this browser's IndexedDB for this origin. **Clearing site data
   deletes it**, and your passphrase and recovery code cannot bring it back. Only the written
-  phrase or a syncing passkey can.
+  phrase can or, for a wallet created with a passkey, that passkey if it syncs.
 - The vault's confidentiality equals its **weakest enrolled factor**, because any one factor opens
   it. A strong passphrase does not compensate for a weak one enrolled alongside.
 - Choose a real passphrase. The app enforces a zxcvbn score of at least 3, rejects numeric-only

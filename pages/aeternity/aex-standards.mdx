@@ -39,7 +39,7 @@ simulate calls without network fees; persisting changes requires a signed transa
 | `allowance(accounts)` | `option(int)` | Keyed on a from/for pair |
 | `allowance_for_caller(from)` | `option(int)` | Convenience for the common case |
 | `allowances()` | map | Every allowance at once |
-| `swapped()` | map of address to int | Migration bookkeeping |
+| `swapped()` | map of address to int | Amounts burned through `swap()` |
 
 **Writes (all stateful)**
 
@@ -52,8 +52,8 @@ simulate calls without network fees; persisting changes requires a signed transa
 | `transfer_allowance(from, to, value)` | allowance | Spend someone else's authorised balance |
 | `mint(account, value)` | mintable | Owner only |
 | `burn(value)` | burnable | Destroy your own |
-| `swap()` | swappable | Migrate a legacy balance |
-| `check_swap(account)` | swappable | Inspect a migration |
+| `swap()` | swappable | Burn your entire balance and record it in `swapped`; pays nothing |
+| `check_swap(account)` | swappable | Read the amount recorded by `swap()` |
 
 `init(name, decimals, symbol, initial_owner_balance)` is the deploy-time constructor;
 `initial_owner_balance` is an `option(int)`.
@@ -102,10 +102,11 @@ The middleware indexes AEX-9 holdings, so a wallet view needs one paged request 
 contract call per token:
 
 ```text
-GET  <MIDDLEWARE_URL>/v2/aex9/account-balances/ak_...?limit=100
+GET  <MIDDLEWARE_URL>/v3/accounts/ak_.../aex9/balances?limit=100
 ```
 
-Note the `v2`: the AEX-9 balance route is on middleware v2, while transaction lookups use `v3`.
+The older v2 form, `/v2/aex9/account-balances/ak_...`, returns the same data; Superhero's web app
+still calls it.
 See [Networks & Endpoints](/aeternity/networks).
 
 ## The other AEX standards

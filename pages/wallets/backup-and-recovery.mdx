@@ -124,7 +124,9 @@ before anything is stored, then sealed under a new passphrase on the new device.
 
 ### Built-in wallet, from a passkey
 
-Choose **"Restore a wallet you created with a passkey."** This runs a discoverable WebAuthn
+Tap the **Passkey** card and **cancel** the prompt to create a new passkey (approving it creates a
+new, empty wallet). On the screen that follows, choose **"Restore a wallet you created with a
+passkey."** This runs a discoverable WebAuthn
 assertion, derives the wallet the credential implies, and **shows you the derived address before
 saving anything.** The confirm screen also checks that address for on-chain activity:
 
@@ -164,8 +166,8 @@ node scripts/superhero-wallet.mjs balance
   compromised from that moment and move the funds to a fresh account.
 
 One common loss that *is* recoverable: the built-in wallet's address list, living in local storage.
-If that is cleared while the encrypted vault survives, unlock once and the app re-derives your
-addresses from index 0 upward.
+If that is cleared while the encrypted vault survives, unlock once and the app rebuilds it (the
+built-in wallet has one account, at index 0).
 
 ## A backup routine that holds
 

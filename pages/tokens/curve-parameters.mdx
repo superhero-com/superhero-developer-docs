@@ -39,8 +39,8 @@ The scaling rule: for a curve `f(x) = α·e^(β·x) − γ`, the constants are `
 
 `calculate_price` requires `count >= minimum_count` and aborts with `MINIMUM_TOKENS_REQUIRED`
 otherwise. `minimum_count` is `10^12` token decimal units (`10^12 / 10^18 = 10^-6` tokens, one
-millionth of a token), so it only guards against a trade rounding to zero inside the integer
-arithmetic. In practice it fires when you pass a **whole-token** count where the contract expects
+millionth of a token). It is a hard minimum on every buy, sell and quote, so a balance below it
+cannot be sold. In practice it fires when you pass a **whole-token** count where the contract expects
 decimal units: sending `5` instead of `5000000000000000000` aborts with `MINIMUM_TOKENS_REQUIRED`
 rather than silently buying five attotokens.
 
@@ -56,7 +56,7 @@ code, or read `sell_return()` on the sale contract instead of reconstructing the
 | --- | --- | --- | --- |
 | AE amount | aettos, an integer | AE, a decimal | divide by 10^18 |
 | Token count | token decimal units, an integer | whole tokens, a decimal | divide by 10^(decimals) |
-| Curve value | `Frac.frac` rational, or an integer of aettos | AE per token | see below |
+| Curve value | `Frac.frac` rational from `buy_curve`/`sell_curve`; `buy_price`/`sell_price` round it up/down to an integer | AE per token | see below |
 
 `1 AE = 10^18 aettos`. The æternity SDK exposes this as `AE_AMOUNT_FORMATS.AETTOS` /
 `AE_AMOUNT_FORMATS.AE` and the helpers `toAe()` and `formatAmount()`. Do the division with
@@ -323,8 +323,8 @@ buyPriceAettos(10_000_000, 1000).toFixed(0); // "105276443948657760" vs 10527644
 ```
 
 The residual, a couple of hundred aettos on each, is double rounding, not a difference in the
-model: the contract's truncated Taylor series tracks the closed form to within `4e-19 AE` across
-this range. A double has about 15–16 significant digits in total while an aettos figure needs 18,
+model: the contract's integer result is the closed form rounded down, under 1 aetto below it for
+whole-token counts. A double has about 15–16 significant digits in total while an aettos figure needs 18,
 so **no floating-point implementation can be exact at the aettos level.** Use these for estimates
 and the contract's own return value for anything you sign.
 

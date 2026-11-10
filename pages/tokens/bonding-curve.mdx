@@ -13,8 +13,8 @@ no order book, matching engine or counterparty on the other side of your trade.
 Superhero uses an **exponential** curve, implemented by the `BondingCurveExponential` contract. The
 contract evaluates `e^x` as a bounded Taylor series in integer arithmetic (at most 100 terms,
 stopping as soon as a term floors to zero), which is what `curve_type()` means when it returns
-`"TAYLOR_EXPONENTIAL_V1"`. The series agrees with the closed form below to within `4e-19 AE` at
-every supply in the examples below. The integer the contract returns is the price you are charged;
+`"TAYLOR_EXPONENTIAL_V1"`. The integer it returns is the closed-form value below, rounded
+down: under 1 aetto below it for whole-token counts, under 2 for arbitrary counts. The integer the contract returns is the price you are charged;
 [Curve Parameters & Units](/tokens/curve-parameters) has a reference implementation that reproduces
 it exactly.
 
@@ -190,7 +190,7 @@ small per trade, meaningful in aggregate. Spot prices at a few reference supplie
 The exponent determines how quickly price grows with supply. There is no fixed maximum supply,
 so a percentage of maximum supply is not defined for this curve.
 
-## Why the reserve is always solvent
+## Why the reserve covers the supply
 
 Full redemption follows in the ideal continuous model. Each buy retains the quote for
 immediately selling its newly minted tokens; in that model, these amounts sum to the sell-curve
@@ -227,13 +227,14 @@ for the full breakdown and [Risks](/tokens/risks) for what that means for a posi
 | Price at zero activity | Defined by the formula | Defined by the formula | Undefined until someone seeds the pool |
 | Cost of a trade | Integral of the curve over the minted range | Integral of the curve over the minted range | Determined by the invariant x·y = k |
 | Price impact of a big buy | Compounding: grows exponentially | Proportional to size | Grows as the pool is drained; unbounded |
-| Fee model | 1% spread baked into two curves | Implementation-defined | Explicit swap fee (e.g. 0.30%) to LPs |
+| Fee model | 0.5% buy/sell curve gap (to the DAO) plus a 0.5% affiliation fee on buys | Implementation-defined | Explicit swap fee (e.g. 0.30%) to LPs |
 | Rug-pull surface | No LP to withdraw | No LP to withdraw | LPs can remove liquidity |
 
 Two practical consequences. The reserve is held by the sale contract, without an LP withdrawal
 mechanism. An exponential curve punishes large late buys much harder than a constant-product pool
-of comparable depth. The price impact of doubling the supply is a factor of `e^(k·supply)`, not a
-bounded ratio.
+of comparable depth. Past about a million tokens, doubling the supply multiplies the spot price by
+about `e^(k·supply) + 1` (≈2.1× from 10M to 20M tokens, ≈3.7× from 100M to 200M), a ratio that
+keeps growing with supply.
 
 Community tokens trade only against their own curve. Superhero's AMM for ordinary token pairs is
 [the DEX](/defi/swap).
@@ -260,9 +261,9 @@ tokens. Use `calculate_buy_price` and `calculate_sell_return` for quotes, or `bu
 exact spot value.
 
 `get_minimum_count()` returns `10^12`, and every pricing call requires `count >= minimum_count`
-(`MINIMUM_TOKENS_REQUIRED`). Since counts are in 18-decimal units that floor is `10^-6` tokens, a
-guard against a trade rounding to zero inside the integer arithmetic, not an order minimum. It fires
-when a caller passes a whole-token count where the contract expected token decimal units.
+(`MINIMUM_TOKENS_REQUIRED`). Since counts are in 18-decimal units that floor is `10^-6` tokens. It is
+enforced on every buy, sell and quote, so a balance under `10^-6` tokens cannot be sold. It also
+fires when a caller passes a whole-token count where the contract expected token decimal units.
 
 ## Related
 

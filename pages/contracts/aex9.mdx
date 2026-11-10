@@ -169,9 +169,10 @@ if (existing === undefined) {
 }
 ```
 
-`allowance` returns `option(int)`, so a never-granted allowance decodes to `undefined`. The
-`.catch(() => undefined)` covers a call that aborts on a missing entry rather than returning
-`None`.
+`allowance` returns `option(int)` and never aborts on a missing entry: a never-granted allowance
+decodes to `undefined`. The `.catch(() => undefined)` therefore only hides unrelated failures
+(network, wrong address, ACI mismatch) and would route them into `create_allowance`; drop it or
+rethrow in production code.
 
 `allowance_for_caller(from_account)` is the same read from the spender's side.
 

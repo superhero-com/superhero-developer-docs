@@ -32,7 +32,7 @@ All paths are relative to `https://api.superhero.com`. Reads need no authenticat
 | `GET /api/coins/aeternity/market-data` | `currency` | Market data object |
 
 Posting activity has its own set under `/api/posts/analytics*` and referral activity under
-`/api/bcl-affiliation/analytics*`. See [Posts](/api-reference/posts) and
+`/api/bcl-affiliation/analytics*` (operator session required). See [Posts](/api-reference/posts) and
 [Invitations & Affiliations](/api-reference/invitations-and-affiliations).
 
 Date parameters are snake_case `start_date` / `end_date` in `YYYY-MM-DD` format.
@@ -108,7 +108,7 @@ day's end. Do not divide by 1e18.
 
 - The range is clamped to **365 days**; a wider `start_date` is moved forward, not rejected.
 - With neither date, `start_date` and `end_date` both default to today, so you get a single row.
-- Each day is an aggregate query; a full year is 365 of them. Cached for 20 seconds.
+- Each day is an aggregate query; a full year is 365 of them. May be cached for up to 20 seconds.
 - `token_sale_addresses` is accepted but the series is always platform-wide. For a per-token
   series use `GET /api/tokens/{address}/history`.
 
@@ -130,7 +130,7 @@ aettos scale too.
 
 `total-unique-users` accepts `token_sale_addresses` (at most 100; more is a 400) to restrict the
 count to traders of those tokens. Unknown addresses are dropped; if none resolves to a token the
-answer is `{ "total_users": 0 }`. Cached for 20 seconds.
+answer is `{ "total_users": 0 }`. Not cached.
 
 `total-created-tokens` is scoped to the current factory, so it does not match `total_tokens`
 from `past-24-hours`, which counts every token.
@@ -208,12 +208,12 @@ omitting them makes it all-time.
 
 | Endpoint | Freshness |
 | --- | --- |
-| `past-24-hours`, `summary` | Computed live on every request |
+| `past-24-hours`, `summary` | Computed on request (`past-24-hours` may be cached for up to 60 seconds) |
 | `analytics` without `force_pull` | Read from the daily table, rebuilt **hourly** (re-pulling the last 7 days each tick) |
 | `analytics` with `force_pull=true` | Recomputed synchronously for the whole requested range first, which is slow for a wide range |
 | `analytics` with `address` | Always live; `force_pull` irrelevant |
-| `daily-market-cap-sum`, `total-unique-users` | Live, cached 20 seconds |
-| `daily-trade-volume`, `daily-unique-active-users`, `daily-created-tokens-count`, `total-market-cap`, `total-created-tokens` | Live on every request, uncached |
+| `daily-market-cap-sum` | Live; may be cached for up to 20 seconds |
+| `daily-trade-volume`, `daily-unique-active-users`, `daily-created-tokens-count`, `total-market-cap`, `total-created-tokens`, `total-unique-users` | Live on every request, uncached |
 | `coins/aeternity/*` | From a snapshot refreshed from CoinGecko every **10 minutes** |
 
 ## `GET /api/analytics/challenge`

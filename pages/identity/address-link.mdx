@@ -20,7 +20,7 @@ state = { providers  : map(string, address)
 
 A link is a `(subject, provider, value)` triple. `links` is the forward index (every provider
 value an address has claimed), and `reverse` is the inverse, so a provider value resolves back
-to its owner. `nonce_seq` is a monotonic counter per subject: every signed message carries the
+to its owner. `nonce_seq` is a monotonic counter per signer address, shared by all entrypoint families: every signed message carries the
 current nonce, and the nonce advances on write, so a signature cannot be replayed.
 
 ### Providers
@@ -86,8 +86,8 @@ under the signer's address. They do not create separate link or nonce namespaces
 
 For preferred-name links the principal is an AENS name. The contract verifies ownership via `AENSv2.lookup`
 before accepting the link: a name that is not registered aborts with `PRINCIPAL_NOT_FOUND`, and
-a name the signer does not own aborts with `PRINCIPAL_MISMATCH`. The preferred-AENS-name link
-uses this namespace.
+a name the signer does not own aborts with `PRINCIPAL_MISMATCH`. The preferred-AENS-name flow
+uses these entrypoints.
 
 ### DID-keyed
 
@@ -156,9 +156,13 @@ always a 32-byte inner hash, producing a fixed 60-byte payload before the final 
 | `ALREADY_CLAIMED` | This provider value is already linked to a different address |
 | `LINK_NOT_FOUND` / `NO_LINKS` | No link for this provider, or no links for the address |
 | `NOT_PROVIDER_OWNER` | The submitting wallet does not own the provider namespace |
-| `PRINCIPAL_NOT_FOUND` | The AENS name is not registered |
-| `PRINCIPAL_MISMATCH` | The AENS name is not owned by the signer |
-| `INVALID_PRINCIPAL` | Not a well-formed AENS name |
+| `PRINCIPAL_NOT_FOUND` | The `.chain` name has no active registration (never claimed, in auction, expired or revoked) |
+| `PRINCIPAL_MISMATCH` | The signer does not own the `.chain` name, or a non-name principal is not the signer's address |
+| `INVALID_PRINCIPAL` | The principal (after any `did:ae:` prefix) contains a colon |
+| `EMPTY_PRINCIPAL` / `PRINCIPAL_TOO_LONG` | The principal is empty or longer than 200 characters |
+| `INVALID_DID` | Not `did:ae:` followed by a subject |
+| `EMPTY_VALUE` / `VALUE_TOO_LONG` / `INVALID_VALUE` | The value is empty, longer than 200 characters, or contains a colon |
+| `PROVIDER_NOT_FOUND` | No such provider is registered |
 
 The backend maps recognised aborts to readable `400` messages. The mapping names `NOT_LINKED`
 rather than the contract's `LINK_NOT_FOUND`, so that
@@ -223,7 +227,7 @@ deprecated):
   flow end to end.
 - [Profiles & Accounts](/identity/profiles): where the linked values surface on screen.
 - [Chat](/social/chat): the `nostr` provider, and the room pipeline that consumes it.
-- [Delegated & Gasless Posting](/social/delegated-posting): the same signed-message
-  construction in the posting contract.
+- [Delegated & Gasless Posting](/social/delegated-posting): the posting contract's signature,
+  which uses the same personal-message prefix over a 32-byte hash of the post, without a nonce.
 - [Sophia standard library](https://github.com/aeternity/aesophia/blob/master/docs/sophia_stdlib.md):
   the reference for `Crypto.verify_sig` and the Blake2b primitives.

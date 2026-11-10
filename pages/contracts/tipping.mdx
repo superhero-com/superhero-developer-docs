@@ -143,8 +143,9 @@ are opaque references that the frontend renders as links or embeds.
 ## Delegated posting
 
 `post_without_tip_sig` lets any account submit a post on behalf of an author who signed it off
-chain. This is how gasless posting works: the user signs a message in their wallet, a relayer
-pays the fee, and the on-chain record still attributes the post to the signer.
+chain. This is how gasless posting works: the author signs the post digest off chain (a
+standard wallet `signMessage` cannot produce this signature), a relayer pays the fee, and the
+on-chain record still attributes the post to the signer.
 
 The entire verification:
 

@@ -29,15 +29,15 @@ Every field in the token summary is a hard fact rather than an interpretation:
 | --- | --- |
 | Price | Current spot **buy** price, one token, in AE |
 | Market cap | See below. Displayed in AE, convertible to fiat |
-| DAO balance | AE accumulated in the community treasury from the spread |
+| DAO balance | The DAO contract's current AE balance: about 0.5% of every buy, plus 555 AE per proposal and any donations, minus executed payouts |
 | Total supply | Tokens currently in circulation. Minted by buys, burned by sells |
 | Creation date | When the community was deployed |
 | Contract address | The AEX-9 token contract |
 | Sale address | The bonding-curve sale contract, the handle for all trading |
 | Created by | The account that called `create_community` |
 
-The API record behind it carries more than the panel shows: `sell_price` (the spot sell price, 0.5%
-under `price`), `circulating_supply`, `rank`, `holders_count`, `tx_count`, `trending_score`,
+The API record behind it carries more than the panel shows: `sell_price` (the spot sell price, about 1%
+under `price`, because `price` includes the 0.5% affiliation fee), `circulating_supply`, `rank`, `holders_count`, `tx_count`, `trending_score`,
 `trending_score_update_at`, `unlisted`, and a `performance` object with `past_24h`, `past_7d`,
 `past_30d` and `all_time` sub-objects. See [Tokens API](/api-reference/tokens).
 
@@ -62,9 +62,9 @@ They come from different places and can legitimately disagree:
 the case on a new token or when the middleware is behind. The two converge; use `total_supply` for anything that has
 to be right, including the 10% DAO participation quorum.
 
-**DAO balance is the most under-read number on the page.** It is cumulative spread, so it measures
-how much value has actually traded through the token since launch. It is much harder to fake than a
-price, and not resettable by a single large buy.
+**DAO balance is the most under-read number on the page.** It is the treasury today, not a volume
+meter: every buy adds about 0.5%, but proposal deposits and donations also raise it, and a passing
+payout drains it. Use the Transactions tab to judge volume.
 
 ## Market cap, precisely
 
@@ -99,15 +99,16 @@ On a rising convex curve the rectangle is always bigger than the area:
 | Total supply | Spot valuation before affiliation (AE) | Curve cost from zero (AE) | Modeled full-supply redemption (AE) | Spot valuation overstates by |
 | --- | --- | --- | --- | --- |
 | 10,000,000 | 1,052.71 | 518.09 | 515.50 | 2.04× |
-| 100,000,000 | 171,838.20 | 71,838.18 | 71,478.99 | 2.40× |
+| 100,000,000 | 171,838.18 | 71,838.18 | 71,478.99 | 2.40× |
 
 A token showing a 1,000 AE market cap has roughly 500 AE of reserve in this model, and the gap
 widens as the curve steepens. Check the actual balance on-chain; the continuous comparison does
 not establish exact solvency across integer trades. See
 [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
 
-**Market cap is a ranking signal, not a valuation.** The trending list defaults to sorting by it so
-that larger communities surface first, and for that job it is fine. Do not read it as money that
+**Market cap is a ranking signal, not a valuation.** The token list can sort by it (**Market Cap**; the
+default is **Trending**), and search results sort by it by default, so larger communities surface
+first. For that job it is fine. Do not read it as money that
 exists.
 
 ## The chart
@@ -174,7 +175,8 @@ transactions script or the API. See [Transaction History](/tokens/transactions).
 
 Before buying, in the order the page makes them available:
 
-1. **DAO balance**: has real volume ever passed through this token?
+1. **DAO balance** and **Transactions**: what does the treasury hold, and has real volume passed
+   through this token?
 2. **Holders**: how concentrated is it, and how cheap was the top holder's entry?
 3. **Transactions**: distinct accounts, or one address round-tripping?
 4. **Feed**: is there a community here, or just a ticker?

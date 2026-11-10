@@ -36,12 +36,12 @@ you the same addresses in every one of them.
 
 ## Create in the Superhero app
 
-Press **Connect**. The dialog offers a passkey (the built-in wallet), Superhero Wallet, and an AI
-agent setup.
+Press **Connect**. The dialog offers a **Passkey** card (the built-in wallet), **Download the
+mobile app**, **Superhero Wallet** and **Onboard your AI Agent**.
 
 ### With a passkey
 
-Choose **Use a passkey**. One ceremony does everything: Face ID, Touch ID, a fingerprint or your
+Tap the **Passkey** card. One ceremony does everything: Face ID, Touch ID, a fingerprint or your
 device PIN, and a wallet exists.
 
 The phrase is **derived** from the passkey's own output at a fixed salt, so it can be re-derived on
@@ -55,14 +55,16 @@ If you skip the phrase backup, recovery depends on keeping the passkey. Confirm 
 (iCloud Keychain, Google Password Manager) before relying on it across devices. A device-bound
 credential such as Windows Hello cannot follow you to another device.
 
-If the option is greyed out, this device or browser cannot create a platform passkey; use a
-recovery phrase instead. If tapping it does nothing at all, see
+If this device or browser cannot create a platform passkey, the card reads **Create a wallet**
+and goes straight to the recovery-phrase flow. If tapping it does nothing at all, see
 [Troubleshooting](/wallets/troubleshooting).
 
 ### With a recovery phrase
 
-Choose **Use a recovery phrase**. Twelve words you write down and keep yourself; works on any
-device, with or without biometrics.
+Twelve words you write down and keep yourself; works on any device, with or without biometrics.
+On a device that can create passkeys, tap the **Passkey** card and **cancel** the system passkey
+prompt; the next screen offers **Use a recovery phrase** (**Create with a phrase**). Where
+passkeys are unavailable, the card reads **Create a wallet** and opens this flow directly.
 
 1. **The phrase is shown.** Write it down by hand. Do not screenshot it.
 2. **Confirm your backup.** The app asks you to re-enter two words. You can skip this step, but
@@ -70,7 +72,8 @@ device, with or without biometrics.
 3. **You set a passphrase.** It encrypts the wallet on this device. The app scores it locally and
    requires a genuinely unguessable one, so a numeric PIN is rejected. Take the **generated
    five-word passphrase** unless you have a reason not to. The passphrase cannot be changed later;
-   changing it means recreating the wallet from the phrase.
+   changing it means recreating the wallet from the phrase, which only the installed app can
+   import.
 4. **The wallet is created** and your first address is derived.
 5. **A device passkey is offered.** Optional. With it you stop typing the passphrase for every
    signature.
@@ -84,12 +87,16 @@ Offered **only in the installed app** (Add to Home Screen / installed PWA). In a
 the answer to "I already have a wallet" is **Connect**, which hands signing to your extension or
 wallet app and never asks for your secret.
 
-Imported phrases are checked against the BIP39 wordlist **and checksum** before anything is stored,
-so a mistyped word is rejected rather than silently creating a different, empty wallet.
+Imported phrases are checked against the BIP39 wordlist **and checksum** before anything is stored.
+A misspelled word is always rejected, but a wrong word that is itself on the list (or two swapped
+words) passes about 1 time in 16 for a 12-word phrase and creates a different, empty wallet. Check
+that the address on the final screen matches your old one before funding it.
 
 ### Restore a passkey wallet on a new device
 
-Choose **Restore a wallet you created with a passkey**. The ceremony derives the wallet your passkey
+Tap the **Passkey** card and **cancel** the prompt to create a new passkey: approving it creates a
+new, empty wallet, which you would have to erase before restoring. On the screen that follows,
+choose **Restore a wallet you created with a passkey**. The ceremony derives the wallet your passkey
 implies and **shows you the address before saving anything**, together with a check of whether that
 address has on-chain history. If it reports no activity, stop: you probably picked the wrong
 passkey. Details in [Backup & Recovery](/wallets/backup-and-recovery).

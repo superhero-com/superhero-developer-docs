@@ -61,7 +61,8 @@ contracts verify with `Crypto.verify_sig`.
 
 ### Secret-key encoding
 
-Superhero's tooling uses `@aeternity/aepp-sdk` v14. From v14, `MemoryAccount` takes the secret
+The Superhero agent skill pins `@aeternity/aepp-sdk` v14; the web app, API and Superhero Wallet
+use v15. From v14, `MemoryAccount` takes the secret
 key as an `sk_`-prefixed encoded 32-byte secret, not raw hex. The web app's built-in wallet
 normalises older persisted values (raw hex, or a longer keypair payload) by taking the first
 32 bytes and encoding them as `sk_`. The agent skill does not: it passes `AE_PRIVATE_KEY` straight

@@ -6,7 +6,8 @@ description: "The Socket.IO channels that push token updates and trades in real 
 # WebSocket API
 
 Superhero pushes live token data over **Socket.IO**. Two events carry token updates and trades on
-the default namespace, and a separate authenticated namespace carries notifications.
+the default namespace, which also emits a `social-graph-updated` invalidation hint, and a separate
+authenticated namespace carries notifications.
 
 ## Connecting
 
@@ -39,6 +40,7 @@ Socket.IO client for your language.
 | --- | --- |
 | `token-updated` | A token's live price, supply, market cap or DAO balance has been re-read from chain and written back |
 | `token-history` | A buy, sell or token creation has been indexed **live** |
+| `social-graph-updated` | The follow graph changed (also sent once on connect); a hint to refetch social-graph data |
 
 Both are broadcast to every connected client, so getting started takes two steps: connect and
 listen. Each payload carries the token's `sale_address`, so your process can route it to the views
@@ -178,7 +180,7 @@ transports: ['polling'] with upgrade: false, forceNew: true
 | Authentication | None | Socket.IO `auth.token`, from the feed session flow |
 | Transport | Polling, upgrading to WebSocket | **Polling only**, upgrade disabled |
 | Reconnection | Library default | `reconnectionAttempts: 5` |
-| Events | `token-updated`, `token-history` | `notification`, `unread-count` |
+| Events | `token-updated`, `token-history`, `social-graph-updated` | `notification`, `unread-count` |
 | Fan-out | Broadcast to everyone | Only to the proven address's own room |
 
 The token comes from the feed session flow in

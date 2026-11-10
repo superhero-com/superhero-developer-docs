@@ -52,7 +52,7 @@ The community-creation flow:
 
 The service behind `api.superhero.com` is one NestJS process doing several jobs:
 
-- **Indexer**: a general-purpose chain indexer. It stores key blocks, micro blocks and transactions
+- **Indexer**: a general-purpose chain indexer. It stores key blocks and transactions
   in Postgres and runs two loops: a **live indexer** fed by middleware WebSocket subscriptions for
   transactions and key blocks, and a **backward/bulk indexer** that backfills history, seeding its
   tip height from the middleware's `/v3/status` → `mdw_height`. The indexer reads the middleware,
@@ -61,8 +61,8 @@ The service behind `api.superhero.com` is one NestJS process doing several jobs:
 - **Plugins**: all domain decoding. Each plugin declares a `startFromHeight()` and a `filters()`
   list matching contract calls by contract id and entrypoint name (or spend transactions by
   predicate), then receives `onTransactionsSaved(txs)`. The shipped set is `bcl` (token sales),
-  `bcl-affiliation`, `dex`, `governance`, `social` (posts), `social-tipping`, `social-graph` and
-  `address-links`.
+  `bcl-affiliation`, `dex`, `governance`, `social` (posts), `social-tipping`, `social-graph`,
+  `address-links`, and the token-gated-room plugins `aex9-transfer` and `community-room-state`.
 - **Reorg handling**: the chain is re-validated every 10 minutes. On a rollback, derived rows
   disappear automatically because plugin entities carry a foreign key to the transaction with
   `onDelete: 'CASCADE'`; a plugin can also implement `onReorg(rollBackToHeight)` for anything the
@@ -148,12 +148,13 @@ The web app shows this as a two-step progress indicator; the agent CLI runs both
 ## The live-update path
 
 Token views do not poll. The web app opens a single socket.io connection to the `websocketUrl` from
-config (`https://api.superhero.com` on mainnet). The backend emits two channels:
+config (`https://api.superhero.com` on mainnet). The backend emits two token channels, plus a
+`social-graph-updated` hint when the follow graph changes:
 
 | Channel | Emitted when |
 | --- | --- |
 | `token-updated` | A token's aggregate state changes; the payload carries `sale_address` |
-| `token-history` | A new chart point exists for a `sale_address` |
+| `token-history` | A buy, sell or create for a `sale_address` has been indexed live |
 
 Use `token-updated` as your signal to refresh token lists and transaction feeds from the REST
 endpoints.

@@ -7,8 +7,8 @@ description: "Let a relayer pay the gas while the author keeps attribution: the 
 
 `post_without_tip_sig` lets any account submit a post on behalf of an author. The submitter
 pays the gas; the on-chain record attributes the post to the signer. This is the mechanism
-behind gasless onboarding: a user signs a message in a wallet that holds no AE, and a relayer
-turns it into a transaction.
+behind gasless onboarding: a user signs the post digest with a key that holds no AE, and a
+relayer turns it into a transaction.
 
 ## The entrypoint
 
@@ -158,8 +158,8 @@ transaction fee and execution gas.
 
 - [Posting](/social/posting): the direct path, the data model, and the shared conventions.
 - [The Tipping contract](/contracts/tipping): the contract reference for both entrypoints.
-- [AddressLink](/identity/address-link): the same signed-message construction, with a
-  contract-held nonce.
+- [AddressLink](/identity/address-link): the same personal-message prefix, with the full message
+  text as the body and a contract-held nonce.
 - [Contract security](/contracts/security): the protocol's wider security model.
 - [Sophia standard library](https://github.com/aeternity/aesophia/blob/master/docs/sophia_stdlib.md):
   the reference for `Crypto.verify_sig`.

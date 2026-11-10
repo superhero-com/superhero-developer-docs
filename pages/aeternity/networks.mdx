@@ -53,12 +53,12 @@ GET  <MIDDLEWARE_URL>/v3/transactions/<hash>
 GET  https://mainnet.aeternity.io/mdw/v3/names?owned_by=ak_...
 ```
 
-Middleware routes are not all on the same version. Check the call you need:
+Common middleware calls:
 
 | Call | Path |
 | --- | --- |
 | Transaction status | `/v3/transactions/...` |
-| AEX-9 account balances | `/v2/aex9/account-balances/...` |
+| AEX-9 account balances | `/v3/accounts/.../aex9/balances` (v2 alias: `/v2/aex9/account-balances/...`) |
 | Owned names | `/v3/names?owned_by=...` |
 
 ## Rate limits

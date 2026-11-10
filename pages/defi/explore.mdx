@@ -45,7 +45,7 @@ GET /api/dex/tokens
 
 `listed` filters to listed or unlisted tokens; omit it to return both, which is what the web UI
 shows. Tokens start unlisted, and the flag is set by the Superhero operator through the
-API-key-protected `POST /api/dex/tokens/<address>/listed`.
+API-key-protected `PATCH /api/dex/tokens/{address}/listed` (see [DEX API](/api-reference/dex)).
 
 Endpoints for a single token:
 

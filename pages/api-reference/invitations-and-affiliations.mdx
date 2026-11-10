@@ -9,7 +9,10 @@ An invite link is a private key; the AE behind it sits in the `AffiliationTreasu
 until someone redeems it. This API is the indexed view: which invites an address has issued and
 which have been claimed. Creating or revoking an invite is a contract call, not a REST call.
 
-All paths are relative to `https://api.superhero.com`. Reads need no authentication.
+All paths are relative to `https://api.superhero.com`. The invitation and affiliation reads need no
+authentication. The `/api/bcl-affiliation/*` analytics, tree and preview routes are internal operator dashboards:
+they need an operator session cookie from `/api/bcl-affiliation/auth/login`. Without it a JSON
+request gets `401` and a browser is redirected to the login page.
 
 ## Endpoints
 
@@ -197,9 +200,7 @@ inviter · registered_count · redeemed_count · revoked_count · pending_count 
 
 Ordered by `registered_count` descending, then `total_amount_ae`. All amounts in **AE**.
 
-```bash
-curl -s "https://api.superhero.com/api/bcl-affiliation/analytics/top-inviters?limit=10"
-```
+This route needs the operator session described above; without it the response is `401`.
 
 ### `GET /api/bcl-affiliation/analytics/x-verification` and `/x-invite`
 

@@ -235,6 +235,7 @@ ACIs rather than throwing during event decoding.
 | Other trades landing between quote and execution | Either way | Bounded by your tolerance; this is what the guards are for |
 | The 0.5% affiliation fee on a buy | Against you | 0.5% of the curve value, already inside `price()`, not inside `calculate_buy_price()` |
 | Off-chain estimates using a trapezoidal integral | Overstates by up to ~20 ppm on very large trades | Negligible, but see [Curve Parameters & Units](/tokens/curve-parameters) |
+| The web app's sell estimate | Overstates by about 0.5% | It integrates the buy curve without the 0.995 sell factor. The minimum return uses the on-chain `sell_return`, so execution is unaffected |
 
 The quote you get from `price()` or `sell_return()` is exact at the supply it was read at.
 Everything that moves it afterwards is other people.

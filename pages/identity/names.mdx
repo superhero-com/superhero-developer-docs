@@ -30,8 +30,9 @@ username             (the legacy profile field)
 address              (the ak_… itself)
 ```
 
-A linked preferred name overrides the middleware-resolved one on purpose: an address can own
-several AENS names, and the middleware returns the first. Linking one says which.
+A linked preferred name overrides the middleware-resolved one on purpose: several AENS names
+can point at an address, and the backend shows the active one whose pointer was set most
+recently. Linking one says which.
 
 The resolved value is `public_name` on `GET /api/profile/{address}` and
 `GET /api/accounts/{address}`. There is no per-account preference that changes the order.

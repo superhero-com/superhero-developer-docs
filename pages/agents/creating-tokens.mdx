@@ -41,7 +41,7 @@ needs the wallet to be funded.
 
 ```json
 { "collection": "WORDS-ak_...", "name": "MYTOKEN", "exists": false,
-  "allowed_name_length": 20, "allowed_chars": "A-Z, 0-9, - (dash)" }
+  "allowed_name_length": "20", "allowed_chars": "A-Z, 0-9, - (dash)" }
 ```
 
 `allowed_name_length` comes from the collection record returned by `GET /api/factory`.
@@ -58,8 +58,10 @@ exposed by `allowed_name_chars(collection_name)`. Mainnet has four collections:
 | RUSSIAN | 20 | Uppercase Cyrillic U+0410–U+042F plus Ё (U+0401), and the dash |
 
 None permits lowercase, and only WORDS permits digits or Latin letters. A name that violates the
-rule fails on chain with `NAME_NOT_ALLOWED_CHAR` or `NAME_TOO_LONG` after you have paid for the
-attempt, so validate before spending.
+rule makes `create_community` abort with `NAME_NOT_ALLOWED_CHAR` or `NAME_TOO_LONG`. The script
+sets no `gasLimit`, so the SDK's gas-estimation dry-run fails before signing and nothing is paid;
+a caller that sets `gasLimit` itself broadcasts the call and pays for the failed attempt. Validate
+first either way.
 
 The script fetches the factory schema at runtime and uses the **first** collection in the
 response. You cannot specify a different one, so the skill creates WORDS tokens.
@@ -99,11 +101,12 @@ the token's page on the app.
 1. Estimates the token count client-side by bisecting the integral of the curve's price
    function, `0.001 * exp(0.00000001 * x) - 0.0009999`.
 2. Asks the on-chain bonding curve for the exact price of that token count.
-3. Attaches that on-chain price multiplied by **1.05**, a 5% buffer for price drift between
-   quote and mine.
+3. Attaches that on-chain price multiplied by **1.05**. The quote excludes the 0.5% affiliation
+   fee, so the extra covers the fee and the factory refunds the rest in the same transaction. A
+   new token starts at supply 0, so there is no price drift.
 
-So `create "MYTOKEN" 0.1` sends roughly 1.05 times the on-chain cost of however many tokens
-0.1 AE was estimated to buy. `estimated_tokens` is the client-side estimate; check the real
+So `create "MYTOKEN" 0.1` attaches about 1.05 times the curve cost of however many tokens 0.1 AE
+was estimated to buy, is charged about 1.005 times that cost, and gets the rest back. `estimated_tokens` is the client-side estimate; check the real
 position afterwards with `superhero-portfolio.mjs holdings`.
 
 Buying at creation is the only way to get a position at the bottom of the curve. If the agent
@@ -190,7 +193,7 @@ run returns.
 | --- | --- |
 | Gas | around 0.001 AE |
 | Pre-flight balance | at least 0.01 AE |
-| Initial buy | whatever you specify, times roughly 1.05 |
+| Initial buy | about 1.005 × the curve cost of the estimated count; the wallet must briefly hold about 1.05× |
 
 The factory is `ct_25cqTw85wkF5cbcozmHHUCuybnfH9WaRZXSgEcNNXG9LsCJWTN`. See
 [Contract addresses](/contracts/addresses).

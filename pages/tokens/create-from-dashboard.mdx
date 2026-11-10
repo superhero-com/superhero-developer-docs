@@ -88,17 +88,17 @@ fee and network charges are additional:
 
 ### Mode 2: Tokens to buy
 
-You type a token count; the app tells you what it costs, labelled *(incl. fees)*: the curve
-integral multiplied by 1.005 for the 0.5% affiliation fee. Quick-pick buttons offer 500K, 1M, 5M,
+You type a token count; the app tells you what it costs, labelled *(incl. fees)*: a 100-step
+trapezoidal estimate of the curve integral, multiplied by 1.005 for the 0.5% affiliation fee. Quick-pick buttons offer 500K, 1M, 5M,
 10M and 100M tokens:
 
-| Tokens | Curve cost (AE) | Displayed cost incl. 0.5% fee (AE) |
-| --- | --- | --- |
-| 500,000 | 1.302086 | 1.308596 |
-| 1,000,000 | 5.116708 | 5.142292 |
-| 5,000,000 | 127.609638 | 128.247686 |
-| 10,000,000 | 518.091808 | 520.682267 |
-| 100,000,000 | 71,838.182846 | 72,197.373760 |
+| Tokens | Curve cost (AE) | Charged on chain incl. 0.5% fee (AE) | App shows (AE) |
+| --- | --- | --- | --- |
+| 500,000 | 1.302086 | 1.308596 | 1.31 |
+| 1,000,000 | 5.116708 | 5.142292 | 5.14 |
+| 5,000,000 | 127.609638 | 128.247686 | 128.25 |
+| 10,000,000 | 518.091808 | 520.682267 | 520.68 |
+| 100,000,000 | 71,838.182846 | 72,197.373760 | 72,198.81 |
 
 The AE-mode estimate is computed from the bare curve and does not subtract the affiliation fee,
 while the token-mode estimate adds it. Creation submits the estimated token count as

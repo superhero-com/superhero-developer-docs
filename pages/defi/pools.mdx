@@ -230,7 +230,8 @@ reaches you as native AE in the same transaction.
 
 Both forms abort with `AedexV2Router: INSUFFICIENT_A_AMOUNT` or `INSUFFICIENT_B_AMOUNT` if the
 burn returns less than your minimums, and with `AedexV2Router: EXPIRED` past the deadline.
-Slippage above 100% or below 0 is rejected client-side on both add and remove.
+The DEX slippage setting is limited to 0–50%; the add and remove code also rejects negative values
+and values of 100% or more.
 
 ## Impermanent loss
 

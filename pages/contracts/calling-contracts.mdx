@@ -259,7 +259,7 @@ Revert strings you are most likely to hit, with the contract that raises them:
 | `VOTE_RESULT_TIMEOUTED` | `DAO.apply_vote_subject` | The execution window after close height has passed. |
 | `VOTE_NOT_YET_FINAL` | `DAO.apply_vote_subject` | The vote has not closed yet. |
 | `COLLECTION_CREATION_DONATION_MISMATCH` | `create_collection` | The attached amount is not exactly 555 AE. |
-| `collection_ALREADY_EXISTS` | `create_collection` | That collection name is taken. |
+| `collection_ALREADY_EXISTS` | `create_collection` | The raw input equals an existing suffixed collection id; a repeat of a plain name is not caught |
 | `MINIMUM_REDEMPTION_AND_FEE_NOT_MEET` | `register_invitation_code` | `redemption_fee_cover` is below 0.001 AE. |
 | `INVITATION_AMOUNT_AND_FEE_NOT_MATCHING` | `register_invitation_code` | Attached AE is not exactly `(fee + amount) * number of invites`. |
 | `NOT_KNOWN_TOKEN_SALE` | `mint_protocol_dao_token` | Called by something the factory did not deploy. |

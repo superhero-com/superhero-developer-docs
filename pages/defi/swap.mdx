@@ -121,7 +121,8 @@ function get_amount_out(amount_in, reserve_in, reserve_out) =
 ```
 
 997 of every 1000 input units buy output; the remaining 3 stay in the pool. `get_amount_in`
-inverts the same ratio and adds one aetto of rounding headroom.
+inverts the same ratio and adds one base unit of the input asset (one aetto when the input is
+AE or WAE) of rounding headroom.
 
 The pair enforces it inside `swap`, independently of the router's arithmetic:
 
@@ -190,8 +191,9 @@ The AE-side entrypoints do the wrapping for you. `swap_exact_ae_for_tokens` and
 `swap_ae_for_exact_tokens` require the first element of `path` to be the WAE address and call
 `wae.deposit_to(first_pair, value = ...)`; `swap_exact_tokens_for_ae` and
 `swap_tokens_for_exact_ae` require the last element to be WAE, swap into the router itself, then
-`wae.withdraw(amount)` and `Chain.spend(to, amount)`. Both exact-out AE-input forms refund the
-unspent AE to you in the same transaction.
+`wae.withdraw(amount)` and `Chain.spend(to, amount)`. `swap_ae_for_exact_tokens` refunds AE
+attached above the computed input in the same transaction; `swap_exact_ae_for_tokens` spends the
+whole attached value.
 
 Router and factory addresses for both networks are in the [deployment table](/defi).
 

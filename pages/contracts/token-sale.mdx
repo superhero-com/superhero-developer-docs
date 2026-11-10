@@ -80,8 +80,9 @@ record state =
   , dao_contract         : ReplaceableDAO }
 ```
 
-`get_state()` is the way to get the DAO address from the sale, because the factory has no getter for
-it.
+`beneficiary()` returns the DAO (decoded as `ak_`; swap the prefix to `ct_`), and so does `owner()`
+unless a replacement DAO has moved ownership; `get_state().dao_contract` gives it as `ct_`. The
+factory has no getter for it.
 
 ## Events
 

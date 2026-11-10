@@ -199,8 +199,8 @@ of the next one; a reward credited on the last day of a period has 30 days left.
 shown in the app is the last two buckets, not a lifetime total.
 
 - If you are accruing rewards but have not yet reached the 4 × 10 AE gate, the clock is
-  running: rewards earned more than two periods before you qualify are no longer claimable by
-  the time you can call `withdraw()`.
+  running: rewards earned two or more periods before the period in which you qualify are no
+  longer claimable by the time you can call `withdraw()`.
 - Once qualified, withdraw at least once every 30 days.
 
 `withdraw()` requires only the threshold:
@@ -256,7 +256,7 @@ At registration the contract spends `redemption_fee_cover` to each one-time invi
 `revoke_invitation_code` returns the `invitation_amount` of an unredeemed code to the inviter;
 it rejects `ALREADY_REDEEMED` if the code has been claimed and `CALLER_NOT_INVITER` if anyone
 other than the registering address calls it. On success the code is deleted from state, so
-the same one-time address cannot be re-registered.
+the same one-time address can be registered again.
 
 ## Contract surface
 
@@ -299,7 +299,10 @@ the same one-time address cannot be re-registered.
 
 The token sale calls `record_sale_transaction` with `protected = true`, so a failure inside
 the treasury does not abort the buy. The entrypoint accepts calls from any account with AE
-attached.
+attached, so recorded volume is not proof of a buy: attaching 0.5% of a claimed
+`transaction_value` records it. About 0.05 AE records 10 AE of volume for any address, which can
+fill the 4 × 10 AE gate without real buys. `register_invitation` also does not reject your own
+address as the inviter.
 
 `get_invitation_code` returns field 0 as the inviter, field 1 as the amount in aettos, and
 field 2 as the already-claimed flag.

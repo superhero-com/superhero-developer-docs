@@ -144,9 +144,10 @@ hash, and what happened.
 
 ### 19. What is a sponsored name claim?
 
-We sponsor one free .chain name claim per address. The name must be longer than 12 characters
-(excluding the .chain suffix). This gives you a human‑readable identity on the æternity blockchain
-at no cost.
+We can sponsor one .chain name claim per address. The name must be longer than 12 characters
+(excluding the .chain suffix). When the sponsor can fund it, you get a human‑readable identity on
+the æternity blockchain at no cost; otherwise the app offers a self-funded claim paid from your
+wallet.
 
 *Name Claims · More in [Claim Your .chain Name](/getting-started/claim-name)*
 
@@ -205,8 +206,8 @@ Design around three properties:
   available, so changing an address parameter does not necessarily create a separate bucket.
 - **The window is fixed, not sliding.** The first request starts a 60-second window and the counter
   resets when it expires.
-- **The limit applies to the entity CRUD endpoints** and to the profile rewards, profile chain-name,
-  notification feed and token-gated-room endpoints. Write your client to back off on any 429 and
+- **The limit applies only to the routes in the
+  [guarded-route list](/api-reference/conventions#rate-limits).** Write your client to back off on any 429 and
   honour `retryAfter`.
 
 Public token and post routes do not use this guard. See the
@@ -258,8 +259,8 @@ post whose first media entry is `comment:PARENT_ID`. See [Posts](/api-reference/
 ### How do I get live updates instead of polling?
 
 Open a socket.io connection to the API origin and listen for **`token-updated`** and
-**`token-history`**: `token-updated` fires when a token's state changes, and `token-history` when
-a new chart point exists.
+**`token-history`**: `token-updated` fires when a token's state changes, and `token-history` once
+per live-indexed buy, sell or create.
 
 - **Every connected client receives each event.** The `sale_address` in the payload tells you which
   token it is about, so you update just the views that show it.

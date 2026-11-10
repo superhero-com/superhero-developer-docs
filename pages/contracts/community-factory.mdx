@@ -90,7 +90,7 @@ dash". Decoded in JavaScript, each entry is a one-key object:
 
 ```javascript
 const chars = await factory.allowed_name_chars(collectionId).then((r) => r.decodedResult);
-// [ { CharRangeFromTo: [ 65n, 90n ] }, { CharRangeFromTo: [ 48n, 57n ] }, { SingleChar: [ 45n ] } ]
+// [ { SingleChar: [ 45n ] }, { CharRangeFromTo: [ 48n, 57n ] }, { CharRangeFromTo: [ 65n, 90n ] } ]
 ```
 
 `CommunityManagement.meta_info` is `map(string, string)`: free-form key/value metadata with
@@ -210,9 +210,11 @@ const amount = new BigNumber(onChainPrice.toString())
 
 The client-side estimate only picks a count; the chain always sets the price. Pass `0n` as
 the supply to `calculate_buy_price` because a brand-new community starts at zero supply.
-Overpayment is refunded by the sale contract, so the buffer is safe.
+Overpayment is refunded by the factory before the buy, so the buffer is safe.
 
-Pass `initial_buy_count` as `0` and attach no AE to create a token with zero supply.
+Pass `initial_buy_count` as `0` and attach no AE to create a token with zero supply. Any AE
+attached when `initial_buy_count` is `0` stays in the factory permanently: there is no refund or
+withdrawal.
 
 ## Minting ProtocolDAO tokens
 

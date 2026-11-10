@@ -199,6 +199,9 @@ GET  /api/bcl-affiliation/analytics/x-invite
 GET  /api/bcl-affiliation/tree
 ```
 
+The `/api/bcl-affiliation/*` reads are operator dashboards and need an operator session; see
+[Invitations & Affiliations](/api-reference/invitations-and-affiliations).
+
 ### DEX
 
 ```text
@@ -245,16 +248,25 @@ GET    /api/notifications/{address}/preferences
 POST   /api/notifications/{address}/preferences
 ```
 
-The notification feed routes are the only bearer-authenticated part of the API:
+The notification feed routes are the only bearer-authenticated part of the API. A wallet-signed
+challenge and session issue the token (these two, and the public VAPID key, need no token):
 
 ```text
 POST /api/notifications/{address}/feed/challenge
 POST /api/notifications/{address}/feed/session
-GET  /api/notifications/{address}/feed
-GET  /api/notifications/{address}/feed/unread-count
-POST /api/notifications/{address}/feed/read
-POST /api/notifications/{address}/web-push/subscription
 GET  /api/notifications/web-push/vapid-public-key
+```
+
+These require the bearer token:
+
+```text
+DELETE /api/notifications/{address}/feed/session
+GET    /api/notifications/{address}/feed
+GET    /api/notifications/{address}/feed/unread-count
+POST   /api/notifications/{address}/feed/read
+POST   /api/notifications/{address}/web-push/subscription
+DELETE /api/notifications/{address}/web-push/subscription
+GET    /api/notifications/{address}/price-alerts
 ```
 
 Governance is documented under [Governance](/governance), chat rooms under [Chat](/social/chat)
@@ -268,8 +280,6 @@ GET /api/v2/mdw/txs
 GET /api/v2/mdw/txs/{hash}
 GET /api/v2/mdw/key-blocks
 GET /api/v2/mdw/key-blocks/{hash}
-GET /api/v2/mdw/micro-blocks
-GET /api/v2/mdw/micro-blocks/{hash}
 GET /api/v2/mdw/sync-state
 GET /api/v2/mdw/plugin-sync-state
 ```

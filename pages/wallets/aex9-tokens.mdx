@@ -88,7 +88,13 @@ indexed balance or a DEX listing. Anything else falls back to a name-prefix sear
 ## Allowances
 
 An allowance grants a specific contract permission to move up to a stated number of *your*
-tokens. Superhero relies on this in two places.
+tokens. Superhero relies on this in three places.
+
+### Selling to the bonding curve
+
+A sell pulls your tokens through an allowance for the token's sale contract (again the `ct_`
+address re-encoded as `ak_`). The app grants or adjusts it just before the sell, which is why a
+sell asks for two signatures.
 
 ### DEX swaps
 
@@ -114,7 +120,8 @@ This is why a vote can ask you to sign twice: once to grant or adjust the allowa
 
 ### Revoking an allowance
 
-superhero.com grants allowances just-in-time before a swap or an add-liquidity and does not
+superhero.com grants allowances just-in-time before a sell, a swap, an add-liquidity or a DAO
+vote, and does not
 provide a screen to review or revoke them. Revoke per token with a direct contract call:
 
 ```text

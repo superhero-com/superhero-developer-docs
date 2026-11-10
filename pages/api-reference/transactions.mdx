@@ -154,7 +154,8 @@ endpoint once, then update from the socket. See [WebSocket](/api-reference/webso
 | æScan (testnet) | `https://testnet.aescan.io/transactions/{tx_hash}` |
 | Middleware | `GET https://mainnet.aeternity.io/mdw/v3/transactions/{tx_hash}` |
 
-While a trade is confirming, poll the middleware form and treat a `404` as "still pending".
+While a trade is confirming, poll the middleware form and keep polling on a `404`, but time out
+and check the node rather than treating it as pending forever.
 
 ## `GET /api/debug/failed-transactions`
 

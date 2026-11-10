@@ -78,8 +78,9 @@ uppercase Cyrillic. All four cap names at 20 characters. `WORDS` was deployed fr
 account than the other three on mainnet, so its `-ak_` suffix differs.
 
 A collection that exists on-chain but is not in the backend's configuration is not indexed, and
-tokens created in it do not appear in the app. There is no factory entrypoint that enumerates
-collections; to discover them from the chain, replay `CreateCollection(string, address)` events.
+tokens created in it do not appear in the app. The factory's `get_state()` returns the
+whole registry, but on mainnet it exceeds the dry-run gas limit; to discover collections from the
+chain, replay `CreateCollection(string, address)` events.
 
 The API returns the resolved collection on a token as `collection` (the full id) and
 `collection_info`, which carries `id`, `name`, `description` and `allowed_name_length`.

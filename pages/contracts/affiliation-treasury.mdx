@@ -49,7 +49,7 @@ Or resolve it at runtime with `factory.affiliation_treasury()`. Its interface is
 datatype unique_invitees_state =
     ThresholdReached
   | WaitingForInvitations(Set.set(address), map(address, int))
-                       // invitees seen,    per-invitee buy volume
+                       // invitees at 10 AE, volume of those below it
 
 record state =
   { payout_periods   : map(int, map(address, int))
@@ -195,8 +195,9 @@ datatype unique_invitees_state =
   | WaitingForInvitations(Set.set(address), map(address, int))
 ```
 
-While an account is `WaitingForInvitations`, the contract holds the set of invitees seen so
-far and how much each of them has bought. Two constants govern the transition:
+While an account is `WaitingForInvitations`, the contract holds the set of invitees who have
+reached 10 AE of recorded buys, and the running volume of invitees still below it (an invitee
+leaves the map on reaching 10 AE). Two constants govern the transition:
 
 | Constant | Value | Meaning |
 | --- | --- | --- |
@@ -252,7 +253,7 @@ stateful entrypoint withdraw() =
 
 ### Rewards expire
 
-Anything credited three or more buckets ago is no longer withdrawable. Because buckets are
+Anything credited two or more buckets before the current one is no longer withdrawable. Because buckets are
 absolute rather than relative to when you earned, the grace period is **between 30 and
 60 days**: a reward credited on the first day of a bucket survives that bucket plus the whole
 of the next one; a reward credited on the last day of a bucket has a few hours plus 30 days.

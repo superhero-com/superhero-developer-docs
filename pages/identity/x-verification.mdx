@@ -88,11 +88,8 @@ Content-Type: application/json
 ```
 
 The backend exchanges the code for an access token itself, so the token never touches the
-browser. A second body shape is accepted for callers that already hold a token:
-
-```text
-{ "address": "ak_…", "x_access_token": "…" }
-```
+browser. This is the only accepted body: any other property, such as `x_access_token`, is a
+`400`.
 
 The response is a claim:
 
@@ -103,7 +100,8 @@ The response is a claim:
 | `value` | The X username the backend resolved, trimmed and lowercased |
 | `verification_token` | A base64url HMAC token binding address, provider, value and expiry |
 
-The username is taken from the X profile as `username || name`, then `.trim().toLowerCase()`.
+The username is the X profile's `username` (the handle), never its display name, then
+`.trim().toLowerCase()`.
 A profile the backend cannot extract a username from is a `400`.
 
 ### The verification token
@@ -159,8 +157,9 @@ invalidates the profile query so the verified badge appears once the backend has
 
 ## Unlinking
 
-Unlinking is symmetrical and also signed, but requires no X proof: possession of the æternity
-key is sufficient to remove your own link, so there is no verification token.
+Unlinking is symmetrical and also signed, but requires no X proof and no verification token:
+you sign the unlink message, and the backend, as the `x` provider owner, submits it. The contract
+rejects an unlink from any other caller.
 
 ```text
 POST /api/address-links/x/unclaim          → { "message": "unlink:ak_…:x:1", "nonce": 1 }

@@ -152,7 +152,7 @@ curl -s "https://api.superhero.com/api/stats"
 | `syncingLatestBlocks` | boolean | Same value as `fullSyncing` |
 | `lastSyncedBlockNumber` | number | How far down from the tip the backward sync has reached |
 | `remainingBlocksToSync` | number | `lastSyncedBlockNumber` minus 0, because the backward sync targets genesis |
-| `apiVersion` | string | The deployed package version |
+| `apiVersion` | string, optional | The package version; omitted unless the server is started through npm (absent on api.superhero.com) |
 | `mdwConnected` | boolean | Whether the middleware WebSocket subscription is up |
 | `uptime` | string | Human-readable, e.g. `3d 4h 12m 8s` |
 | `uptimeDurationSeconds` | number | The same as a number |
