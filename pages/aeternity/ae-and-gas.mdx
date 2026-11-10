@@ -6,8 +6,8 @@ description: "The native coin, the 10^18 aetto conversion, and what a transactio
 # AE & Gas
 
 AE is æternity's native coin. It pays for gas, it is the base currency of every bonding curve,
-and it is what a tip is denominated in. Most integration bugs in this ecosystem are unit bugs, so
-start here.
+and tips are denominated in it. Check units before passing amounts between the API, SDK and
+contracts.
 
 ## 1 AE = 10^18 aettos
 
@@ -18,16 +18,17 @@ An **aetto** (plural *aettos*) is the smallest unit of AE:
 1 aetto   = 0.000000000000000001 AE          = 10^-18 AE
 ```
 
-**Every amount crossing a chain boundary is in aettos.** Node balances, contract call `amount`
-options, bonding-curve prices, event arguments: all aettos, all integers. AE is a presentation
-format.
+**Native AE amounts use aettos at the protocol level.** Node balances and contract-call values
+are integers in aettos. Token balances use the token's own decimal units, and other contract
+arguments and event fields use the units defined by their interface. SDK amount options can
+also accept AE when you explicitly set the denomination.
 
 ### Convert safely
 
 Never use JavaScript floating point for this. `10^18` is past `Number.MAX_SAFE_INTEGER` (about
-`9.007 × 10^15`), so a balance held as a `Number` silently loses precision. Use `BigNumber` or
-`BigInt` for every value you send or receive, and divide by `1e18` with a plain `Number` only for
-display.
+`9.007 × 10^15`), so a balance held as a `Number` can lose precision. Use `BigInt` for integer
+arithmetic and a decimal library such as `BigNumber` for conversion and display. Keep the
+result as a string until you pass it to the UI or SDK.
 
 ```js
 import BigNumber from 'bignumber.js';
@@ -66,19 +67,17 @@ An æternity transaction has two separate charges:
 | Charge | Applies to | How it is set |
 | --- | --- | --- |
 | `fee` | Every transaction | Size- and type-dependent base fee; the SDK computes it |
-| gas | Contract create and contract call transactions | `gasLimit` × `gasPrice`, charged on top of `fee` |
+| gas | Contract create and contract call transactions | `gasUsed` × `gasPrice`, charged on top of `fee`; capped by `gasLimit` × `gasPrice` |
 
-Gas is charged on top of `fee`, up to the limit in the transaction. At a routine 5M gas limit
-that ceiling is around thirty times the fee, so the Superhero wallet shows a separate
-"Gas, at most" row, computed as `gasLimit × gasPrice`. When you approve a contract call, that
-row, not "Network fee", is your worst case.
+The wallet's "Gas, at most" row is `gasLimit × gasPrice`. Add the transaction `fee` to get the
+maximum network charge. Any AE transferred to the contract is a separate amount.
 
 ### Gas price
 
-`gasPrice` is quoted in aettos per unit of gas. The SDK's default follows network demand, using
-the consensus minimum the node reports as the floor and `1e9` aettos (1 Gaetto) per gas unit as
-the fallback when the node does not report one. Under load, the same call costs more for the same
-`gasUsed`.
+`gasPrice` is quoted in aettos per unit of gas. SDK v14.1.0 uses a minimum of `1e9` aettos
+(1 Gaetto) per gas unit. Its default estimation reads the node's recent gas prices and can
+increase the price under load. A higher `gasPrice` increases the cost for the same `gasUsed`.
+Later SDK releases can use different estimation rules.
 
 Worked example at the floor price, for a contract deploy:
 
@@ -88,22 +87,23 @@ gasPrice   1 000 000 000 aettos
 max gas = 76 000 × 1e9 = 7.6e13 aettos = 0.000076 AE
 ```
 
-A contract call typically carries a `gasLimit` of 5 000 000.
-
-Superhero does not override the SDK's gas defaults: no contract call in the web app sets
-`gasPrice` or `gasLimit`, so a call that runs out of gas does so at the SDK's default limit.
+The SDK normally estimates `gasLimit` with a dry-run. Inspect the estimate for the specific
+call rather than assuming every contract call uses a fixed limit. See
+[Calling contracts](/contracts/calling-contracts) for setting an explicit limit.
 
 ### Running out of gas
 
 Gas is debited up front: the protocol subtracts `gas × gas_price` from the caller before
-execution, then refunds the unused portion and pays the used portion to the miner. A call that
-exhausts its `gasLimit` refunds nothing: the transaction is still mined, the state change is
-rolled back, and you pay the full limit. A generous `gasLimit` costs nothing when the call
-succeeds and everything when it does not.
+execution, then refunds the unused portion and pays the used portion to the miner. A successful
+call, or one that reverts through `abort` or `require` (return type `revert`), is charged only
+the gas it used. Any other failure (return type `error`: running out of gas, an arithmetic or
+type error, value sent to a non-payable entrypoint, a reentrant call) is charged the full gas
+limit. Either way a failed transaction is still mined, its state change is rolled back, and you
+pay the transaction fee.
 
 ## Transactions per Superhero action
 
-Each transaction pays gas at the network's current gas price:
+Every transaction pays a transaction fee; contract execution also consumes gas:
 
 | Action | Transactions |
 | --- | --- |
@@ -113,7 +113,7 @@ Each transaction pays gas at the network's current gas price:
 | Revoke a vote | 1 |
 | Delegate / revoke delegation | 1 |
 | Create a governance poll | 2 |
-| Create a token | 1, plus any initial buy |
+| Create a token | 1, including any initial buy |
 | Redeem an invitation | 1 |
 
 The agent skill confirms a balance of **at least 0.01 AE** before doing anything on chain.
@@ -137,7 +137,7 @@ AE.
 ## Related
 
 - [Fees & slippage](/tokens/fees-and-slippage): the protocol fees layered on top of gas when you trade.
-- [Curve parameters & units](/tokens/curve-parameters): where aettos meets bonding-curve math.
+- [Curve parameters & units](/tokens/curve-parameters): where aettos meet bonding-curve math.
 - [Accounts & Keys](/aeternity/accounts-and-keys): the account these balances belong to.
 - [Fund your wallet](/getting-started/fund-wallet): the practical route to a funded account.
 - [SDK transaction options](https://github.com/aeternity/aepp-sdk-js/blob/develop/docs/transaction-options.md): `gasLimit`, `gasPrice`, `fee` and their defaults.

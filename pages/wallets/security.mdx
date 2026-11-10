@@ -45,16 +45,17 @@ The attack that empties accounts is not a broken cipher; it is a convincing page
 - **Check the URL before the connect prompt, not after.** A wallet prompt tells you *what* is being
   signed, not *who* asked.
 - On the built-in wallet there is one extra signal: passkeys are pinned to a single Relying Party
-  ID baked into the build. A clone on another domain cannot use your Superhero passkey; the
-  ceremony fails before it starts. That is a side effect of the design, not a substitute for
-  checking the URL.
+  ID baked into the build. An unrelated domain cannot use your Superhero passkey. The default
+  `superhero.com` RP ID is also valid on its HTTPS subdomains, so it is not an exact-host boundary.
+  Check the URL even when a passkey prompt appears.
 
 ## Approvals and allowances
 
 AEX-9 tokens use an allowance mechanism: you grant another contract permission to move a specific
-amount of your tokens. Superhero uses it in two places: **DEX swaps** of non-AE tokens, and
-**vote locking** in DAO governance, where the allowance stops the same tokens being double-spent
-across concurrent votes.
+amount of your tokens. Superhero uses allowances for bonding-curve sells, DEX token swaps and
+liquidity operations, and DAO voting. A vote contract uses the allowance to transfer your stake
+into its custody; holding those tokens there prevents their use in concurrent votes. Granting an
+allowance alone does not lock tokens.
 
 - **Read the amount in the prompt.** The built-in wallet names these calls explicitly: "Lets
   another account spend your tokens up to this amount" for `create_allowance`, "Increases or
@@ -81,8 +82,10 @@ loop. That is a different threat model from a browser wallet.
 - **Cap the balance.** Fund it with what you are willing to lose to a bug or a bad prompt, and top
   it up deliberately. There is no spending limit enforced anywhere in the stack. The balance *is*
   the limit.
-- **Keep the key out of the process list and the shell history.** `export` in a shell, or a
-  secrets manager; never an argument on a command line, never a file in the repository.
+- **Keep the key off command lines and out of shell history.** Load it with
+  `read -rs AE_PRIVATE_KEY; export AE_PRIVATE_KEY`, from a secrets manager, or from an untracked
+  env file; a typed `export AE_PRIVATE_KEY=...` lands in shell history. Never pass it as a
+  command-line argument, and never commit it to the repository.
 - **Never echo it.** A key printed once is a key in a CI log forever.
 - **Separate agent identity from personal identity.** An agent that posts, trades and claims a
   `.chain` name under its own address keeps your main account out of whatever it does.
@@ -94,9 +97,11 @@ loop. That is a different threat model from a browser wallet.
 - **Transactions are final.** There is no reversal and no chargeback.
 - **Gas is charged on top of the fee**, up to the gas limit, which is why a good prompt shows both
   a network fee and a "gas, at most" figure. A failed contract call still costs gas.
-- **A bonding-curve trade carries a 1% spread** between buy and sell price, split 0.5% to the
-  community DAO and 0.5% to the affiliation system. That is a structural cost, not a fee you can
-  avoid by timing.
+- **Bonding-curve trades have a structural cost.** At the documented parameters, a buy pays the
+  curve cost plus a 0.5% affiliation fee, and allocates 0.5% of the curve cost to the DAO. Sells
+  use a 99.5% return factor and create no new DAO allocation. An immediate ideal-model round
+  trip returns `0.995 / 1.005`, about 99.005% of the payment before gas and integer rounding.
+  See [Fees & Slippage](/tokens/fees-and-slippage).
 - **Community tokens are not equity and carry no promise.** Read [Token Risks](/tokens/risks).
 
 Double-check addresses and amounts before signing. Never risk funds you cannot afford to lose.
@@ -107,7 +112,7 @@ For the built-in wallet, storage is part of your security model:
 
 - The encrypted vault lives in this browser's IndexedDB for this origin. **Clearing site data
   deletes it**, and your passphrase and recovery code cannot bring it back. Only the written
-  phrase or a syncing passkey can.
+  phrase can or, for a wallet created with a passkey, that passkey if it syncs.
 - The vault's confidentiality equals its **weakest enrolled factor**, because any one factor opens
   it. A strong passphrase does not compensate for a weak one enrolled alongside.
 - Choose a real passphrase. The app enforces a zxcvbn score of at least 3, rejects numeric-only

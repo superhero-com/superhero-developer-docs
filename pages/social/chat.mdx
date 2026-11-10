@@ -1,6 +1,6 @@
 ---
 title: "Chat"
-description: "Realtime messaging over Nostr: direct messages, community rooms, token-gated membership and the relay."
+description: "Real-time messaging over Nostr: direct messages, community rooms, token-gated membership and the relay."
 ---
 
 # Chat
@@ -118,15 +118,23 @@ The API runs a reactive pipeline off the middleware's live transaction stream:
    the tokens moved outside the curve.
 2. A balance change, a `CommunityManagement` state change (threshold, moderator set, muted set
    or privacy flag), or a Nostr link change each trigger a recheck.
-3. Eligibility is recomputed for the affected `(sale_address, member_address)` pairs as
-   `balance >= min_token_threshold AND NOT muted`, raw against raw with no decimal shifting.
-4. On a real flip, the bot publishes the NIP-29 kind 9000 (add) or 9001 (remove) event to the
-   relay, moving `relay_state` through `pending_add` to `added`.
+3. Ordinary-member eligibility is recomputed for the affected `(sale_address, member_address)`
+   pairs as `balance > 0 AND balance >= min_token_threshold AND NOT muted`, raw against raw with
+   no decimal shifting. A zero threshold still requires a positive holding. Moderators bypass
+   the positive-balance check, but the eligibility predicate still checks the threshold and mute.
+4. A changed eligibility state updates the desired relay membership. The publishing pipeline
+   sends NIP-29 kind 9000 (add) or 9001 (remove) events subject to the identity, mute and admin
+   checks below; an acknowledged add advances `relay_state` from `pending_add` to `added`.
 
 `POST /api/rooms/{saleAddress}/recheck` forces one pass through the same path for a single
 address; it is a repair tool, not the normal mechanism. A reconciliation service and a startup
 backfill cover drift. When no relay is configured, the API still indexes balances and serves the
 read endpoints but publishes nothing.
+
+Eligibility and relay membership are separate: provisioning relay membership requires a linked
+Nostr key. Existing admin relay states and configured-admin removal guards can preserve relay
+membership when the eligibility predicate becomes false; a mute still blocks new member-add
+events.
 
 A room row carries:
 

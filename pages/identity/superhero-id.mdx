@@ -7,7 +7,8 @@ description: "Link your wallet, .chain name, X handle and Nostr key into one sel
 
 SuperheroID is Superhero's identity layer: an æternity address with a set of independently
 signed, independently revocable links attached to it. The links live in the `AddressLink`
-contract. You authorise every link with your wallet signature, and only you can remove one.
+contract. You authorise link changes with your wallet signature; the provider owner submits
+the transaction.
 
 ## What it links
 
@@ -20,8 +21,8 @@ contract. You authorise every link with your wallet signature, and only you can 
 | Website | `site` | `link` | Ownership of the address only |
 
 Every link also needs your æternity signature over the claim message; the proof column is what
-the provider checks on top of that. Each link is removed by its own `unlink`, which needs
-nothing but your signature.
+the provider checks on top of that. Removing a link requires an `unlink` call authorised by
+your signature and submitted by the provider owner.
 
 The transaction itself is submitted and paid for by Superhero's provider wallet, which is the
 only account permitted to write the `x`, `nostr`, `bio`, `site` and `prefaens` namespaces. See
@@ -37,7 +38,7 @@ only account permitted to write the `x`, `nostr`, `bio`, `site` and `prefaens` n
 | AENS name registration, pointers, expiry | æternity AENS; the `prefaens` link references it but does not own it |
 | Posts, comments, tip totals | `Tipping` v3 plus the API index |
 | Avatar, fullname, legacy username, follow counts, leaderboard stats | Superhero API |
-| Chain name shown on a profile | Resolved hourly from the middleware, not from a contract link |
+| Chain name shown on a profile | Cached middleware resolution, with a legacy-cache fallback; see [freshness limits](/identity/names#how-the-chain-name-stays-fresh) |
 
 ## Reading an identity
 
@@ -51,7 +52,7 @@ query flag is deprecated.
 
 ```text
 prefered_aens_name   (links.prefaens — the AENS name you explicitly linked)
-chain_name           (from the middleware, refreshed hourly)
+chain_name           (cached middleware name, with a legacy-cache fallback)
 username             (the legacy profile field)
 address              (the ak_… itself)
 ```
@@ -66,8 +67,9 @@ In order of how much can be checked independently:
 
 1. **Preferred `.chain` name.** `link_principal` calls `AENSv2.lookup` inside the contract and
    aborts with `PRINCIPAL_MISMATCH` if the signer does not own the name. You can independently
-   resolve the name through AENS on any node and compare its `account_pubkey` pointer. Both
-   checks are protocol state.
+   check the current name owner through AENS on any node. An `account_pubkey` pointer is
+   a separate setting and can point to an account other than the owner. Ownership is checked
+   at link time; later transfer or expiry does not automatically clear the stored link.
 2. **Nostr key.** The backend verifies a Schnorr signature from the npub over the exact claim
    message before submitting, but only the æternity signature is recorded on chain. A reader
    of the chain sees the address's consent to an npub string.
@@ -75,8 +77,8 @@ In order of how much can be checked independently:
    provider owner submitted it. The OAuth evidence lives only inside the backend. See
    [Verifying Your X Account](/identity/x-verification).
 4. **Bio and website.** Nothing to verify beyond ownership of the address.
-5. **Posts.** Independent of the identity layer. A post's `sender` is whichever address signed
-   the transaction, recorded by the `Tipping` contract.
+5. **Posts.** Independent of the identity layer. `Tipping` records the caller on direct posts
+   and the verified author on delegated posts; a relayer can sign the transaction for the latter.
 
 The verified badge on a profile means an `x` link exists for that account.
 

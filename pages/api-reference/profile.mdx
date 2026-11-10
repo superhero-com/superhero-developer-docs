@@ -1,15 +1,16 @@
 ---
 title: "Profile API"
-description: "Read profiles, and the challenge-and-signature flow behind every write endpoint on api.superhero.com."
+description: "Read profiles and use the challenge-and-signature flow for profile and identity updates."
 ---
 
 # Profile API
 
-The write endpoints on `api.superhero.com` take no password, API key or session cookie. Every
-write is authorised by a **wallet signature over a server-issued challenge**: request a
+The profile and identity writes described here use a
+**wallet signature over a server-issued challenge**: request a
 challenge, sign it with the key that owns the address, post the signature back.
 
-All paths are relative to `https://api.superhero.com`.
+All paths are relative to `https://api.superhero.com`. Other API endpoints have different
+authentication requirements; see [Conventions](/api-reference/conventions#authentication).
 
 ## Reading a profile
 
@@ -32,14 +33,14 @@ curl -s "https://api.superhero.com/api/profile/ak_2ruXgsLy9jMwEqsgyQgEsxw8chYDfv
 | `address` | string | The `ak_...` |
 | `public_name` | string | Resolved display name. **Never null**: it falls back to the address |
 | `profile.fullname` | string | Display name from the legacy profile cache. `""` when unset |
-| `profile.bio` | string | The verified `links.bio` if present, else the cached bio, else `""` |
-| `profile.site` | string or null | The verified `links.site` |
+| `profile.bio` | string | The wallet-signed `links.bio` if present, else the cached bio, else `""` |
+| `profile.site` | string or null | The wallet-signed `links.site` |
 | `profile.avatarurl` | string | `""` when unset |
 | `profile.username` | string or null | Legacy custom username |
 | `profile.prefered_aens_name` | string or null | The verified `links.prefaens`. Note the one-`r` spelling |
 | `profile.x_username` | string or null | The verified `links.x` |
 | `profile.chain_name` | string or null | The account's `chain_name` first, then the cached copy |
-| `profile.chain_expires_at` | string or null | When the `.chain` name expires |
+| `profile.chain_expires_at` | string or null | Legacy cached value, not refreshed; check expiry through AENS |
 | `profile.followers_count` / `following_count` | number | Single-profile read only, and only when the social-graph feature is enabled |
 
 The display name resolves as:
@@ -49,7 +50,9 @@ public_name = prefered_aens_name || chain_name || username || address
 ```
 
 An X handle never becomes the display name. `fullname`, `avatarurl` and `username` come from a
-legacy profile cache; the account's `chain_name` is refreshed hourly and is the live one.
+legacy profile cache; the account's `chain_name` is periodically refreshed from the middleware.
+Stored preferred-name links take precedence independently of that refresh. See
+[Names](/identity/names#how-the-chain-name-stays-fresh) for freshness limits.
 
 `includeOnChain` is accepted on both read endpoints and ignored; profiles are served from indexed
 data.
@@ -75,7 +78,7 @@ curl -s "https://api.superhero.com/api/profile?addresses=ak_ONE,ak_TWO"
 
 ## The write pattern
 
-Every write endpoint is one of two shapes:
+Address-link writes generally follow this shape:
 
 ```text
 claim   ->  server returns { message, nonce, value, verification_token }
@@ -91,13 +94,17 @@ sign      ->  wallet signs `message`
 submit    ->  server verifies, performs the action
 ```
 
-The nonce is single-use and the challenge expires.
+X, bio, site and preferred-name claims return a verification token; Nostr uses a signed
+event instead. AddressLink's on-chain nonce is consumed by a successful link or unlink and
+has no built-in time expiry. Server-issued tokens and reward/sponsorship challenges have
+their own expiration rules.
 
 ## Address links
 
-An **address link** is a verified statement that an `ak_...` owns something off-chain: an X
-handle, a bio, a website, a preferred `.chain` name, or a Nostr key. Five families, each with
-the same four endpoints.
+An **address link** records an account's consent to a provider value. X and Nostr add proof
+of control of the external account or key; preferred-name links check AENS ownership. Bio
+and website links are self-declared and do not prove ownership of a domain. Five families
+use the same four endpoint suffixes.
 
 | Link | Base path |
 | --- | --- |
@@ -125,11 +132,15 @@ curl -s -X POST "https://api.superhero.com/api/address-links/bio/claim" \
 | `message` | string | The exact text the wallet must sign |
 | `nonce` | **number** | The address's current nonce on the `AddressLink` contract, echoed back on submit |
 | `value` | string | The normalised value the server will record |
-| `verification_token` | string | Server-side proof that this claim was issued. **X only** |
+| `verification_token` | string | Server-issued proof required on link submission for X, bio, site and preferred name. Nostr instead requires a signed `nostr_event` |
 
 `nonce` is the `AddressLink` contract's `get_nonce` counter for the address; it advances after
 a successful submit, and sending it as a string (`"42"`) is a 400. The chain-name and X-reward
 flows use a different, server-issued string `nonce`.
+
+Nostr claim returns `message`, `nonce` and `value`, without a verification token. Its submit
+body contains `address`, `value`, `nonce`, `signature` and a JSON-encoded `nostr_event` proving
+control of the Nostr key. See [Chat](/social/chat#linking-your-nostr-key-to-your-address).
 
 The message the wallet signs is deterministic:
 
@@ -138,8 +149,10 @@ link:<address>:<provider>:<value>:<nonce>
 unlink:<address>:<provider>:<nonce>
 ```
 
-`<provider>` is `x`, `bio`, `site`, `prefered-aens-name` or `nostr`. A signature over anything
-else fails contract-side verification.
+`<provider>` is `x`, `bio`, `site`, `prefaens` or `nostr`. The preferred-name REST path uses
+`prefered-aens-name`, but its on-chain provider is `prefaens`. That flow uses the `.chain`
+name as the message principal in place of `<address>`, for example
+`link:hero.chain:prefaens:hero.chain:0`. Sign the exact `message` returned by the claim endpoint.
 
 ### Submit
 
@@ -149,7 +162,7 @@ Sign `message` with the address's key, then post everything back:
 curl -s -X POST "https://api.superhero.com/api/address-links/bio/submit" \
   -H "Content-Type: application/json" \
   -d '{"address":"ak_YOUR_ADDRESS","value":"Building things on aeternity.",
-       "nonce":42,"signature":"sg_...","verification_token":"..."}'
+       "nonce":42,"signature":"<128-character-hex-signature>","verification_token":"..."}'
 ```
 
 Response is `{ "txHash": "th_..." }`. The server broadcasts the on-chain write on your behalf.
@@ -157,38 +170,42 @@ The API sponsors the transaction; your signature authorises it. `value` is cappe
 characters, `signature` is a hex-encoded wallet signature, and `address` is validated as an
 `ak_` account address.
 
+Use exactly 128 hex characters for `signature`, without `0x` or `sg_`. Decode an encoded
+signature before converting its 64 bytes to hex.
+
 ### Unclaim
 
 `POST {base}/unclaim` with `{ "address": "ak_..." }` returns `{ message, nonce }`. Sign
 `message`, then `POST {base}/unclaim/submit` with `{ address, nonce, signature }` and receive a
 `txHash`.
 
+For a preferred-name unlink, `unclaim` also returns `value` and `principal` containing the
+linked `.chain` name. Include `value` in `unclaim/submit`; it is used to reconstruct the
+name-based principal and check current AENS ownership.
+
 ### Linking X
 
-The X value comes from an OAuth round trip rather than being typed. Two accepted claim bodies:
-
-```json
-{ "address": "ak_...", "x_access_token": "..." }
-```
+The X value comes from an OAuth round trip rather than being typed. The claim body is the PKCE
+form; any other property, such as `x_access_token`, is a `400`:
 
 ```json
 { "address": "ak_...", "x_code": "...", "x_code_verifier": "...", "x_redirect_uri": "https://superhero.com/profile/x/callback" }
 ```
 
-The second is the PKCE form: redirect the user to X, receive the code at your redirect URI, and
+Redirect the user to X, receive the code at your redirect URI, and
 post the code, verifier and redirect URI; the backend exchanges the code itself. From there the
 flow is identical: claim returns `message` plus `verification_token`, the wallet signs it,
 `submit` returns a `txHash`.
 
 ```text
-POST /api/address-links/x/claim            { address, x_access_token }  or  { address, x_code, x_code_verifier, x_redirect_uri }
+POST /api/address-links/x/claim            { address, x_code, x_code_verifier, x_redirect_uri }
 POST /api/address-links/x/submit           { address, value, nonce, signature, verification_token }
 POST /api/address-links/x/unclaim          { address }
 POST /api/address-links/x/unclaim/submit   { address, nonce, signature }
 ```
 
 Read the result back from `GET /api/accounts/{address}` as `links.x`, falling back to
-`profile.x_username` and then the legacy top-level `x_username`.
+`profile.x_username`.
 
 ## Sponsored `.chain` name registration
 
@@ -223,18 +240,19 @@ The claim body is `address`, `name`, `challenge_nonce`, `challenge_expires_at` a
 
 Registration is asynchronous and takes four on-chain transactions. Poll
 `GET /api/profile/{address}/chain-name-claim`, which returns `status` plus, as they happen,
-`preclaim_tx_hash`, `claim_tx_hash`, `update_tx_hash`, `transfer_tx_hash`, an `error`, and the
-name's expiry under `expires_at` (older responses use `approximate_expire_time`,
-`approximateExpireTime`, `expire_time` or `expireTime`).
+`preclaim_tx_hash`, `claim_tx_hash`, `update_tx_hash`, `transfer_tx_hash`, an `error` and a
+`retry_count`. It carries no expiry: read `expire_height` or `approximate_expire_time` from the
+middleware's `GET /v3/names/{name}`.
 
 ## X posting reward
 
-All four routes carry the per-IP rate limit: 10 requests per minute per route, returning `429`
+All five routes carry the per-IP rate limit: 10 requests per minute per route, returning `429`
 with a `retryAfter` field. See [Conventions](/api-reference/conventions#rate-limits).
 
 | Method & path | Purpose |
 | --- | --- |
 | `GET /api/profile/{address}/x-posting-reward` | Read status. No signature |
+| `GET /api/profile/{address}/x-posting-reward/history` | List the X reward payouts sent to the address. No signature |
 | `POST /api/profile/x-posting-reward/recheck-challenge` | Get a challenge for `address` |
 | `POST /api/profile/{address}/x-posting-reward/recheck` | Run the capped scan |
 | `POST /api/profile/{address}/x-reward/referral-link` | Get a referral link |
@@ -255,15 +273,10 @@ exceeding it returns `429` with `nextAllowedAt` in the body, and the scan is ski
 
 ## Deprecated: the legacy profile update
 
-Two endpoints implement an older generic profile edit. Use the address-link endpoints instead.
-
-| Method & path | Body | Returns |
-| --- | --- | --- |
-| `POST /api/profile/{address}/challenge` | The editable payload | `challenge`, `payload_hash`, `expires_at`, `ttl_seconds` |
-| `PATCH /api/profile/{address}` | The payload plus `challenge` and `signature` | The updated profile row |
-
-The editable payload is `fullname`, `bio`, `nostrkey`, `avatarurl`, `username`, `x_username`,
-`chain_name`, `sol_name`; the response adds `address`, `created_at` and `updated_at`.
+The generic `POST /api/profile/{address}/challenge` and `PATCH /api/profile/{address}` routes
+have been removed from the API and are no longer supported.
+Use the [address-link endpoints](#address-links) for bio, website, X, Nostr and preferred AENS
+updates. `fullname`, `avatarurl` and legacy `username` remain read-only cached fields.
 
 ## Related
 

@@ -201,8 +201,8 @@ const inFavour = current.get(true) ?? 0n;
 const against  = current.get(false) ?? 0n;
 ```
 
-The map is keyed by the boolean option, and an option nobody has voted for is absent. That is why
-the code uses `?? 0n`.
+The map is keyed by the boolean option. Both keys exist from `init` (set to `0`) and are never
+removed, so `?? 0n` is only defensive.
 
 ## Passing conditions
 

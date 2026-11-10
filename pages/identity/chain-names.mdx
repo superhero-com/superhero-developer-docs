@@ -1,6 +1,6 @@
 ---
 title: "Chain Names (AENS)"
-description: "Register, point, extend and link a .chain name, including the one sponsored free claim."
+description: "Register, point, extend and link a .chain name, including the sponsored claim."
 ---
 
 # Chain Names (AENS)
@@ -29,20 +29,22 @@ Use a wallet that supports `NameClaimTx` bidding if you want a short name.
 
 ## Registration is preclaim, then claim
 
-AENS registration is two transactions, to stop front-running:
+The app and CLI use a two-transaction registration flow to protect against front-running:
 
 1. **Preclaim.** Publish a commitment: the hash of the name plus a random salt. Nobody watching
    the mempool learns which name you want.
 2. **Claim.** Reveal the name and the salt. The protocol checks the commitment.
 
-The two transactions must land in **different blocks**. After the claim, **update** the name's
+The claim must land at a **later key-block height** than the preclaim. After the claim, **update** the name's
 pointers so it resolves to your address. A name with no `account_pubkey` pointer resolves to
-nothing.
+nothing. Since Ceres the protocol also allows a direct claim with salt zero, without a
+preclaim; see [AENS](/aeternity/aens).
 
 ## The sponsored claim in the app
 
-Superhero sponsors **one free `.chain` claim per address**, for names longer than 12 characters
-before the suffix, so every user can have a human-readable identity at no cost. Claim additional
+Superhero can sponsor **one `.chain` claim per address**, for names longer than 12 characters
+before the suffix. When the sponsor can fund it, the claim costs you nothing; otherwise the app
+offers a self-funded claim paid from your wallet. Claim additional
 names from Superhero Wallet: the browser extension, the mobile app, or `wallet.superhero.com`.
 
 The backend pays for and submits the sponsored transactions:
@@ -53,7 +55,7 @@ The backend pays for and submits the sponsored transactions:
 | 2 | `POST /api/profile/chain-name/challenge` | Get a `nonce`, an `expires_at` and a `message` bound to your address. |
 | 3 | (in your wallet) | Sign `message` with your wallet to prove you control the address. |
 | 4 | `POST /api/profile/chain-name/claim` | Submit `address`, `name`, `challenge_nonce`, `challenge_expires_at` and `signature_hex`. |
-| 5 | `GET /api/profile/{address}/chain-name-claim` | Poll the status. Returns `status` plus `preclaim_tx_hash`, `claim_tx_hash`, `update_tx_hash`, `transfer_tx_hash` and the expiry. |
+| 5 | `GET /api/profile/{address}/chain-name-claim` | Poll the status. Returns `status` plus `preclaim_tx_hash`, `claim_tx_hash`, `update_tx_hash`, `transfer_tx_hash`, `error` and `retry_count`. It carries no expiry. |
 
 The four transaction hashes are the four stages the app narrates: reserving the name on chain,
 submitting the sponsored claim, updating the name pointers, and transferring the name to your
@@ -98,32 +100,40 @@ node scripts/superhero-name.mjs list                 # names owned by your own w
 ## Expiry and extension
 
 An AENS name has a finite time-to-live measured in key-blocks, exposed as an expiry height. The
-`extend` command issues an extend-TTL transaction; the app surfaces the expiry through the claim
-status response's `expires_at`.
+`extend` command issues an extend-TTL transaction. The claim-status response carries no expiry;
+read `expire_height` or `approximate_expire_time` from the middleware's `GET /v3/names/{name}`.
 
 The ceiling is protocol configuration: an `expire_by` may be at most **180,000 key
 generations** into the future, roughly 375 days. Auction durations and starting bids are
 protocol parameters too; the
 [AENS protocol specification](https://github.com/aeternity/protocol/blob/master/AENS.md) is the
-reference.
+reference, except that since Ceres the node extends an auction by up to 240 key blocks after a
+bid, not the 120 the specification gives.
 
-If a name expires, it stops resolving and becomes available again. On Superhero:
+If a name expires, it stops resolving and passes through the revoked state before becoming
+available again. On Superhero:
 
-- The cached `chain_name` is refreshed from the middleware on an hourly sweep, and on any stale
-  read of `GET /api/accounts/{address}`, so a lapsed name disappears from profiles within about
-  an hour.
+- The cached `chain_name` is refreshed by an hourly sweep of eligible stale accounts, capped
+  at 100 per run. The reviewed backend uses a 23-hour sweep staleness window and a 24-hour
+  read staleness window for `GET /api/accounts/{address}`. Failed lookups preserve the old value,
+  and profile reads can fall back to a legacy cached name. A lapsed name therefore has no
+  guaranteed removal deadline; see [Names](/identity/names#how-the-chain-name-stays-fresh).
 - A `prefaens` address link naming it does **not** self-clear. The link is contract state and
   stays until you unlink it. Because `prefered_aens_name` sits at the top of the
   [name resolution ladder](/identity/names), a lapsed linked name keeps being displayed as your
-  public name until you unlink it.
+  public name. The preferred-name unlink flow also checks current AENS ownership, so expiry
+  or transfer can prevent unlinking that old name through this flow. Linking another name you
+  own replaces the preferred-name value. Until that happens, the name's next owner cannot link
+  it: `link_principal` aborts with `ALREADY_CLAIMED`, because the contract still maps the name
+  to the previous holder.
 
 `chain_expires_at` in the profile aggregate is a legacy field and is not refreshed; resolve the
 name through AENS to check whether it is live.
 
 ## Linking a name to your SuperheroID
 
-Owning an AENS name and using it as your Superhero identity are two steps. After the name
-resolves to your address, link it as your preferred name through the SuperheroID editor, which
+Owning an AENS name and using it as your Superhero identity are two steps. Once you own the
+name (its pointer does not matter for linking), link it as your preferred name through the SuperheroID editor, which
 runs a signed address-link claim at `/api/address-links/prefered-aens-name/claim` and then
 `/submit`.
 

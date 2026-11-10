@@ -110,7 +110,8 @@ when one side of the pair is WAE.
 
 ## `PairTransactionDto`
 
-One row per swap or liquidity event.
+One row per router transaction, keyed by `tx_hash`. A multi-hop swap is recorded once, against
+the last hop's pair; earlier hops get no row and no volume.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -120,17 +121,26 @@ One row per swap or liquidity event.
 | `pair` | `PairDto` | The pair, inlined |
 | `tx_type` | string | The router entrypoint that was called (see below) |
 | `reserve0` / `reserve1` | string | Reserves **after** the transaction, in base units |
-| `ratio0` | string | Price of `token0` quoted in `token1`: `reserve0 / reserve1` |
-| `ratio1` | string | Price of `token1` quoted in `token0` |
-| `total_supply` | string | LP supply after the transaction |
+| `ratio0` | string | Raw reserve ratio: `reserve0 / reserve1` |
+| `ratio1` | string | Raw reserve ratio: `reserve1 / reserve0` |
+| `total_supply` | string | Sum of raw reserves: `reserve0 + reserve1` |
 | `volume0` / `volume1` | string | Traded volume per side for swaps; `0` for liquidity operations |
-| `market_cap0` / `market_cap1` | string | Market cap denominated in each token |
-| `market_cap` | string | Pool market cap |
+| `market_cap0` / `market_cap1` | string | Not populated; always `"0"` |
+| `market_cap` | string | Not populated; always `"0"` |
 | `swap_info` | `SwapInfoDto` or null | Present for swaps |
 | `pair_mint_info` | `LiquidityInfoDto` or null | Present for liquidity operations |
 | `created_at` | string | ISO 8601 |
 
 `LiquidityInfoDto` is `type` (`PairMint` or `PairBurn`) plus `amount0` and `amount1`.
+
+The ratios use base-unit reserves. For positive reserves, convert them to whole-token prices:
+
+- Price of `token0` in `token1`: `ratio1 * 10^(token0.decimals - token1.decimals)`.
+- Price of `token1` in `token0`: `ratio0 * 10^(token1.decimals - token0.decimals)`.
+
+A ratio is `"0"` when its denominator reserve is zero; that pool cannot provide a usable price.
+The transaction's `total_supply` is a legacy reserve sum, not an LP supply or a pool valuation.
+The inlined `pair.total_supply` on `PairDto` remains the LP token supply.
 
 ### `tx_type`
 
@@ -234,15 +244,15 @@ Sets the `listed` flag. Body is `{ "listed": true }` or `{ "listed": false }`; r
 updated `DexTokenDto`, or 404 for an unknown token.
 
 Requires the API key, sent as `x-api-key: YOUR_KEY` or `Authorization: Bearer YOUR_KEY`. A
-missing or wrong key is a `401`. Every other write in the API uses a wallet signature. See
+missing or wrong key is a `401`. Authentication for other endpoints is described in
 [Conventions](/api-reference/conventions#authentication).
 
 ## Pagination on `/api/dex/*`
 
 `limit` defaults to 100 and is capped at 100. Unlike the rest of the API, exceeding the cap does
-not error: `limit=500` is silently clamped to 100, `page=0` to 1, and a non-numeric `limit` falls
-back to 100. Read `meta.itemsPerPage` rather than assuming your `limit` was honoured, and never
-infer "no more results" from getting fewer rows than you asked for.
+not error: `limit=500` is silently clamped to 100 and `page=0` to 1. A non-numeric `limit` returns
+`400` during integer parsing. Read `meta.itemsPerPage` rather than assuming your `limit` was
+honoured, and never infer "no more results" from getting fewer rows than you asked for.
 
 ## Related
 

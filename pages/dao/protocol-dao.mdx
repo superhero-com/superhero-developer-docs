@@ -44,9 +44,11 @@ stateful entrypoint mint_protocol_dao_token(buy_value : int, receiver : address)
   state.protocol_dao_token.mint(receiver, buy_value * protocol_dao_token_multiplier)
 ```
 
-`known_token_sales` is populated by `create_community` and nothing else. There is no owner
-mint and no other issuance path, so ProtocolDAO supply is exactly 1,000 times the AE ever
-spent buying community tokens through the factory.
+`known_token_sales` is populated by `create_community` and nothing else. The factory mints
+only through these buy paths, so cumulative issuance is 1,000 times the AE actually paid
+for those purchases after refunds. Outstanding supply can be lower: holders can burn their
+own ProtocolDAO tokens, including through the token's `swap()` entrypoint. See
+[Mint and burn](/contracts/aex9#mint-and-burn).
 
 The token contract is an ordinary `FungibleTokenFull` with 18 decimals, so the whole AEX-9
 surface applies: `balance`, `total_supply`, `transfer`, `create_allowance` and the rest. Its

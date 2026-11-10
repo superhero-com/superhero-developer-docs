@@ -35,8 +35,10 @@ so it is the same method as moderate with a materially higher hurdle rate.
 global constants, an absolute floor is directly comparable across tokens.
 
 Pair the floor with a relative condition: enter only tokens whose score is higher than at your
-previous scan. A rising score means buying pressure is accelerating, and the relative rule
-adapts as the platform's overall activity level changes. To calibrate a floor for your own
+previous scan. A rising score means activity around the token is rising: trades in either
+direction, mentions, comments, tips and reads, with social signals carrying most of the weight.
+It is not a buy-pressure signal, so compare buy and sell counts if you need direction. The
+relative rule adapts as the platform's overall activity level changes. To calibrate a floor for your own
 wallet, run `node scripts/superhero-trending.mjs tokens 50`, read the `trending_score` values,
 and pick a floor within the observed distribution; re-check it periodically.
 

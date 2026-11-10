@@ -1,23 +1,16 @@
 ---
 title: "Core Concepts"
-description: "Attention is the most valuable thing on the internet, and the people who create it have never owned it. Here is how Superhero changes that."
+description: "Understand Superhero's architecture, on-chain social model, bonding-curve tokens and fee flows before building an integration."
 ---
 
 # Core Concepts
 
-You have been early before. A song, a meme, a project, a community: you saw it before it broke
-out, you told people, you helped it happen. Then the platform sold ads against the attention you
-created, and you got a badge.
-
-**Superhero is built on the idea that being early should be worth something.**
-
-A post belongs to the person who wrote it, not to a database someone else controls. A trending
-topic is a market you can back while it is still small, priced by
-nothing but how many people arrived before you. The fees that trading generates flow into a
-treasury the community votes on, instead of out to an advertiser.
+Superhero combines on-chain posts, community tokens priced by bonding curves, and token-holder
+governance. These pages explain the contracts and services behind those features, which data
+is stored on chain, and how trading fees reach community treasuries and referrers.
 
 If you already know what a bonding curve is, skip ahead to
-[Where the Money Goes](/concepts/value-flow); it answers the question everyone asks first.
+[Architecture Overview](/concepts/architecture) or [Where the Money Goes](/concepts/value-flow).
 
 ## In this section
 
@@ -41,11 +34,14 @@ by a `tip_id`. Nobody, including Superhero, can delete it afterwards.
 
 **Topics are tokens.** Any hashtag can be turned into an AEX-9 token whose price is a deterministic
 function of its own circulating supply. There is no order book and no counterparty: you buy from the
-curve and sell back to it, and the contract holds a reserve large enough to redeem the entire supply.
+curve and sell back to it, using a reserve funded by buys. See
+[Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding) for the
+continuous-model redemption argument and its implementation limits.
 
-**The spread funds the community.** The gap between the buy curve and the sell curve is 1%. Half
-goes to the token's own DAO treasury, half to a four-level referral chain. Token holders vote on
-what the treasury does with it.
+**The spread funds the community.** The spread is 1% of curve value, including the affiliation
+fee added on buys. On each buy, half is allocated to the token's own DAO treasury and half to a
+four-level referral chain, before integer rounding. Token holders vote on what the treasury does
+with it.
 
 ## Related
 

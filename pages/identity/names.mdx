@@ -14,8 +14,8 @@ looking at before you cache it.
 
 | Type | Where it lives | How it gets there | Verified? |
 | --- | --- | --- | --- |
-| Preferred AENS name | `AddressLink`, provider `prefaens` | `link_principal`, which calls `AENSv2.lookup` inside the contract | **Yes**: ownership is checked on chain |
-| Chain name | `chain_name` on the account | Resolved from the middleware, refreshed on an hourly sweep and on a stale read | Yes, by resolution rather than by claim |
+| Preferred AENS name | `AddressLink`, provider `prefaens` | `link_principal`, which calls `AENSv2.lookup` inside the contract | Ownership is checked on chain when linking |
+| Chain name | `chain_name` on the account | Resolved from the middleware, cached and periodically refreshed | By resolution at the last successful refresh |
 | X handle | `AddressLink`, provider `x` | `link` after an OAuth check the backend performs | Off chain only; see [X verification](/identity/x-verification) |
 | Legacy username | `profile.username` | Read-only legacy field | No |
 
@@ -30,31 +30,38 @@ username             (the legacy profile field)
 address              (the ak_… itself)
 ```
 
-A linked preferred name overrides the middleware-resolved one on purpose: an address can own
-several AENS names, and the middleware returns the first. Linking one says which.
+A linked preferred name overrides the middleware-resolved one on purpose: several AENS names
+can point at an address, and the backend shows the active one whose pointer was set most
+recently. Linking one says which.
 
 The resolved value is `public_name` on `GET /api/profile/{address}` and
 `GET /api/accounts/{address}`. There is no per-account preference that changes the order.
 
 ### How the chain name stays fresh
 
-`chain_name` is cached with a `chain_name_updated_at` timestamp. An hourly sweep refreshes it,
-and `GET /api/accounts/{address}` also refreshes on read when the cached value is older
-than the staleness window, writing the new value back asynchronously. An expired or transferred
-AENS name therefore drops out of the profile within about an hour.
+`chain_name` is cached with a `chain_name_updated_at` timestamp. In the reviewed backend,
+an hourly sweep selects at most 100 eligible accounts whose last attempt was more than
+23 hours ago or has never been recorded; it does not refresh every name each hour.
+`GET /api/accounts/{address}` also attempts a refresh when the last successful resolution is
+more than 24 hours old or has never been recorded, writing a successful result back
+asynchronously. Failed middleware lookups preserve the previous value.
+
+Stored preferred-name links in `links.prefaens` take precedence over `chain_name` and are not
+removed by this middleware refresh. Their ownership is checked when linking, without continuous
+revalidation on profile reads. Legacy cached names can also remain as fallbacks. An expired or
+transferred name therefore has no guaranteed removal deadline from the displayed profile.
 
 `chain_expires_at` in the profile aggregate is a legacy field and is not refreshed. To check
 whether a name is live, resolve it through AENS.
 
 ## Reverse resolution
 
-`AddressLink` provides two reverse lookups, both free dry-run reads backed by the contract's
-`reverse` map:
+`AddressLink` provides two different lookups, both available as free dry-run reads:
 
 | Call | Answers |
 | --- | --- |
 | `resolve(provider, value)` | Which address holds this provider value, for example which address linked the X handle `superherocom` |
-| `resolve_signer(principal)` | Which address linked this AENS name as a principal |
+| `resolve_signer(principal)` | The current AENS owner of a name-based principal, whether or not it has an AddressLink link; address-based principals return `None` |
 
 ## What the app displays
 
@@ -104,8 +111,10 @@ submit with the verification token. The handle is stored lowercased.
 **Change which name shows.** Link a different `.chain` name, or unlink `prefaens` to fall back
 to the middleware-resolved name.
 
-**Remove a name.** `unclaim` then `unclaim/submit` on the matching provider path. Only your
-own signature is required, with no OAuth or AENS check.
+**Remove a name.** Use `unclaim` then `unclaim/submit` on the matching provider path. Your
+signature and a transaction from the provider owner are required. Removing `prefaens`
+also checks that you still own the linked AENS name; an expired or transferred name can
+therefore prevent this unlink flow.
 
 ## Related
 

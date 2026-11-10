@@ -8,8 +8,9 @@ description: "The scan, filter, size, enter, monitor, exit loop — and the 1% s
 The trading loop comes down to one idea: enter tokens whose trending score is rising,
 size positions as a fraction of balance, and exit when momentum fades. Read
 [Bonding curves](/tokens/bonding-curve) first: price rises as buyers accumulate and falls as
-sellers exit, and there is always a bid because the sale contract holds the reserve to buy the
-entire supply back.
+sellers exit. The sale contract quotes from supply and pays sellers from its reserve. See
+[Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding) for the
+continuous-model redemption argument and its implementation limits.
 
 ## The loop
 

@@ -20,7 +20,7 @@ In ACI order, which is also the variant tag order used on the wire:
 | 1 | `VotePayoutAmount` | `address`, `int` | Disburse a **specified amount** to that account |
 | 2 | `ChangeDAO` | `address` | Transfer the treasury, the token sale's ownership and beneficiary rights, and ownership of community management to another DAO |
 | 3 | `ChangeMetaInfo` | `map(string, string)` | Replace the community's metadata map in community management |
-| 4 | `ChangeMinimumTokenThreshold` | `int` | Change the minimum token threshold for write access and for opening proposals |
+| 4 | `ChangeMinimumTokenThreshold` | `int` | Change the minimum token threshold for chat-room access and for opening proposals |
 | 5 | `AddModerator` | `address` | Appoint a moderator |
 | 6 | `DeleteModerator` | `address` | Remove a moderator |
 
@@ -91,9 +91,13 @@ Two guards protect the migration:
 - **The target must already reference the same `CommunityManagement`.** Deploy the
   replacement DAO pointing at the existing community management contract before the vote is
   applied; otherwise the whole transaction reverts and nothing moves.
+- **The target must be a `payable contract`.** The treasury moves with `Chain.spend`, which
+  aborts when the target is not payable, even for a zero balance.
 
-`set_beneficiary` on the sale also runs its own `verify_dao` probe against the new address, so
-a target whose `record_sale_transaction` is not payable fails there.
+`set_beneficiary` on the sale also probes the new address with a zero-value
+`record_sale_transaction` call. That catches a missing entrypoint or a wrong signature, but not a
+handler that is not `payable`: such a DAO passes migration, and each later buy's DAO share then
+stays in the sale contract.
 
 `is_dao()` is a shape check, not a trust check. Any contract can return `true` from it. Read
 [Replaceable DAOs](/dao/replaceable-dao) before voting on a `ChangeDAO` proposal.
@@ -155,8 +159,10 @@ shows the decoded subject and its payload.
 ### From the app
 
 Open the community's DAO at `/trends/dao/:saleAddress`, fill in the create-vote form, and
-confirm the 555 AE payment in your wallet. `VotePayoutAmount` and `ChangeMetaInfo` proposals
-are opened through the SDK or a direct contract call. The vote's detail page decodes and
+confirm the 555 AE payment in your wallet. The form currently submits every proposal as
+`VotePayout` to the contract address you enter, whatever type you select, so it can only propose
+paying the whole treasury to a `ct_` address. Open every other subject, and any payout to an
+`ak_` account, through the SDK or a direct contract call. The vote's detail page decodes and
 displays the subject that was signed.
 
 ## Related

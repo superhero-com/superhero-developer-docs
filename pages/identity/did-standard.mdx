@@ -22,27 +22,29 @@ Core concepts like this:
 | Verifiable data registry | `AddressLink` state plus AENS |
 | Update and deactivate | `link` and `unlink`, per provider |
 
-Superhero does not define a DID method, DID syntax, DID document or resolver. If you need a DID
-for interoperability with an external system, derive a `did:key` from the account's Ed25519 key
-or publish a `did:web` document yourself. `AddressLink` also exposes a DID-keyed namespace
-(`link_did`, `resolve_did_controller` and friends) in which the `did` is an opaque string; see
-[AddressLink](/identity/address-link).
+`AddressLink` also accepts `did:ae:<subject>` through `link_did`, `resolve_did_controller`
+and related entrypoints. The subject must be the signer's address or a `.chain` name the signer
+owns. These calls share the signer's ordinary links and nonce, although the Superhero API does
+not index changes made through them. They do not supply DID documents or by themselves
+establish DID Core compliance. See [AddressLink](/identity/address-link).
 
 ## Verifying a SuperheroID
 
 1. **Prove control of the address.** Ask for a signed message and verify it against the `ak_…`
    public key using the æternity signed-message construction.
 2. **Check a `.chain` name.** Resolve it through AENS on any node or middleware and compare its
-   `account_pubkey` pointer to the address. For a `prefaens` link the contract already performed
-   the same check with `AENSv2.lookup`.
+   `account_pubkey` pointer to the address. Check ownership separately: `prefaens` linking
+   verifies the AENS owner with `AENSv2.lookup`, not the account pointer. Owners can point
+   their names at a different account.
 3. **Read the links.** `AddressLink.get_links(addr)` returns the provider-to-value map as a
    dry-run call, and `resolve(provider, value)` walks it backwards. Both are free reads against
    consensus state.
 4. **X handle.** The chain records the address's consent to a handle string; the OAuth check
    was performed by Superhero's backend. See
    [Verifying Your X Account](/identity/x-verification).
-5. **Authorship of content.** A post's author is the address that signed the transaction,
-   recorded by the `Tipping` contract, independent of the identity layer.
+5. **Authorship of content.** For direct posts, the `Tipping` contract records the caller as
+   author. For delegated posts, it verifies the author's message signature while a separate
+   relayer signs and pays for the transaction. See [Delegated posting](/social/delegated-posting).
 
 ## Related
 

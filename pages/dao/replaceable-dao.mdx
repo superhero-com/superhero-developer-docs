@@ -5,19 +5,19 @@ description: "The ReplaceableDAO interface a custom DAO must implement, and how 
 
 # Replaceable DAOs
 
-Sophia contracts are immutable once deployed, and Superhero's contracts have no proxy, no
-admin key and no migration hook. A community that wants different governance rules cannot
-patch `DAO.aes`. What it can do is deploy a **different DAO contract** and vote to hand over
+Sophia contract code is immutable once deployed. A community that wants different governance
+rules cannot patch its deployed `DAO.aes`. It can deploy a **different DAO contract** and vote to hand over
 control. `ReplaceableDAO.aes` defines the interface that makes that possible, and `ChangeDAO`
 is the vote that performs it.
 
 What survives a migration: the AEX-9 token keeps its address, its supply and its holders; the
-bonding curve keeps its reserve and its price; the community keeps its name and its posts.
+sale contract keeps its reserve and its pricing curve; the community keeps its name and its posts.
 Only the contract that owns the sale and holds the treasury is replaced.
 
 ## The interface
 
-A contract that implements all three entrypoints can be the target of a `ChangeDAO` vote:
+A `payable contract` that implements all three entrypoints can be the target of a `ChangeDAO` vote
+(a non-payable target makes the treasury transfer abort):
 
 | Entrypoint | Signature | Purpose |
 | --- | --- | --- |
@@ -50,14 +50,19 @@ contract can implement `is_dao() = true`.
 
 ## Build a replacement DAO
 
-1. **Write the contract in Sophia.** Implement `is_dao`, `get_community_management` and
-   `record_sale_transaction` with exactly the signatures above. Sophia type-checks the
-   interface, so a mismatched arity or a missing `payable` fails at the call site.
+1. **Write the contract in Sophia.** Declare it `payable contract`: `ChangeDAO` moves the old
+   treasury with `Chain.spend`, which aborts when the target is not payable, even for a zero
+   balance. Implement `is_dao`, `get_community_management` and `record_sale_transaction` with
+   the signatures above, including a `payable` income handler. The sale's zero-value probe
+   checks that the handler can be called, but not that it accepts a payment: a DAO with a
+   non-payable handler passes migration, and each later buy's DAO share then stays in the sale
+   contract. Check that behavior separately before migration.
 2. **Decide what it does with authority.** The replacement becomes the owner and beneficiary
    of the existing `AffiliationBondingCurveTokenSale`, and the owner of the existing
    `CommunityManagement`. If it does not expose equivalents of `add_vote` and
    `apply_vote_subject`, the community loses the ability to appoint moderators or change its
-   write threshold, because those actions can only be reached by the sale's owner.
+   write threshold, because `CommunityManagement` accepts those calls only from its own owner,
+   which the migration sets to the replacement DAO.
 3. **Point it at the existing `CommunityManagement`.** `apply_vote_subject` asserts
    `get_community_management() == new_dao.get_community_management()` and aborts the whole
    migration with `NEW_DAO_HAS_TO_REFERENCE_SAME_COMMUNITY_MANAGEMENT` if they differ. The
@@ -97,7 +102,7 @@ spent and the proposal has to be reopened.
 | `CommunityManagement` ownership | Yes | `community_management.set_owner(new_dao_address)` |
 | The moderator roster, mute list, threshold and metadata | Untouched | They live in `CommunityManagement`, which is not redeployed |
 | The AEX-9 token, its supply and its holders | Untouched | Not owned by the DAO |
-| The bonding curve and its reserve | Untouched | Held by the sale contract, which is not replaced |
+| The bonding curve and the reserve | Untouched | The reserve is the sale contract's AE balance; the curve is the factory's shared `BondingCurveExponential`. Neither is replaced |
 | The vote history | **Not transferred** | `DAO.votes` stays on the old contract, which keeps answering `votes()` |
 
 Because `CommunityManagement.set_owner` is called in the same transaction, the

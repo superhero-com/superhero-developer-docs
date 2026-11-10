@@ -13,15 +13,16 @@ Find your symptom, read the cause, apply the fix.
 
 The WebAuthn Relying Party ID for wallet passkeys is pinned into the build from
 `VITE_WEBAUTHN_RP_ID` and is never derived from the host serving the page. If that pinned value is
-not a registrable domain suffix of the origin you are on, the browser rejects the ceremony with a
+neither the origin's hostname nor a registrable domain suffix of it, the browser rejects the ceremony with a
 `SecurityError` **before the operating system shows anything**. No Face ID sheet, no Touch ID
 prompt, no Windows Hello dialog, no error dialog.
 
 | Where you are | Correct `VITE_WEBAUTHN_RP_ID` | Passkeys work? |
 | --- | --- | --- |
 | `superhero.com` (production) | `superhero.com`, the default | Yes |
+| An HTTPS subdomain of `superhero.com` | `superhero.com` is also valid | Yes, with browser/authenticator support |
 | Local dev on `localhost` | `localhost` | Yes, if set |
-| Any other origin | A registrable suffix of that origin | Only if set for that build |
+| An unrelated origin | Its hostname or a registrable suffix | Requires a compatible RP ID for that build |
 
 **Fix:** on production, report it. On any other origin, rebuild with the right
 `VITE_WEBAUTHN_RP_ID`, or use a recovery phrase instead.
@@ -38,11 +39,13 @@ common causes:
 
 - **You picked the wrong passkey** from the OS list. Retry and choose the Superhero one.
 - **The credential was rekeyed by the platform.** Apple has a known passkey-rekey issue that can
-  invalidate a previously stable PRF output. This is why the recovery code exists as a
-  passkey-independent factor.
+  invalidate a previously stable PRF output. A saved recovery phrase remains independent of it.
 
-**Fix:** unlock with your **recovery code** or **passphrase** instead, on the same device. Both are
-offered on the "this device already has a wallet" screen.
+**Fix:** on a phrase-created wallet, unlock with your **recovery code** or **passphrase** instead,
+on the same device. A passkey-created wallet does not enroll these fallbacks during creation:
+restore from the recovery phrase you saved at its optional backup screen (import is offered only
+in the installed app; Superhero Wallet also accepts the phrase). Without that phrase or a working
+passkey, access may be lost.
 
 ### Tapping the passkey card opens an onboarding screen instead of a biometric prompt
 
@@ -190,9 +193,13 @@ address and index pair drifted apart.
 
 ### My built-in wallet disappeared
 
-The encrypted vault lives in this browser's IndexedDB for this origin. Clearing site data deletes
-it, and Safari's Intelligent Tracking Prevention can evict it after roughly seven days without
-interaction.
+The encrypted vault lives in this browser's IndexedDB for this origin. Deleting the storage
+containing that vault removes it. In a Safari tab, Intelligent Tracking Prevention can remove
+script-writable storage after seven days of Safari use without interaction with the site.
+First-party Home Screen web-app storage is exempt from that ITP rule; see
+[WebKit's policy](https://webkit.org/tracking-prevention/#intelligent-tracking-prevention-itp).
+On iOS, the installed Home Screen app also has storage separate from Safari: a wallet created in
+a Safari tab does not appear there until you import its phrase or restore it with its passkey.
 
 **Neither your passphrase nor your recovery code can bring it back**, because both need the deleted
 record to unwrap anything. What survives is the written recovery phrase, or a **syncing** passkey
@@ -204,7 +211,7 @@ if the wallet was created by the passkey path. The full matrix is in
 The address list in `localStorage` was cleared while the encrypted vault in IndexedDB survived. This is a
 normal outcome of some "clear site data" variants.
 
-**Fix:** open the wallet screen and unlock once; addresses are re-derived from index 0 upward and
+**Fix:** open the wallet screen and unlock once; the account at index 0 is re-derived and
 the list is rebuilt.
 
 ### Restoring from a passkey shows an address I do not recognise
@@ -219,9 +226,9 @@ import with "a vault already exists".
 
 ### There is no "Import an existing wallet" option
 
-Importing a seed phrase or private key is offered **only in the installed app** (Add to Home
+Importing a seed phrase is offered **only in the installed app** (Add to Home
 Screen / installed PWA). In a plain browser tab, "I already have a wallet" means Connect, which
-never asks for your secret.
+never asks for your secret. The built-in import form does not accept a raw private key.
 
 ### Nothing persists at all (private browsing)
 

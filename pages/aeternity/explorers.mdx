@@ -66,8 +66,9 @@ Status · Microblock Hash · Created · Fee · Nonce · API Links
   the entrypoint and the decoded arguments.
 - **API Links** gives you the middleware query behind the page.
 
-If the hash returns nothing, the transaction is not on chain yet. Superhero treats a middleware
-`404` as "still pending" rather than as an error; wait for a block before concluding anything.
+If the hash returns nothing, the middleware has no record of it: the transaction may be pending or
+not yet indexed, or it may have been dropped or never broadcast. Superhero's app keeps polling a
+middleware `404` as pending; check the node and your submission result before concluding anything.
 
 ## Check what a contract call did
 

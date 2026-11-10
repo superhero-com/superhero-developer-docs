@@ -24,19 +24,35 @@ your positions on the right.
 
 **Match the ratio.** For an existing pool the app compares your two amounts against the current
 reserve ratio. If they differ by more than **1%** it blocks with a ratio-mismatch message and
-offers the optimal counter-amount for each side. Take the suggestion: a constant-product pool
-only accepts proportional deposits, and the surplus on one side buys you nothing.
+offers the optimal counter-amount for each side. Take the suggestion: the router selects deposit
+amounts using the reserve ratio.
+
+For an existing pool whose balances match its cached reserves before your deposit, the LP mint
+and the share represented by those new tokens are:
 
 ```text
-lpMinted  = totalSupply × min( amountA / reserveA , amountB / reserveB )
-yourShare = lpMinted / totalSupply × 100
+lpMinted = min(
+  floor(amountA × supplyBeforeMint / reserveA),
+  floor(amountB × supplyBeforeMint / reserveB)
+)
+newTokensShare = lpMinted / (supplyBeforeMint + lpMinted) × 100
 ```
 
-The `min` is why an off-ratio deposit wastes the larger side: the smaller ratio sets the mint.
+Here `amountA` and `amountB` are the router-selected amounts in each token's base units, and the
+reserves are from before the deposit. `supplyBeforeMint` includes locked liquidity and any LP
+tokens minted to the protocol-fee recipient before your mint. If you deposit amounts equal to
+both existing reserves, you mint as many LP tokens as that supply and the new tokens represent
+**50%** of the resulting pool. If you already hold LP tokens, use your final LP balance divided
+by the final total supply to calculate your total position's share. A new pool uses the different
+first-mint calculation below.
+
+The `min` sets the LP mint, but the router does not transfer unused AEX-9 tokens from your wallet.
+Excess attached native AE is refunded in the same transaction. The transaction can still fail
+if the selected amounts fall below your minimums.
 
 Minimum amounts are your desired amounts minus your slippage tolerance, clamped to at least one
-aetto. The deadline is `Date.now()` plus your configured minutes, in milliseconds. Every router
-entrypoint checks `require(deadline >= Chain.timestamp, "AedexV2Router: EXPIRED")`, and Sophia's
+base unit of each asset. The deadline is `Date.now()` plus your configured minutes, in milliseconds.
+Every router entrypoint checks `require(deadline >= Chain.timestamp, "AedexV2Router: EXPIRED")`, and Sophia's
 `Chain.timestamp` is unix time in milliseconds.
 
 ### Router entrypoints
@@ -48,7 +64,7 @@ entrypoint checks `require(deadline >= Chain.timestamp, "AedexV2Router: EXPIRED"
 
 `add_liquidity_ae` is `payable`. The attached AE is the upper bound on the AE side: the router
 wraps what it needs with `wae.deposit_to(pair, value = amount_ae)` and refunds the rest with
-`Chain.spend` in the same transaction, so over-attaching AE is safe.
+`Chain.spend` in the same transaction.
 
 Both forms move your tokens with `transfer_allowance(Call.caller, pair, amount)`, which is why
 each AEX-9 side needs a router allowance first. The 1% ratio check is client-side only; on chain,
@@ -214,7 +230,8 @@ reaches you as native AE in the same transaction.
 
 Both forms abort with `AedexV2Router: INSUFFICIENT_A_AMOUNT` or `INSUFFICIENT_B_AMOUNT` if the
 burn returns less than your minimums, and with `AedexV2Router: EXPIRED` past the deadline.
-Slippage above 100% or below 0 is rejected client-side on both add and remove.
+The DEX slippage setting is limited to 0–50%; the add and remove code also rejects negative values
+and values of 100% or more.
 
 ## Impermanent loss
 

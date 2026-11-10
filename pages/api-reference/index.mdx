@@ -6,24 +6,27 @@ description: "Base URLs, authentication and the endpoint index for the api.super
 # API Reference
 
 `api.superhero.com` is the read API behind Superhero: tokens and their prices, posts and topics,
-accounts and portfolios, the DEX, trending and analytics. Reads need no credential. Writes are
-authorised by a wallet signature over a server-issued challenge, not by an API key.
+accounts and portfolios, the DEX, trending and analytics. Public data reads need no credentials.
+Profile and address-link writes usually use a wallet-signed challenge; private notifications
+and administrative endpoints have separate authentication requirements. See
+[Conventions](/api-reference/conventions#authentication).
 
 ```bash
 curl -s "https://api.superhero.com/api/tokens?order_by=trending_score&order_direction=DESC&limit=5"
 ```
 
-Start with [Conventions](/api-reference/conventions). Pagination, units, errors, rate limits and
-the write flow are shared by every endpoint and are not repeated per page.
+Start with [Conventions](/api-reference/conventions) for common pagination, units, errors and
+the endpoint-specific authentication and rate limits.
 
 ## Base URLs
 
 | Network | Base URL | Chain id |
 | --- | --- | --- |
 | Mainnet | `https://api.superhero.com` | `ae_mainnet` |
-| Testnet | Not publicly documented | `ae_uat` |
+| Testnet | No public endpoint documented | `ae_uat` |
 
-Both hosts serve identical paths. Every path begins with `/api/`.
+For testnet, deploy a backend and configure its API base URL. REST paths begin with `/api/`;
+available routes depend on the deployed backend version.
 
 ## Sections
 
@@ -176,8 +179,6 @@ GET   /api/profile/{address}/x-posting-reward
 POST  /api/profile/x-posting-reward/recheck-challenge
 POST  /api/profile/{address}/x-posting-reward/recheck
 POST  /api/profile/{address}/x-reward/referral-link
-POST  /api/profile/{address}/challenge                (deprecated)
-PATCH /api/profile/{address}                          (deprecated)
 ```
 
 ### Factory, invitations and affiliations
@@ -197,6 +198,9 @@ GET  /api/bcl-affiliation/analytics/x-verification
 GET  /api/bcl-affiliation/analytics/x-invite
 GET  /api/bcl-affiliation/tree
 ```
+
+The `/api/bcl-affiliation/*` reads are operator dashboards and need an operator session; see
+[Invitations & Affiliations](/api-reference/invitations-and-affiliations).
 
 ### DEX
 
@@ -244,16 +248,25 @@ GET    /api/notifications/{address}/preferences
 POST   /api/notifications/{address}/preferences
 ```
 
-The notification feed routes are the only bearer-authenticated part of the API:
+The notification feed routes are the only bearer-authenticated part of the API. A wallet-signed
+challenge and session issue the token (these two, and the public VAPID key, need no token):
 
 ```text
 POST /api/notifications/{address}/feed/challenge
 POST /api/notifications/{address}/feed/session
-GET  /api/notifications/{address}/feed
-GET  /api/notifications/{address}/feed/unread-count
-POST /api/notifications/{address}/feed/read
-POST /api/notifications/{address}/web-push/subscription
 GET  /api/notifications/web-push/vapid-public-key
+```
+
+These require the bearer token:
+
+```text
+DELETE /api/notifications/{address}/feed/session
+GET    /api/notifications/{address}/feed
+GET    /api/notifications/{address}/feed/unread-count
+POST   /api/notifications/{address}/feed/read
+POST   /api/notifications/{address}/web-push/subscription
+DELETE /api/notifications/{address}/web-push/subscription
+GET    /api/notifications/{address}/price-alerts
 ```
 
 Governance is documented under [Governance](/governance), chat rooms under [Chat](/social/chat)
@@ -267,8 +280,6 @@ GET /api/v2/mdw/txs
 GET /api/v2/mdw/txs/{hash}
 GET /api/v2/mdw/key-blocks
 GET /api/v2/mdw/key-blocks/{hash}
-GET /api/v2/mdw/micro-blocks
-GET /api/v2/mdw/micro-blocks/{hash}
 GET /api/v2/mdw/sync-state
 GET /api/v2/mdw/plugin-sync-state
 ```

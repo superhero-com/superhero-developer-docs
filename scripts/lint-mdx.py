@@ -50,7 +50,7 @@ def mdx_files():
 
 
 def route_of(path):
-    r = path[len(PAGES):]
+    r = "/" + os.path.relpath(path, PAGES).replace(os.sep, "/")
     r = r[: -len(".mdx")]
     if r.endswith("/index"):
         r = r[: -len("/index")]
@@ -125,7 +125,8 @@ def check_meta(report):
             continue
         meta_path = os.path.join(root, "_meta.json")
         try:
-            meta = json.load(open(meta_path))
+            with open(meta_path, encoding="utf-8") as source:
+                meta = json.load(source)
         except Exception as exc:  # noqa: BLE001
             report(meta_path, 1, "META", f"invalid JSON: {exc}")
             continue
@@ -157,7 +158,8 @@ def main():
         routes.add(route_of(path))
 
     for path in files:
-        text = open(path).read()
+        with open(path, encoding="utf-8") as source:
+            text = source.read()
         lines = text.split("\n")
         check_frontmatter(path, lines, report)
         check_body(path, lines, report)

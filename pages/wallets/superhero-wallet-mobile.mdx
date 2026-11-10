@@ -21,19 +21,23 @@ one wallet across several chains, install the second and connect it.
 ## Install Superhero as a PWA
 
 Superhero is also installable straight from the browser. The installed app gets a home-screen icon,
-a full-screen experience, an integrated wallet and push notifications.
+a full-screen window, recovery-phrase import, the token chat entry points and, on iOS, Web Push.
 
 ### iOS
 
-**Safari only.** Chrome and Firefox on iOS cannot install a PWA.
+The steps below use Safari. Since iOS and iPadOS 16.4, supported third-party browsers can also
+offer **Add to Home Screen** through the Share menu. A site configured as a web app opens in its
+own app window; a plain website shortcut may open in the default browser. See
+[WebKit's explanation](https://webkit.org/blog/13878/) and [Chrome's iOS instructions](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DiOS&hl=en).
 
 1. Open [superhero.com](https://superhero.com) in Safari.
-2. Open the page menu: the **⋯** menu in the top right, or the **Share** button on older iOS
-   versions.
-3. Scroll and tap **Add to Home Screen**.
-4. Tap **Add** in the top right. The icon appears on your home screen.
-5. **Launch it from the home-screen icon**, not from Safari. The extra capabilities only exist in
-   standalone mode.
+2. Tap **•••** next to the address bar, then **Share** (on older iOS versions, the **Share**
+   button in the toolbar).
+3. Tap **View More** if you see it, then **Add to Home Screen**.
+4. On iOS 26, leave **Open as Web App** on.
+5. Tap **Add**. The icon appears on your home screen.
+6. **Launch it from the home-screen icon** to use the installed app's features, including phrase
+   import and Home Screen Web Push on supported iOS versions.
 
 ### Android
 
@@ -50,32 +54,35 @@ On desktop, the same install is available from the install button in your browse
 | Behaviour | Browser tab | Installed app |
 | --- | --- | --- |
 | Create a built-in wallet (passkey or new phrase) | Yes | Yes |
-| **Import** an existing seed phrase or private key | No, Connect instead | **Yes** |
-| In-page signing by the built-in wallet | Not installed as the signer | **Yes** |
+| **Import** an existing seed phrase | No, Connect instead | **Yes** |
+| In-page signing by the built-in wallet | **Yes**, for this browser's wallet | **Yes** |
 | Token community chat entry points | Hidden | **Shown** |
-| Location sharing on iOS | Not available | Available |
-| Push notifications | No | Yes |
+| Push notifications | If the browser supports Web Push; unavailable in an ordinary iOS tab | Supported browsers, including iOS/iPadOS 16.4+ Home Screen web apps |
 
 In a browser tab the answer to "I already have a wallet" is Connect, which hands signing to the
 extension or the wallet app through a redirect and never asks for your secret. A redirect out of an
-installed app does not come back cleanly, which is why the installed app takes the key directly.
+installed app does not come back cleanly, which is why it offers recovery-phrase import. The
+built-in import form does not accept a raw private key.
 
 ## The built-in wallet on mobile
 
 Tapping **Connect** in the installed app offers a passkey option first. On a phone that means Face
 ID, Touch ID, a fingerprint or your device PIN, and it creates a real æternity account in one
-ceremony. There is no seed-phrase screen, because the seed is *derived* from the passkey rather than stored
-beside it.
+ceremony. The seed is *derived* from the passkey, and the next screen offers an optional
+**12-word recovery phrase backup**, hidden until you press **Reveal**, with copy and download
+options (the download is an unencrypted text file). Save it offline: it restores the wallet even without the passkey. This path does not
+enroll a recovery code.
 
-**That is a backup only if the passkey syncs** (iCloud Keychain, Google Password Manager). There is
-no phrase reveal or export screen in the app. Enroll the recovery code the flow offers you, and
-read [The Built-In Wallet](/wallets/built-in-wallet) for what each factor does and does not
-survive.
+If you rely on the passkey across devices, confirm it syncs (iCloud Keychain, Google Password
+Manager). A device-bound credential cannot leave its device. Read
+[The Built-In Wallet](/wallets/built-in-wallet) for what each factor does and does not survive.
 
 ## Push notifications
 
 Push is standard Web Push (VAPID), opt-in, and enabled from a control in the app. The permission
-prompt requires a tap, so it never appears on load.
+prompt requires a tap, so it never appears on load. Installation is not an application-level
+requirement: supported ordinary browsers can subscribe. On iOS and iPadOS, Web Push requires a
+Home Screen web app and version 16.4 or later.
 
 - **Exactly one permission is requested**: the browser's notification permission. No location, no
   contacts, no background-refresh grant. Subscriptions are `userVisibleOnly`, so the browser will
@@ -119,6 +126,6 @@ app through the transaction queue route, described in [Connecting a Wallet](/wal
 - [The Built-In Wallet](/wallets/built-in-wallet): what the "wallet built in" is, and where its keys live.
 - [Connecting a Wallet](/wallets/connecting): the deep-link path mobile uses instead of extension detection.
 - [Choosing a Wallet](/wallets/choosing-a-wallet): built-in versus standalone, decided by recovery model.
-- [Backup & Recovery](/wallets/backup-and-recovery): especially the passkey-sync rule.
+- [Backup & Recovery](/wallets/backup-and-recovery): the phrase backup and passkey-sync limits.
 - [Web Wallet](/wallets/web-wallet): what an installed PWA of `wallet.superhero.com` can and cannot do.
 - [Superhero Wallet on the æternity docs hub](https://docs.aeternity.com/aeternity-user-tools-and-services/superhero-wallet): the standalone wallet's documentation.

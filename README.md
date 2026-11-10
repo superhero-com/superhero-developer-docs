@@ -1,7 +1,8 @@
 # Superhero developer docs
 
-The developer documentation for [Superhero](https://superhero.com), the on-chain attention
-market where you can discover, trade, and govern the trends you believe in.
+Developer documentation for [Superhero](https://superhero.com), a social application and
+community-token market on the æternity blockchain. It covers the REST API, Sophia smart
+contracts, wallet integrations and agent tools, with user guides for context.
 
 Built with [Nextra](https://nextra.site) (docs theme, `pages/` router).
 
@@ -14,12 +15,12 @@ pnpm build    # production build
 ```
 
 > **Note on dependencies:** the Nextra versions are pinned to the `2.x` line, which is the
-> line that supports this repository's `pages/` + `_meta.json` layout. `nextra@latest` now
-> resolves to the 4.x line, which requires the App Router and a different meta format, so
-> do not "upgrade" these specifiers without migrating the whole site first.
+> line that supports this repository's `pages/` + `_meta.json` layout. Moving to a newer major
+> version requires checking its router and metadata requirements and migrating the site.
 >
 > `pnpm-lock.yaml` is committed and resolved against those pinned versions, so
-> `pnpm install --frozen-lockfile` (the default on Vercel and most CI) works as-is.
+> use `pnpm install --frozen-lockfile` for a reproducible local dependency install. The current
+> GitHub Pages workflow uses `npm install` and does not consume the pnpm lockfile.
 
 ### Deployment
 
@@ -75,12 +76,12 @@ pages/
 ## Editing
 
 Every page follows the same shape: double-quoted `title` and `description` frontmatter, an H1,
-one to three sentences of opening prose, task-oriented sections, and a `## Read more` section of
-internal links. Plain MDX only, with no imports and no components.
+one to three sentences of opening prose, task-oriented sections, and a `## Related` section of
+links. Plain MDX only, with no imports and no components.
 
-Five things break the build, and `scripts/lint-mdx.py` catches all of them: unquoted
-frontmatter, a bare `{` or `<` in prose, a `|` inside inline code inside a table row, a broken
-internal link, and a page missing from its directory's `_meta.json`. Run it before every push.
+`scripts/lint-mdx.py` checks frontmatter, bare MDX braces and JSX hazards, table pipes,
+imports and exports, internal links, static assets, and `_meta.json` entries. Run it before
+every push, then run `pnpm build` to check compilation and static export.
 
 ## Where the content comes from
 
@@ -89,9 +90,18 @@ internal link, and a page missing from its directory's `_meta.json`. Run it befo
 | `superhero-com/superhero` | The web app: routes, features, `src/config.ts` endpoints and addresses, the FAQ copy in `server/lib/faq-content.cjs`, the landing copy in `src/locales/en.json`, and the full technical whitepaper in `src/views/Whitepaper.tsx` |
 | `superhero-com/superhero-agent-skill` | The AI agent skill: `SKILL.md`, the task guides in `guides/`, the CLI scripts in `scripts/`, and the vendored contract ACIs in `contracts/` |
 | `api.superhero.com` | The live REST API, inventoried in `superhero/docs/api-superhero-com-endpoints-and-fields.md` |
+| [`superhero-com/superhero-api`](https://github.com/superhero-com/superhero-api) | API controllers, authentication, validation and rate-limit guards |
+| [`aeternity/docs`](https://github.com/aeternity/docs) | The developer documentation hub, aggregating documentation from ecosystem repositories |
+| [`aeternity/protocol`](https://github.com/aeternity/protocol) | Protocol rules for transactions, API encoding, AENS and state channels |
+| [`aeternity/aesophia`](https://github.com/aeternity/aesophia) | Sophia language rules, standard library and compiler documentation |
+| [`aeternity/aepp-sdk-js`](https://github.com/aeternity/aepp-sdk-js) | JavaScript SDK APIs, account handling, signing and transaction options |
+| [`aeternity/AEXs`](https://github.com/aeternity/AEXs) | Application standards, including AEX-9 tokens and AEX-10 wallet derivation |
+| [`aeternity/ae_mdw`](https://github.com/aeternity/ae_mdw) | Middleware routes, indexed data and API specifications |
 
-Facts in these docs should trace back to one of those. Do not write economic parameters,
-addresses or endpoints from memory.
+Facts in these docs should trace back to the relevant implementation or specification. Use
+Superhero sources for application behavior and æternity sources for chain behavior. Record the
+release or commit when behavior depends on a version; an upstream branch may differ from
+production. Do not write economic parameters, addresses or endpoints from memory.
 
 ## Contributing
 

@@ -36,7 +36,7 @@ token record.
 | `token_address` | `aex9_address` or `token.address` | The AEX-9 contract, for allowances and transfers |
 | `balance` | `balance` | Tokens held |
 | `buy_price_ae` | `token.price` | Current spot **buy** price, per token |
-| `sell_price_ae` | `token.sell_price` | Current spot **sell** price, per token, 0.5% below buy |
+| `sell_price_ae` | `token.sell_price` | Current spot **sell** price, per token, about 1% below buy (≈0.995 / 1.005) |
 | `trending_score` | `token.trending_score` | Momentum signal for that token |
 
 Value a position at `sell_price_ae`, never at `buy_price_ae`. The buy price is what the next person

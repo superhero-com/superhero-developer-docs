@@ -38,9 +38,11 @@ and a `links` object keyed by the `AddressLink` provider ids: `x`, `nostr`, `bio
 records.
 
 If `chain_name_updated_at` is older than the staleness window, or has never been set, the
-endpoint re-reads the name from the middleware, returns the fresh value, and writes it back
-asynchronously. An hourly sweep covers accounts nobody is viewing, so a lapsed or transferred
-`.chain` name disappears from a profile within about an hour.
+endpoint attempts to re-read the name from the middleware and writes a successful result back
+asynchronously. An hourly sweep also refreshes eligible accounts in batches. Stored preferred
+names in `links.prefaens` take precedence independently of this cache, so an expired or
+transferred `.chain` name has no guaranteed removal deadline from a profile. See
+[Names](/identity/names#how-the-chain-name-stays-fresh).
 
 ## The tabs
 

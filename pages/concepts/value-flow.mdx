@@ -5,37 +5,38 @@ description: "The exact split of every AE spent on a community token buy — and
 
 # Where the Money Goes
 
-Every AE that enters a community token trade ends up in one of four places: the bonding curve
-reserve, the community's DAO treasury, the affiliation chain, or the network as gas. This page gives
+AE spent on a community-token buy funds the sale reserve, the community DAO and affiliation
+accounting. Network transaction fees and execution gas are paid separately. This page gives
 the full accounting, on both sides of a trade.
 
 ## The buy side
 
-On every community-token **buy**:
+For a community-token **buy**, let `C` be the curve cost before the affiliation fee. In the
+continuous model, before integer rounding and assuming both treasury calls succeed:
 
 ```text
-Buyer pays AE
-  ├── 99.0%  → Bonding curve reserve (redeemable by sellers)
-  ├──  0.5%  → Community DAO treasury (governed by token holders)
-  └──  0.5%  → Affiliation system
-                ├── 0.300% → Level 1 referrer
-                ├── 0.125% → Level 2 referrer
-                ├── 0.050% → Level 3 referrer
-                └── 0.025% → Level 4 referrer
-                (if no referrer: burned)
+Buyer pays 1.005 * C, excluding network charges
+  ├── 0.995 * C → Bonding curve reserve
+  ├── 0.005 * C → Community DAO treasury
+  └── 0.005 * C → Affiliation treasury
+                   ├── 0.00300 * C → Level 1 referrer
+                   ├── 0.00125 * C → Level 2 referrer
+                   ├── 0.00050 * C → Level 3 referrer
+                   └── 0.00025 * C → Level 4 referrer
+                   (missing levels receive no ledger credit)
 
 Buyer also receives:
   └── ProtocolDAO tokens = 1,000 × AE value of the buy
 ```
 
-The 1% total spread is the difference between the buy curve and the sell curve. It is not
-charged as a separate fee; it is built into the two curves. See
+The total spread is 1% of `C`: a 0.5% curve difference plus the 0.5% affiliation fee added
+on buys. Sells make no new DAO or affiliation allocation. See
 [Bonding Curves](/tokens/bonding-curve) for the math.
 
 ## The exact split
 
-Write `C` for the **curve cost** of the slice you are buying: the integral of the buy curve from the
-current supply to the supply after your purchase:
+Write `C` for the **curve cost** of the slice you are buying. In the continuous model, this is the
+integral of the buy curve from the current supply to the supply after your purchase:
 
 ```text
 C = integral of buy(x) dx, from supply to supply + amount
@@ -54,8 +55,8 @@ function exp_helper(x : int, term : int, sum : int, i : int, scale : int) : int 
     exp_helper(x, next_term, sum + next_term, i + 1, scale)
 ```
 
-The series matches the closed form to well below one aetto per token. Use the closed form to
-reason about the shape; use `price(count)` when a number has to be exact.
+Integer truncation means the closed form is not an exact transaction quote. Use it to reason
+about the shape; use `price(count)` for the contract's quote.
 
 The sell curve is `sell(x) = buy(x) * 0.995`, and that 0.5% gap funds the DAO. The sale contract adds
 a further 0.5% affiliation fee **on top of** the curve price, so the total spread between buy and
@@ -71,7 +72,8 @@ entrypoint price(count : int) : int =
   bonding_curve_price + affiliation_amount
 ```
 
-`price(n)` already equals `1.005 * C`; do not multiply it by 1.005 again. `buy` uses the same
+`price(n)` already includes the affiliation fee, approximately `1.005 * C`; do not multiply it by
+1.005 again. `buy` uses the same
 arithmetic and requires `Call.value >= total_price`, refunding any excess with
 `Chain.spend(Call.caller, overpaid_refund)`. That is why the agent CLI can attach `price * 1.03`
 and get the difference back.
@@ -79,17 +81,18 @@ and get the difference back.
 The affiliation fee rate is read from the treasury at call time: `get_affiliation_fee_percentage()`
 returns `500` and `get_affiliation_fee_precision()` returns `10^5`, so 500 / 100,000 = 0.5%.
 
-The buyer's gross is `1.005 * C`, and it splits exactly:
+Before integer rounding, the buyer's gross is `1.005 * C`, and it splits as follows:
 
 | Destination | Amount | Share of what the buyer pays |
 | --- | --- | --- |
 | Bonding curve reserve | `0.995 * C` | 99.005% |
 | Community DAO treasury | `0.005 * C` | 0.4975% |
-| Affiliation chain (or burned) | `0.005 * C` | 0.4975% |
+| Affiliation treasury | `0.005 * C` | 0.4975% |
 | **Total** | `1.005 * C` | 100% |
 
-`0.995 + 0.005 + 0.005 = 1.005`, with no remainder. The 99.0 / 0.5 / 0.5 figures above are this
-split rounded to one decimal place.
+`0.995 + 0.005 + 0.005 = 1.005` in this model. The percentages in this table are rounded;
+the contract computes integer amounts as described below. Shares without an inviter receive
+no ledger credit and stay in the affiliation treasury.
 
 The four affiliation levels are percentages **of the transaction value**, not of the fee, which is
 why they sum to 0.5% rather than to 100%. The transaction value handed to the treasury is `C`, the
@@ -108,10 +111,10 @@ bare curve price, so level 1 receives 0.300% of `C`, not of `1.005 * C`.
 | 5 | `dao_contract.record_sale_transaction(...)` | `Call.value - overpaid_refund - affiliation_amount - reserve` |
 
 The DAO's cut in step 5 is a **residual**, not a percentage. `reserve` is
-`calculate_sell_return(total_supply_after_mint, count)`, which is `0.995 * C`: exactly what a
-seller of that same slice could immediately redeem. Subtracting it and the affiliation fee from
-`1.005 * C` leaves `0.005 * C` for the DAO. The sale contract keeps precisely the sell-side
-obligation and forwards the rest, which is what makes the solvency guarantee structural.
+`calculate_sell_return(total_supply_after_mint, count)`, the exact integer quote for immediately
+selling that same slice. It is approximately `0.995 * C`, leaving approximately `0.005 * C` for
+the DAO after the affiliation fee. The sale contract retains that quote and forwards the
+remainder. See [Reserve accounting and rounding](#reserve-accounting-and-rounding).
 
 Both treasury calls are made with `protected = true`, so a failure in the DAO or the affiliation
 treasury cannot block a buy.
@@ -120,8 +123,10 @@ treasury cannot block a buy.
 
 Selling is not the buy flow in reverse.
 
-**It is two transactions, not one.** AEX-9 has no transfer-from without prior approval, so you first
-grant the sale contract an allowance over your tokens, then call sell:
+**It is usually two transactions.** AEX-9 has no transfer-from without prior approval, so you first
+grant the sale contract an allowance over your tokens, then call sell. With a sufficient standing
+allowance `sell` alone works, but the app, bctsl-sdk and the agent CLI always send the allowance
+step first:
 
 ```text
 1. create_allowance(sale_account, count)      on the community AEX-9 token
@@ -152,10 +157,22 @@ return = integral of sell(x) dx, from supply - amount to supply
 | Affiliation chain | nothing |
 | ProtocolDAO tokens minted | none |
 
-The 0.5% gap relative to the buy curve is not a sell fee. It was taken when those tokens were
-bought. The reserve grows by `0.995 * C` per buy, which is exactly the sell-curve integral over the
-same slice, so the reserve at supply `S` is always `integral of sell(x) from 0 to S`: precisely
-enough to redeem the entire supply. Selling the entire supply back to the curve is always possible.
+The 0.5% gap relative to the buy curve is not a sell fee. Its allocation to the DAO happens when
+tokens are bought.
+
+### Reserve accounting and rounding
+
+For a history consisting of buys and sells in the ideal continuous model, each buy retains
+the sell-curve integral over the newly minted slice. Those amounts add up to
+`integral of sell(x) from 0 to S` at supply `S`, enough to redeem the full supply in that
+model. Sells reduce the supply and reserve by the corresponding integral. A holder's direct
+burn reduces supply without withdrawing AE, leaving additional reserve relative to that model.
+
+The implementation truncates each trade's quote separately, so the reserve can end a few aettos
+per trade below the quote for selling the whole supply at once; after a history of buys only, it
+is never above that quote. The shortfall is measured in aettos, but it means the very last full
+exit can fail by that margin. Use `sell_return(count)` for the contract's quote and dry-run the
+intended sell before submitting it.
 
 **Your tokens are burned.** Community tokens are minted on buy and burned on sell; the token
 contract's `Burn` event on the sell receipt carries the amount destroyed.
@@ -170,7 +187,7 @@ contract's `Burn` event on the sell receipt carries the amount destroyed.
 5. `Chain.spend(Call.caller, return)`, then emits `PriceChange` and `Sell`.
 
 The minimum tradable amount is enforced one level down: `calculate_price` requires
-`count >= minimum_count`, where `minimum_count` is 10^12 aettos (10^-6 tokens).
+`count >= minimum_count`, where `minimum_count` is 10^12 token base units (10^-6 tokens).
 
 The sale contract's trading entrypoints:
 
@@ -180,7 +197,7 @@ The sale contract's trading entrypoints:
 | `sell` | `sell(count: int, minimal_return_required: int) -> int` | Stateful, **not** payable, returns the AE paid out |
 | `price` | `price(count: int) -> int` | The buy-side counterpart |
 | `buy` | `buy(count: int) -> unit` | Stateful, payable |
-| `buy_with_affiliation` | `buy_with_affiliation(count: int, affiliation_rewardee: address) -> unit` | Stateful, payable |
+| `buy_with_affiliation` | `buy_with_affiliation(count: int, affiliation_rewardee: address) -> unit` | Stateful, payable; factory-only (`ONLY_FACTORY_CAN_CALL`), used for the creator's initial buy |
 
 There is a `buy_with_affiliation` and no `sell_with_affiliation`: referral rewards accrue on buys
 only. Likewise the factory's `mint_protocol_dao_token(int, address)` is called on buys only. See
@@ -261,8 +278,8 @@ Count transactions, not trades:
 | --- | --- |
 | Post or comment | 1 |
 | Buy a token | 1 |
-| **Sell a token** | **2**: allowance, then sell |
-| Create a token | 1 (deploys token, curve, sale, DAO and management contracts together) |
+| **Sell a token** | **2**: allowance, then sell (1 with a sufficient existing allowance) |
+| Create a token | 1 (deploys management, DAO, sale and token contracts; reuses the factory's curve and affiliation treasury) |
 | Open a DAO vote | 1, plus a **555 AE** payment to the DAO |
 | Create a governance poll | 2: deploy, then register |
 | Claim rewards | 1; a small gas fee applies |
@@ -288,13 +305,15 @@ switch(get_direct_inviter(invitee))
     update_inviters(inviter, buyer, transaction_value, remaining_affiliation_fee_percentages)
 ```
 
-No entry is credited for a missing level. The only way AE leaves the treasury is `withdraw()`,
-which pays `get_accumulated_rewards(Call.caller)`, the sum of that caller's own ledger entries.
+No entry is credited for a missing level. Referral rewards leave through `withdraw()`,
+which pays `get_accumulated_rewards(Call.caller)`, the sum of that caller's eligible ledger entries.
+Separately funded invitations also move AE through redemption and revocation.
 There is no owner, no admin entrypoint and no sweep, so uncredited AE stays in the contract balance
 permanently. (Creating a collection, by contrast, sends its 555 AE fee to the burn address
 `ak_11111111111111111111111111111111273Yts`.)
 
-Two further amounts burn the same way, both consequences of `withdraw()`:
+Two further categories of rewards can become permanently unwithdrawable, without being
+transferred to a burn address:
 
 - **Rewards older than two payout periods.** `get_accumulated_rewards` sums only the current period
   and the one before it. A payout period is `Chain.timestamp / 2592000000` (30 days in

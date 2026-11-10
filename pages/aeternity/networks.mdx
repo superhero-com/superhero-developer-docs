@@ -5,18 +5,24 @@ description: "Mainnet and testnet hosts for the Superhero API, node, middleware,
 
 # Networks & Endpoints
 
-Superhero runs on æternity mainnet (`ae_mainnet`) or testnet (`ae_uat`). The network is selected
+Superhero can be configured for æternity mainnet (`ae_mainnet`) or testnet (`ae_uat`). The network is selected
 at build time with `VITE_NETWORK`, and a deployed container can override any individual endpoint
 at runtime through `window.__SUPERCONFIG__`.
 
 ## Endpoints
 
+The table lists network endpoints. There is no public Superhero testnet API or Socket.IO
+endpoint: the app's
+[`src/config.ts`](https://github.com/superhero-com/superhero/blob/85a6510d0/src/config.ts)
+still names a testnet backend URL, but that host does not serve the API. A full testnet
+application requires a separately deployed backend.
+
 | | Mainnet (`ae_mainnet`) | Testnet (`ae_uat`) |
 | --- | --- | --- |
-| Superhero API | `https://api.superhero.com` | Not publicly documented |
+| Superhero API | `https://api.superhero.com` | No public endpoint documented |
 | Node | `https://mdw.wordcraft.fun` | `https://testnet.aeternity.io` |
 | Middleware | `https://mdw.wordcraft.fun/mdw` | `https://testnet.aeternity.io/mdw` |
-| WebSocket | `https://api.superhero.com` | Not publicly documented |
+| WebSocket | `https://api.superhero.com` | No public endpoint documented |
 | Compiler | `https://v7.compiler.aepps.com` | `https://v7.compiler.aepps.com` |
 | Explorer | `https://aescan.io` | `https://testnet.aescan.io` |
 | Governance API | `https://governance-server-mainnet.prd.service.aepps.com/` | `https://governance-server-testnet.prd.service.aepps.com/` |
@@ -47,20 +53,21 @@ GET  <MIDDLEWARE_URL>/v3/transactions/<hash>
 GET  https://mainnet.aeternity.io/mdw/v3/names?owned_by=ak_...
 ```
 
-Middleware routes are not all on the same version. Check the call you need:
+Common middleware calls:
 
 | Call | Path |
 | --- | --- |
 | Transaction status | `/v3/transactions/...` |
-| AEX-9 account balances | `/v2/aex9/account-balances/...` |
+| AEX-9 account balances | `/v3/accounts/.../aex9/balances` (v2 alias: `/v2/aex9/account-balances/...`) |
 | Owned names | `/v3/names?owned_by=...` |
 
 ## Rate limits
 
-`api.superhero.com` allows **10 requests per minute** per client IP and route path, in a fixed
-60-second window, and returns HTTP 429 with a `retryAfter` field when you exceed it. The limit
-applies to the generic entity endpoints and to the profile, notification-feed and room
-endpoints. See [the developer FAQ](/concepts/faq) for what that means for a polling client.
+The Superhero backend's guarded routes allow **10 requests per minute** per client IP and
+route path in a fixed 60-second window. Exceeding that limit returns HTTP 429 with a
+`retryAfter` field. It is not a blanket limit on every API route. See the
+[guarded-route list](/api-reference/conventions#guarded-routes) and handle `429` responses
+wherever they occur.
 
 No limit is documented for the node, middleware, compiler, governance or DEX-backend hosts. Treat
 them as best-effort, back off on failure, and cache what you can.

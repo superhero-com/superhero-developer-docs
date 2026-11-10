@@ -6,19 +6,21 @@ description: "Where a community DAO's AE comes from, how to read the balance on-
 # The DAO Treasury
 
 A community DAO holds plain AE. There is no separate vault contract, no wrapped balance and
-no staking position. The treasury is the AE balance of the `DAO` contract, and the only way
-it leaves is a payout vote that passes and is applied in time.
+no staking position. The treasury is the AE balance of the `DAO` contract. Funds can leave
+through an approved payout or move to a replacement DAO through an approved `ChangeDAO` vote.
 
 ## Where the money comes from
 
 | Source | Amount | Path into the DAO |
 | --- | --- | --- |
-| Buys on the bonding curve | 0.5% of the curve value of every buy | `record_sale_transaction(buyer, buy_price)` |
+| Buys on the bonding curve | Approximately 0.5% of the curve value of every buy | `record_sale_transaction(buyer, buy_price)` |
 | Opening a proposal | 555 AE per vote opened | `add_vote(metadata)`, which is payable |
 | A `ChangeDAO` migration into this DAO | The whole balance of the old DAO | `Chain.spend` from the old DAO |
+| Direct donations | Any amount | AE spent to the payable DAO contract, or attached to `record_sale_transaction` |
 
-Nothing else pays the treasury. Sells do not, because the 1% spread is charged on the buy
-side; tips and posts do not, because they settle through `Tipping_v3`, not the token sale.
+Sells do not automatically fund the treasury, because the spread is collected on the buy
+side. Posts go through `Tipping_v3`, and tips are direct AE spend transactions to authors;
+neither funds the DAO.
 
 The DAO's share is not computed as a percentage. The sale sets the redemption reserve aside
 first and forwards what is left:
@@ -29,9 +31,10 @@ state.dao_contract.record_sale_transaction(
   value = Call.value - overpaid_refund - affiliation_amount - reserve, protected = true, ...)
 ```
 
-`total_supply()` has already been incremented by the mint, so `reserve` is exactly `0.995 ×`
-the curve price and the DAO receives the residual `0.5%`. Setting the payout obligation aside
-before the treasury is paid is what keeps the reserve solvent.
+`total_supply()` has already been incremented by the mint, so `reserve` is the integer quote for
+immediately selling that same count, approximately `0.995 ×` the curve price. The DAO receives
+the residual, approximately `0.5%`. This funds sellers in the continuous model; integer rounding
+needs separate analysis. See [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
 
 The call is `protected = true`, so a DAO call that aborts does not block the trade; the AE
 stays in the sale contract. See [Value flow](/concepts/value-flow) and

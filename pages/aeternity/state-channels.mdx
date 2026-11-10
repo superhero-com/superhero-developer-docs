@@ -5,8 +5,9 @@ description: "æternity's layer-2 mechanism in brief, and that Superhero does no
 
 # State Channels
 
-State channels are æternity's layer-2 scaling mechanism: a private, two-party ledger that settles
-on chain only at its endpoints. **Superhero does not use them.** Posts, tips, trades and votes are
+State channels are æternity's layer-2 scaling mechanism: a two-party ledger whose agreed updates
+usually happen off chain. Opening, closing and some other operations use on-chain transactions.
+**Superhero does not use them.** Posts, tips, trades and votes are
 individual on-chain transactions; chat runs on Nostr relays and video calls on Jitsi.
 
 ## How a channel works
@@ -19,14 +20,15 @@ or waits for a block.
 
 **Closing** is on chain again. In the happy path the participants co-sign a final state and
 settle mutually. If one party disappears or misbehaves, the other can close unilaterally with
-`channel_solo_close_tx`, publishing the state they claim is current. If a party publishes an
+`channel_close_solo_tx`, publishing the state they claim is current. If a party publishes an
 *old* state, the counterparty answers with `channel_slash_tx`, supplying a co-signed state with a
-higher round number, and `channel_settle` then pays out. The honest party always holds a newer
-co-signed state than a cheater can produce, so cheating is unprofitable.
+higher round number within the agreed `lock_period`. After that period, `channel_settle_tx`
+pays out. Participants must retain the latest signed state and monitor the chain so they can
+challenge an outdated closing state in time.
 
-The economics: two on-chain transactions, amortised over as many off-chain updates as the
-participants make. A channel used for two updates is worse than doing it on chain; a channel used
-for ten thousand is dramatically better.
+Opening and mutually closing a channel requires two on-chain transactions. Deposits,
+withdrawals, disputes and forced progress can require more. The cost per update depends on
+how many updates stay off chain and how often on-chain intervention is needed.
 
 ## Superhero and channels
 

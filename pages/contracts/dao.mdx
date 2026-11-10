@@ -81,10 +81,10 @@ require(Option.default(0, token.balance(Call.caller)) >= minimum_token_threshold
 The threshold is a balance check at call time. Proposing locks no tokens; only voters lock
 stake, when they call `DAOVote.vote`.
 
-`add_vote` does not check a payout amount against the treasury balance. A `VotePayout` or
-`VotePayoutAmount` for more AE than the DAO holds is accepted and can pass, and then fails at
-execution when `apply_vote_subject` reaches `Chain.spend`. Check the treasury balance before
-proposing an amount.
+`add_vote` does not check a payout amount against the treasury balance. A `VotePayoutAmount`
+for more AE than the DAO holds is accepted and can pass, and then fails at execution when
+`apply_vote_subject` reaches `Chain.spend`. Check the treasury balance before proposing an
+amount. `VotePayout` has no amount: it pays whatever the balance is at execution.
 
 ```javascript
 const result = await dao.add_vote(
@@ -126,8 +126,10 @@ In JavaScript each is a one-key object whose value is an array of the constructo
 arguments: `{ VotePayoutAmount: ['ak_...', '1000000000000000000'] }`, and for the map-valued
 one, `{ ChangeMetaInfo: [new Map([['description', 'new text']])] }`.
 
-The Superhero app's create-vote form offers `VotePayout`, `ChangeDAO`, `AddModerator` and
-`DeleteModerator`. All seven subjects are callable directly.
+The Superhero app's create-vote form lists several subject types, but it currently submits every
+proposal as `VotePayout(<contract address>)`, whatever type is selected: choosing `ChangeDAO`
+there proposes paying the whole treasury to that address. Open the other subjects through the
+SDK or a direct call; all seven are callable directly.
 
 ## Executing a vote
 

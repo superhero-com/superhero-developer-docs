@@ -1,12 +1,13 @@
 ---
 title: "Moderators & Write Thresholds"
-description: "How a community controls who can post in it — the CommunityManagement contract, moderator powers, and the minimum token threshold."
+description: "How a community controls who can open proposals and join its chat room — the CommunityManagement contract, moderator powers, and the minimum token threshold."
 ---
 
 # Moderators & Write Thresholds
 
 A community's governance layer and its moderation layer are the same thing. Moderators are
-appointed and removed by DAO vote; the token balance you need to post is changed by DAO vote.
+appointed and removed by DAO vote; the token balance you need to join the community's chat room and to open proposals is changed by
+DAO vote.
 Both live in one contract, `CommunityManagement.aes`, deployed alongside the DAO when the
 community is created.
 
@@ -69,9 +70,9 @@ transaction. See [Replaceable DAOs](/dao/replaceable-dao).
 ## The minimum token threshold
 
 `minimum_token_threshold` is the amount of the community's own token an account needs to
-write in the community. It has a second job: it is also the bar for **opening a DAO
-proposal**. Raising the threshold makes a community both harder to post in and harder to
-propose in; lowering it does the reverse.
+join and post in the community's token-gated chat room. It has a second job: it is also the bar
+for **opening a DAO proposal**. Raising the threshold makes the chat room harder to enter and
+proposals harder to open; lowering it does the reverse. Posting to the public feed is not gated.
 
 Read it directly:
 
@@ -83,8 +84,8 @@ The value is in the token's smallest unit. Divide by `10^decimals` (read `decima
 token's `meta_info()`) before comparing it to a balance shown in a wallet. Every community
 starts at `10^18`, one whole token, until a `ChangeMinimumTokenThreshold` vote moves it.
 
-The contract stores the threshold and hands it out. The app and the backend enforce it for
-posting (see [Moderation](/social/moderation)), and `DAO.add_vote` enforces it for
+The contract stores the threshold and hands it out. The backend enforces it for chat-room
+membership (see [Moderation](/social/moderation)), and `DAO.add_vote` enforces it for
 proposals, requiring the proposer's balance to clear it.
 
 ### Choosing one

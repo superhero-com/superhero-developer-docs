@@ -7,8 +7,8 @@ description: "Let a relayer pay the gas while the author keeps attribution: the 
 
 `post_without_tip_sig` lets any account submit a post on behalf of an author. The submitter
 pays the gas; the on-chain record attributes the post to the signer. This is the mechanism
-behind gasless onboarding: a user signs a message in a wallet that holds no AE, and a relayer
-turns it into a transaction.
+behind gasless onboarding: a user signs the post digest with a key that holds no AE, and a
+relayer turns it into a transaction.
 
 ## The entrypoint
 
@@ -101,10 +101,10 @@ Sign `postDigest(title, media)` with the author's Ed25519 key and hand the relay
 lowercase hex string with no prefix (the convention the address-links API uses) is a good
 wire format.
 
-If you are signing from a connected wallet rather than a raw key, the wallet's `signMessage`
-applies the prefix framing itself over the message you give it. Pass the 32-byte inner Blake2b
-digest as that message to reproduce steps 2 to 4 exactly; passing the raw text would frame the
-text rather than its digest.
+Do not assume a connected wallet's `signMessage` can sign this binary message body. SDK v14's
+method accepts text; signing the post text or a hex-encoded digest changes the bytes. Use a
+wallet API that explicitly supports this construction, or the raw-key example in
+[Tipping v3](/contracts/tipping#the-full-construction).
 
 ## Run a relayer
 
@@ -151,14 +151,15 @@ when the relayer submitted it, not when the author signed it.
 
 Use `post_without_tip_sig` when the author cannot pay: new-user onboarding before the wallet
 is funded, or a custodial surface that holds no user key but can forward a signature. For
-everything else prefer `post_without_tip`: it is simpler, and the author pays only gas.
+everything else prefer `post_without_tip`: it is simpler, and the author pays the network
+transaction fee and execution gas.
 
 ## Related
 
 - [Posting](/social/posting): the direct path, the data model, and the shared conventions.
 - [The Tipping contract](/contracts/tipping): the contract reference for both entrypoints.
-- [AddressLink](/identity/address-link): the same signed-message construction, with a
-  contract-held nonce.
+- [AddressLink](/identity/address-link): the same personal-message prefix, with the full message
+  text as the body and a contract-held nonce.
 - [Contract security](/contracts/security): the protocol's wider security model.
 - [Sophia standard library](https://github.com/aeternity/aesophia/blob/master/docs/sophia_stdlib.md):
   the reference for `Crypto.verify_sig`.

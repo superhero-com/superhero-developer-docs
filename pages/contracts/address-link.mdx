@@ -10,9 +10,10 @@ holding one value per provider (an X handle, a nostr public key, a preferred AEN
 also keeps a reverse index for resolving a value back to an address and a per-address nonce
 sequence for signed writes.
 
-A link can be owned by a bare account, by an AENS name (a *principal*), or by a DID with a
-controlling address. Each family has its own entrypoints, its own nonce space and its own
-resolver.
+Links are stored under the signer's address. The entrypoint families accept that address,
+a principal (including an owned AENS name), or a `did:ae:` subject. All families share the
+same links and nonce counter for that signer. The Superhero indexer reads only `link`, `unlink`,
+`link_principal` and `unlink_principal` calls, so DID-entrypoint changes do not reach the API.
 
 ## State
 
@@ -73,8 +74,11 @@ link:<address>:<provider>:<value>:<nonce>
 unlink:<address>:<provider>:<nonce>
 ```
 
-The principal variants substitute the AENS name for the address in the same layout. The
-signature is 64 bytes, submitted as a 128-character hex string. A stale or reused nonce aborts
+The principal variants substitute the principal for the address in the same layout; DID
+variants use `did:ae:<address-or-owned-name>`. Sign the full text with SDK `signMessage`;
+see [the framing](/identity/address-link#the-signed-message). The signature is 64 bytes;
+the REST API takes 128 hex characters, while a direct SDK contract call takes the bytes.
+A stale or reused nonce aborts
 with `INVALID_NONCE`; a signature that does not verify aborts with `INVALID_SIGNATURE`.
 
 ## Linking through the Superhero API
@@ -84,10 +88,13 @@ REST surface is two calls per operation:
 
 | Step | Endpoint | What it does |
 | --- | --- | --- |
-| 1 | `POST /address-links/{provider}/claim` | verifies you control the external account, reads `get_nonce`, and returns the exact message to sign |
-| 2 | `POST /address-links/{provider}/submit` | takes `value`, `nonce` and `signature`, and relays the `link` call |
-| 1 | `POST /address-links/{provider}/unclaim` | returns the unlink message and nonce |
-| 2 | `POST /address-links/{provider}/unclaim/submit` | relays the `unlink` call |
+| 1 | `POST /api/address-links/{flow}/claim` | validates the claim, reads the nonce, and returns the exact message to sign |
+| 2 | `POST /api/address-links/{flow}/submit` | takes the signed claim and the flow's required proof, verifies it, and relays the link call |
+| 1 | `POST /api/address-links/{flow}/unclaim` | returns the unlink message and nonce |
+| 2 | `POST /api/address-links/{flow}/unclaim/submit` | relays the unlink call |
+
+The REST flow names are `x`, `nostr`, `site`, `bio` and `prefered-aens-name`. The last uses
+the on-chain provider `prefaens` and the principal-based contract calls.
 
 See [Profile API](/api-reference/profile) for the request and response shapes.
 
@@ -98,8 +105,8 @@ See [Profile API](/api-reference/profile) for the request and response shapes.
 | `get_links(addr)` | every link for an address, as `provider -> value` |
 | `get_link(addr, provider)` | one value, or `None` |
 | `resolve(provider, value)` | the address that owns `value` under `provider`, or `None` |
-| `resolve_signer(principal)` | the account that signs for an AENS name |
-| `resolve_did_controller(did)` | the controlling address of a DID |
+| `resolve_signer(principal)` | the current AENS owner for a name-based principal; `None` for an address-based one |
+| `resolve_did_controller(did)` | the current AENS owner for a `did:ae:` name subject; `None` for an address subject |
 | `get_provider_owner(provider)` | the account that owns a provider namespace |
 
 The Superhero API resolves an account's public name in the order: `prefaens` link, AENS name
@@ -112,13 +119,17 @@ from the middleware, legacy username, raw address. The X handle is returned sepa
 | --- | --- |
 | `INVALID_SIGNATURE` | the signature does not verify against the message and address |
 | `INVALID_NONCE` | the nonce does not match `get_nonce` |
-| `ALREADY_CLAIMED` | this provider is already linked to a different value for this address |
-| `NOT_LINKED` | no link exists for this provider |
+| `ALREADY_CLAIMED` | this provider value is already linked to a different address |
+| `LINK_NOT_FOUND` | no link exists for this provider |
 | `NO_LINKS` | the address has no links at all |
 | `NOT_PROVIDER_OWNER` | the caller does not own the provider namespace |
-| `PRINCIPAL_NOT_FOUND` | the AENS name does not resolve |
-| `PRINCIPAL_MISMATCH` | only the name owner can link or unlink |
-| `INVALID_PRINCIPAL` | the principal string is malformed |
+| `PRINCIPAL_NOT_FOUND` | the `.chain` name has no active registration (never claimed, in auction, expired or revoked) |
+| `PRINCIPAL_MISMATCH` | the signer does not own the `.chain` name, or a non-name principal is not the signer's address |
+| `INVALID_PRINCIPAL` | the principal (after any `did:ae:` prefix) contains a colon |
+| `EMPTY_PRINCIPAL` / `PRINCIPAL_TOO_LONG` | the principal is empty or longer than 200 characters |
+| `INVALID_DID` | not `did:ae:` followed by a subject |
+| `EMPTY_VALUE` / `VALUE_TOO_LONG` / `INVALID_VALUE` | the value is empty, longer than 200 characters, or contains a colon |
+| `PROVIDER_NOT_FOUND` | no such provider is registered |
 
 ## Events
 
@@ -131,8 +142,9 @@ datatype event =
   | PrincipalUnlink(address, string)
 ```
 
-Every event carries an `address` topic and a `string` in `data`. On the link events the
-`data` string is `provider:value`, colon-joined. Topic hashes are in the
+Every event carries an `address` topic and a `string` in `data`. `Link` and `Unlink` carry
+`provider:value`, including the removed value on unlink. Principal events carry
+`principal|provider:value`. Topic hashes are in the
 [event catalogue](/contracts/events).
 
 ## Related

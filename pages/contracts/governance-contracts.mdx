@@ -236,7 +236,7 @@ await poll.revoke_vote();     // retract
 ```
 
 There is no stake, no allowance and no lock. A vote is a single map entry keyed by your
-address, and `revoke_vote` deletes it. Voting on a poll costs only gas.
+address, and `revoke_vote` deletes it. Voting on a poll costs a transaction fee and execution gas.
 
 `vote(option)` requires that the poll is open (`POLL_ALREADY_CLOSED`) and that the option
 exists (`VOTE_OPTION_NOT_KNOWN`). It overwrites any earlier vote by the same address, so

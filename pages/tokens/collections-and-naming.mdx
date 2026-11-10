@@ -78,8 +78,9 @@ uppercase Cyrillic. All four cap names at 20 characters. `WORDS` was deployed fr
 account than the other three on mainnet, so its `-ak_` suffix differs.
 
 A collection that exists on-chain but is not in the backend's configuration is not indexed, and
-tokens created in it do not appear in the app. There is no factory entrypoint that enumerates
-collections; to discover them from the chain, replay `CreateCollection(string, address)` events.
+tokens created in it do not appear in the app. The factory's `get_state()` returns the
+whole registry, but on mainnet it exceeds the dry-run gas limit; to discover collections from the
+chain, replay `CreateCollection(string, address)` events.
 
 The API returns the resolved collection on a token as `collection` (the full id) and
 `collection_info`, which carries `id`, `name`, `description` and `allowed_name_length`.
@@ -114,7 +115,7 @@ valid names rather than rejecting them.
 
 ## How the app picks a collection for you
 
-Because every collection allows `-`, a name such as `A-B` is valid in all of them at once. The app
+Because every collection allows `-`, a name such as `--` is valid in all of them at once. The app
 resolves this in three steps, re-derived on every keystroke:
 
 1. **Detect.** Every collection whose character rules accept the name, in schema order.
@@ -161,9 +162,12 @@ payable stateful entrypoint create_collection(collection_name : string, allowed_
 | Where does the 555 AE go? | `Chain.spend` to `ak_11111111111111111111111111111111273Yts`, the all-zero account. It is **burned**, not paid to the platform or to a treasury. |
 
 The creator chooses the collection's rules outright: the length cap and the whole character
-whitelist are arguments. The only uniqueness check is `collection_ALREADY_EXISTS`, and because the
-id is suffixed with the caller's address, it only stops the *same account* creating the same name
-twice.
+whitelist are arguments. `collection_ALREADY_EXISTS` checks the raw input against registry
+keys, but entries are stored under `<name>-<caller>`, so the guard never stops a repeat. If the
+same account calls `create_collection` again with the same name, the call succeeds, burns
+another 555 AE and replaces the registry entry with an empty one: the collection's names stop
+resolving through `has_community` and `get_token_sale`, and they can be registered again.
+Existing sales keep working, because the factory's set of known sales is not touched.
 
 The 555 AE matches the fee for opening a DAO proposal and serves the same purpose: it makes
 namespace spam expensive. A DAO proposal's 555 AE goes to the community treasury; a collection's is

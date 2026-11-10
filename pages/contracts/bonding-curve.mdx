@@ -14,30 +14,31 @@ when you call the curve directly; `BondingCurve.aci.json` is the interface the s
 
 ## Entrypoints
 
-Everything here is non-stateful and free to call.
+Everything here is non-stateful. The SDK dry-runs these calls by default without a network fee;
+broadcasting a contract-call transaction still incurs network charges.
 
 | Entrypoint | Signature | What it gives you |
 | --- | --- | --- |
 | `calculate_buy_price` | `(total_supply: int, count: int) => int` | Cost in aettos of buying `count` more tokens at a given supply |
 | `calculate_sell_return` | `(total_supply: int, sell_tokens: int) => int` | AE returned for selling `sell_tokens` at a given supply |
-| `buy_price` | `(total_supply: int) => int` | The instantaneous buy price at that supply |
-| `sell_price` | `(total_supply: int) => int` | The instantaneous sell price at that supply |
+| `buy_price` | `(total_supply: int) => int` | Ceiling of the spot ratio in AE per whole token, not a quote in aettos |
+| `sell_price` | `(total_supply: int) => int` | Floor of the sell spot ratio in AE per whole token, not a quote in aettos |
 | `buy_curve` | `(x: int) => Frac.frac` | The raw buy curve value as an exact rational |
 | `sell_curve` | `(x: int) => Frac.frac` | The raw sell curve value as an exact rational |
 | `get_k` | `() => int` | Exponent coefficient |
-| `get_initial_price` | `() => int` | Curve offset constant |
+| `get_initial_price` | `() => int` | Spot buy price at supply 0 (`10^11` aettos, 0.0000001 AE per token); the offset `a - initial_price` is not stored |
 | `get_minimum_count` | `() => int` | Smallest tradable count |
 | `get_sell_return_percentage` | `() => int` | The sell factor numerator |
-| `get_sell_return_precision` | `() => int` | The sell factor denominator |
+| `get_sell_return_precision` | `() => int` | Getter intended to expose the sell factor denominator; see the implementation note below |
 | `curve_type` | `() => string` | Curve identifier |
 | `supported_decimals` | `() => int` | Token decimals the curve is calibrated for |
 
 The `BondingCurve` interface declares the same eight computational entrypoints with unnamed
 arguments (`_1`, `_2`), which is why the sale contract's ACI shows them that way.
 
-`calculate_buy_price` and `buy_price` take a **supply**, not a count. The token sale's
-`price(count)` takes a count and reads the current supply for you. Mixing them up produces
-prices that are wrong by many orders of magnitude.
+`buy_price(total_supply)` takes a supply. `calculate_buy_price(total_supply, count)` takes
+both the starting supply and the count to buy, in token base units. The token sale's
+`price(count)` takes only a count and reads the current supply for you.
 
 Use `calculate_buy_price` and `calculate_sell_return` for quotes.
 
@@ -49,7 +50,7 @@ Use `calculate_buy_price` and `calculate_sell_return` for quotes.
 | `k` | `1 * 10 ^ 10` | 10,000,000,000 |
 | `initial_price` | `1 * 10 ^ 11` | 100,000,000,000 |
 | `decimals` | `1 * 10 ^ 18` | 10^18 |
-| `minimum_count` | `1 * 10 ^ 12` | 10^12 aettos, i.e. 10^-6 of a token |
+| `minimum_count` | `1 * 10 ^ 12` | 10^12 token base units, i.e. 10^-6 of a token |
 | `sell_return_percentage` | `9950` | 99.50% |
 | `sell_return_precision` | `10000` | the denominator of that percentage |
 | `curve_type()` | `"TAYLOR_EXPONENTIAL_V1"` | n/a |
@@ -82,6 +83,12 @@ The 0.995 sell factor is `sell_return_percentage / sell_return_precision = 9950 
 That 0.5% is the DAO's half of the spread. The sale contract adds the other 0.5% as the
 affiliation fee on the way in, which is how the round trip reaches a 1% total spread while the
 curve itself only knows about 0.5%.
+
+`get_sell_return_precision()` returns `sell_return_percentage` (`9950`), not the internal
+denominator `10000` that the calculation uses. This is a getter bug in
+[`BondingCurveExponential.aes`](https://github.com/bctsl/bctsl-contracts/blob/02e5dc1acb31729b7f0e4c2c72bcd9e381c9d9dc/contracts/BondingCurveExponential.aes),
+and the deployed mainnet curve `ct_6E78VvU5Raz7g6oaGymF2eMNG7FjVToS6JA4AqoufaWF6sTXd` returns
+`9950` from both getters. Do not derive the sell factor by dividing the two getters.
 
 ## What the contract evaluates
 
@@ -124,12 +131,13 @@ Two things bound the series:
   truncates to zero makes every later term zero too. At realistic supplies this fires long
   before the iteration cap.
 
-The approximation error is negligible: the on-chain result and the closed form agree to within
-2e-16 AE at supply 0 and 1.4e-12 AE at supply 10,000,000, far below one aetto of a per-token
-price. Quote the closed form for explanation; call `calculate_buy_price` for money.
+For a count of 1,000 whole tokens, the integer calculation differs from the idealised integral
+by less than one aetto at starting supplies 0 and 10,000,000. This is a check of those
+examples, not a bound for arbitrary inputs. Use the closed form for explanation and
+`calculate_buy_price` for a transaction quote.
 
 `calculate_price` carries the only `require` on the curve: a `count` below `minimum_count`
-(10^12 aettos) aborts with `MINIMUM_TOKENS_REQUIRED`. That applies to `calculate_buy_price` and
+(10^12 token base units) aborts with `MINIMUM_TOKENS_REQUIRED`. That applies to `calculate_buy_price` and
 `calculate_sell_return` alike, because both route through it.
 
 `buy_curve` and `sell_curve` are a separate code path. They call `exp_helper` with the full
@@ -197,9 +205,13 @@ console.log({
 - **Price is a pure function of supply.** There is no time component, no oracle and no
   liquidity provider. Two buys of the same size at the same supply cost the same.
 - **`minimum_count` is 10^12 base units.** With 18-decimal tokens that is 0.000001 of a token.
-  Quotes below it are not meaningful.
-- **The curve is steep by design.** It is calibrated so the price rises noticeably from the
-  very first buys; only 10–20% of the nominal supply is expected to be reached.
+  Calls below it abort with `MINIMUM_TOKENS_REQUIRED`.
+- **Price grows exponentially with supply.** Use the actual supply and trade size when
+  calculating a quote; this curve does not define a maximum token supply.
+- **Integer quotes do not prove aggregate solvency.** Separately rounded trade quotes need not
+  sum to the quote for their combined amount. See
+  [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding) for the
+  continuous-model redemption argument and its implementation limits.
 
 ## Related
 
@@ -207,4 +219,4 @@ console.log({
 - [Curve parameters](/tokens/curve-parameters): the same constants from a trader's point of view
 - [AffiliationBondingCurveTokenSale](/contracts/token-sale): the contract that calls this one
 - [Calling Contracts](/contracts/calling-contracts): how to run the snippets above
-- [Sophia standard library](https://docs.aeternity.com/aesophia/v7.0.1/sophia_features/): where `Frac` is defined
+- [Sophia standard library](https://github.com/aeternity/aesophia/blob/master/docs/sophia_stdlib.md): where `Frac` is defined

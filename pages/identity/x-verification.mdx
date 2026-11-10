@@ -88,11 +88,8 @@ Content-Type: application/json
 ```
 
 The backend exchanges the code for an access token itself, so the token never touches the
-browser. A second body shape is accepted for callers that already hold a token:
-
-```text
-{ "address": "ak_…", "x_access_token": "…" }
-```
+browser. This is the only accepted body: any other property, such as `x_access_token`, is a
+`400`.
 
 The response is a claim:
 
@@ -103,7 +100,8 @@ The response is a claim:
 | `value` | The X username the backend resolved, trimmed and lowercased |
 | `verification_token` | A base64url HMAC token binding address, provider, value and expiry |
 
-The username is taken from the X profile as `username || name`, then `.trim().toLowerCase()`.
+The username is the X profile's `username` (the handle), never its display name, then
+`.trim().toLowerCase()`.
 A profile the backend cannot extract a username from is a `400`.
 
 ### The verification token
@@ -155,12 +153,13 @@ invalidates the profile query so the verified badge appears once the backend has
 | Signature is not 128 hex characters | 400 before the call is built |
 | Contract rejects the signature | 400, from `INVALID_SIGNATURE` |
 | The nonce moved since the claim | 400, from `INVALID_NONCE`; restart from claim |
-| The handle is already linked to a different value for this address | 400, from `ALREADY_CLAIMED` |
+| The handle is already linked to another address | 400, from `ALREADY_CLAIMED` |
 
 ## Unlinking
 
-Unlinking is symmetrical and also signed, but requires no X proof: possession of the æternity
-key is sufficient to remove your own link, so there is no verification token.
+Unlinking is symmetrical and also signed, but requires no X proof and no verification token:
+you sign the unlink message, and the backend, as the `x` provider owner, submits it. The contract
+rejects an unlink from any other caller.
 
 ```text
 POST /api/address-links/x/unclaim          → { "message": "unlink:ak_…:x:1", "nonce": 1 }
@@ -168,9 +167,14 @@ POST /api/address-links/x/unclaim          → { "message": "unlink:ak_…:x:1",
 POST /api/address-links/x/unclaim/submit   → { "txHash": "…" }
 ```
 
-The same claim-sign-submit shape is used for `bio`, `site`, `prefered-aens-name` and `nostr`,
-with only the path segment changing. To build a new provider, copy this pattern; the
-per-provider work is a verifier that turns your proof into a `value` plus a verification token.
+Bio, site, preferred-name and Nostr links also use claim, signature and submit steps, with
+provider-specific request bodies and proofs. Nostr claim returns no verification token;
+submission additionally requires a signed `nostr_event`. Preferred-name messages use the
+owned `.chain` name as principal, and preferred-name unlink submission also requires the
+linked name in `value`. See [Profile API](/api-reference/profile#address-links) for each flow.
+
+You can replace your own existing X link with another available handle. `ALREADY_CLAIMED`
+rejects a handle linked to another address.
 
 ## Contract-side verification
 
@@ -179,15 +183,17 @@ over the personal-message digest of the `message` string. That check, plus the n
 provider-owner rule, is the whole of it.
 
 ```text
-digest = Blake2b-256( prefix(28 bytes) || Blake2b-256(message) )
+body   = UTF-8(message)
+digest = Blake2b-256(0x1a || UTF-8("aeternity Signed Message:\n")
+                    || varuint(byte_length(body)) || body)
 ok     = Crypto.verify_sig(digest, addr, sig)
 ```
 
-The prefix string `aeternity Signed Message:` plus the newline is 26 bytes. The SDK's personal
-message encoding writes a length byte before the prefix and a length byte before the body, so
-the header is 1 + 26 + 1 = 28 bytes. The body is the 32-byte Blake2b digest of the message,
-giving 28 + 32 = 60 bytes hashed a second time. The framing makes an address-link signature
-unusable as a raw transaction signature.
+The prefix string plus its newline is 26 bytes. It is preceded by its length (`0x1a`), then
+followed by the variable-length encoding of the message's UTF-8 byte length and the full
+message bytes. The message is not pre-hashed. SDK `signMessage(message)` applies this framing;
+it differs from Tipping v3's fixed 60-byte construction. The framing separates personal-message
+signatures from transaction signatures.
 
 `Crypto.verify_sig(msg, pubkey, sig)` is the Sophia standard-library entrypoint for Ed25519
 verification. On compiler version 8 and later it accepts a message of any length; earlier

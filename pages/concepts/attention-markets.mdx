@@ -7,23 +7,24 @@ description: "Why pricing attention with a bonding curve produces a usable marke
 
 Attention already behaves like a market, but it has no price feed. Hashtags trend, communities form, and
 value accrues to platforms rather than participants. Superhero gives every trend a token whose price
-is a deterministic function of how many people have bought in.
+is a deterministic function of its circulating supply.
 
 ## Why a curve instead of an order book
 
 An order book needs two-sided interest. A brand-new hashtag has none: nobody is standing by to quote
 a price for `#ThingThatHappenedAnHourAgo`. A bonding curve removes the counterparty entirely.
 
-- **No order book, no counterparty.** You always trade against the contract, so there is always
-  liquidity and a quotable price, from the first token onward.
-- **Price is a function of supply and nothing else.** Supply only moves when someone buys or sells,
-  so price encodes net conviction rather than the temporary balance of resting orders.
-- **Solvency is structural.** The sell curve sits strictly below the buy curve at every supply
-  level, so the reserve held by the sale contract is always enough to redeem the entire circulating
-  supply. There is no bank-run state.
+- **No order book, no counterparty.** You trade against the contract, which computes quotes from
+  supply and holds the reserve used to pay sellers.
+- **Curve price is a function of supply.** Buys mint tokens and sells burn them. Holders can
+  also burn their own tokens directly, reducing supply without a sale or an AE payout. The
+  curve uses the token contract's current `total_supply()`, rather than resting orders.
+- **Buys fund the reserve.** Each buy retains the quote for immediately selling the newly minted
+  tokens. Full redemption follows in the ideal continuous model; integer rounding requires
+  separate analysis. See [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
 
-The cost of that guarantee is the spread. Superhero sets it at 1%: half to the token's DAO
-treasury, half to the affiliation chain. See [Where the Money Goes](/concepts/value-flow).
+Superhero sets the spread at 1% of curve value: on buys, half is allocated to the token's DAO
+treasury and half to the affiliation chain, before integer rounding. See [Where the Money Goes](/concepts/value-flow).
 
 ## The curve
 
@@ -33,9 +34,12 @@ Superhero uses one exponential curve for every community token:
 buy(x)  = 0.001 * e^(0.00000001 * x) - 0.0009999
 sell(x) = buy(x) * 0.995
 
-price paid for `amount` tokens   = integral of buy(x) from supply to supply + amount
+curve cost for `amount` tokens   = integral of buy(x) from supply to supply + amount
 return for selling `amount` back = integral of sell(x) from supply - amount to supply
 ```
+
+The all-in buy payment adds the affiliation fee to that curve cost. These equations describe
+the continuous model; contract quotes also apply integer rounding.
 
 `x` is the circulating supply in whole tokens. The trade card's client-side estimator uses the same
 three constants (`a = 0.001`, `k = 0.00000001`, `c = 0.0009999`) to show you a quote before you sign.
@@ -45,8 +49,8 @@ Two design consequences fall straight out of the constants:
 - At supply zero the marginal price is `0.001 - 0.0009999 = 0.0000001 AE`. The curve starts almost
   free, which makes being first meaningfully rewarding.
 - The exponent is small (`1e-8`), so the curve is nearly linear for the first few hundred thousand
-  tokens and then bends hard. Only 10–20% of the total supply is expected to be reached, which gives
-  a noticeable price increase right from the start of the curve.
+  tokens and becomes more curved as supply grows. There is no fixed maximum supply against
+  which to express a percentage sold.
 
 ## A worked example
 
@@ -63,12 +67,12 @@ curve formula above.
 
 Now follow one buyer through it.
 
-**The first buyer spends 1 AE.** Solving the integral for a 1 AE curve cost at supply 0 gives about
-**437,014 tokens**. Their marginal price rose from 0.0000001 AE to roughly 0.0000053 AE per token
-along the way, a 53× move in the marginal price, on a 1 AE trade, because the curve is steepest in
+**The first buyer buys at a 1 AE curve cost.** Solving the integral at supply 0 gives about
+**437,014 tokens**. Their marginal price rose from 0.0000001 AE to roughly 0.00000448 AE per token
+along the way, about a 44.8× move in the marginal price, on a 1 AE curve cost, because the curve is steepest in
 relative terms at the very bottom.
 
-**The next buyer spends the same 1 AE.** They start at supply 437,014, not 0, so the same AE buys
+**The next buyer uses the same 1 AE curve cost.** They start at supply 437,014, not 0, so the same AE buys
 materially fewer tokens. The price encodes who was early.
 
 **Buying a million tokens at different points** shows the same thing from the other side:
@@ -98,9 +102,10 @@ pressure on the related token; fading attention drains it.
 
 ## The trending score
 
-`trending_score` is the momentum signal the product exposes. It is a field on every token returned
-by `GET /api/tokens`, it is the default sort (`order_by=trending_score&order_direction=DESC`), and
-there is a per-token endpoint at `GET /api/tokens/[address]/score`.
+`trending_score` is the momentum signal the product exposes. It is a field on tokens returned
+by `GET /api/tokens`. By default, the web app's main token list explicitly requests
+`order_by=trending_score&order_direction=DESC`; the API defaults to `market_cap` when
+`order_by` is omitted. There is a per-token endpoint at `GET /api/tokens/[address]/score`.
 
 It is computed off-chain by the backend:
 
@@ -125,9 +130,9 @@ worth far more than the next few. Both work against brute-force manufacturing of
 | Trading | Sell count | 0.20 | 40 |
 | Trading | Volume in AE | 0.20 | 5,000 |
 | Social (0.65) | Posts mentioning the symbol | 0.32 | 15 |
-| Social | Comments mentioning the symbol | 0.32 | 50 |
-| Social | Unique authors mentioning it | 0.22 | 20 |
-| Social | Tips on mentioning posts | 0.05 | 15 |
+| Social | Matching comments and replies in matching threads | 0.32 | 50 |
+| Social | Unique authors of matching posts and comments | 0.22 | 20 |
+| Social | Non-self tips on matching posts and comments | 0.05 | 15 |
 | Social | Tip amount in AE | 0.03 | 250 |
 | Social | Reads of mentioning posts | 0.06 | 200 |
 
@@ -143,9 +148,10 @@ freshness_decay = 1 / (1 + age_hours / 2) ^ 1.15
 ```
 
 At two hours idle a token keeps about half its pre-decay score; at a day, about a twentieth. Scores
-are refreshed on a cron (every two hours for tokens with recent activity, every six for a stale
-backfill), so a score you read may be up to two hours behind the window it describes. Tokens flagged
-`unlisted` are skipped entirely.
+are refreshed by activity-triggered jobs and scheduled batches: every two hours for active
+tokens and every six hours for stale scores. Batch limits and processing failures can delay
+updates further; inspect `trending_score_update_at` rather than assuming a maximum age.
+Tokens flagged `unlisted` are skipped by these refresh jobs.
 
 Trending *tags* are a different mechanism that happens to share a word. They may not have tokens at
 all, and their `score` and `source` are **pushed in by external providers** through
@@ -167,4 +173,4 @@ it as a ranking aid, not as ground truth. See [The Trending Score](/tokens/trend
 - [Where the Money Goes](/concepts/value-flow): the 1% spread, split to the fraction, on both sides of a trade.
 - [The Trending Score](/tokens/trending-score): what the API returns and how the app sorts by it.
 - [Risks](/tokens/risks): the trading risks stated plainly, with the mitigations that exist.
-- [Trending tokens on superhero.com](https://superhero.com/trends/tokens): the live market, sorted by market cap.
+- [Trending tokens on superhero.com](https://superhero.com/trends/tokens): the token list, with selectable sorting.

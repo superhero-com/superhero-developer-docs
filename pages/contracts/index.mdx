@@ -28,9 +28,10 @@ events each one emits, and how to call all of it from JavaScript.
 | [`Registry.aes` / `Poll.aes`](/contracts/governance-contracts) | æternity governance polls |
 | [`AddressLink`](/contracts/address-link) | Identity: provider-keyed links from an address to an X handle, AENS name or nostr key |
 
-`DAO`, `DAOVote`, `CommunityManagement`, `AffiliationTreasury`, `VoteSubjects`, `Set`, `Frac`
-and `FungibleTokenFull` have no ACI file of their own: the compiler inlines them into
-`CommunityFactory.aci.json`. Load the factory ACI when you need any of those interfaces.
+`DAO`, `DAOVote`, `CommunityManagement` and `AffiliationTreasury` have their own ACI files in
+`bctsl-contracts/generated/`, and `FungibleTokenFull` in `aeternity-fungible-token/generated/`;
+all are also inlined in `CommunityFactory.aci.json`. `VoteSubjects`, `Set` and `Frac` exist only
+inlined, so load the factory ACI when you need one of those.
 
 ## How the pieces fit together
 

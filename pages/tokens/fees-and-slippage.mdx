@@ -7,8 +7,9 @@ description: "Everything between the price you see and the price you get: the 1%
 
 Three different things move the number. The **curve spread** is a fixed 1% of the curve value,
 split between the community DAO and the affiliation system. **Curve slippage** is the cost of your
-own trade size, and depends on how big it is relative to the supply. **Gas** is the æternity network
-fee, and the smallest of the three by a wide margin.
+own trade size, and depends on how big it is relative to the supply. **Network charges** include
+the transaction fee and gas used by contract execution. Their size relative to trading costs
+depends on the trade amount, gas consumption and network conditions.
 
 ## 1. The spread
 
@@ -71,16 +72,18 @@ transaction. The only cost of a generous buffer is that the AE has to be in your
 
 ### Where each AE goes
 
+Before integer rounding, the continuous-model allocation is:
+
 ```text
-Buyer pays AE
-  ├── 99.0%  → Bonding Curve Reserve (redeemable by sellers)
-  ├──  0.5%  → Community DAO Treasury (governed by token holders)
-  └──  0.5%  → Affiliation System
+Buyer pays 1.005 × B AE, where B is the curve integral in AE
+  ├── 0.995 × B → Bonding Curve Reserve (redeemable by sellers)
+  ├── 0.005 × B → Community DAO Treasury (governed by token holders)
+  └── 0.005 × B → Affiliation System
                 ├── 0.300% → Level 1 Referrer
                 ├── 0.125% → Level 2 Referrer
                 ├── 0.050% → Level 3 Referrer
                 └── 0.025% → Level 4 Referrer
-                (if no referrer: burned)
+                (percentages are of B; uncredited shares stay in the treasury)
 
 Buyer also receives:
   └── ProtocolDAO Tokens = 1,000 × AE value
@@ -90,7 +93,7 @@ The four-level split is credited per level as the treasury walks up the affiliat
 `AffiliationTreasury.record_sale_transaction(buyer, transaction_value)` credits `300`, then `125`,
 then `50`, then `25` hundred-thousandths of the transaction value to successive inviters, and stops
 as soon as an account has no inviter recorded. Levels with no inviter are not paid out; that share
-is burned.
+remains uncredited in the affiliation treasury contract. It is not transferred to a burn address.
 
 Credited rewards are withdrawable for the current and the previous 30-day payout period
 (`payout_period_interval = 2592000000` milliseconds) and expire after that. `withdraw()` also
@@ -115,11 +118,11 @@ state.dao_contract.record_sale_transaction(
   Call.caller, total_price)
 ```
 
-`total_supply()` has already been incremented by the mint, so `reserve` is exactly
-`0.995 × bonding_curve_price`, the AE that would be owed if the buyer immediately sold back. The
-DAO gets `bonding_curve_price − reserve`, the remaining `0.5%`, and the sale contract keeps the
-reserve. The payout obligation is computed first and the treasury receives only what is left over,
-which is why the reserve is always solvent.
+`total_supply()` has already been incremented by the mint, so `reserve` is the exact integer
+quote for immediately selling that same count, approximately `0.995 × bonding_curve_price`.
+The DAO gets `bonding_curve_price − reserve`, approximately `0.5%`, and the sale contract keeps
+the reserve. This funds sellers in the continuous model; integer rounding needs separate
+analysis. See [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
 
 Both external calls use `protected = true`, so a failing DAO or treasury call cannot block a trade;
 the value stays in the sale contract instead of reverting the buy.
@@ -164,9 +167,10 @@ Buying from a supply of 10,000,000, where spot is `1.052709e-4 AE`:
 Rule of thumb: **your premium to spot is roughly half the percentage of the supply you are adding**,
 up to about 10%, and worse than that beyond it.
 
-Splitting the order does not help. The curve is path-independent: ten buys of 1,000,000 from a
-rising supply cost exactly the same total as one buy of 10,000,000, because the integral is the same
-area either way. The only levers are trade size and the supply you trade at.
+In the continuous model, splitting the order does not reduce price impact. Ten consecutive buys
+of 1,000,000 cover the same integral as one buy of 10,000,000 with the same starting supply and
+no intervening trades. Integer rounding can change exact totals, and each transaction pays its
+own network fee.
 
 Near supply zero the effect is far larger in relative terms, because the `−0.0009999` offset has
 cancelled almost all of the exponential: buying the first 1,000 tokens of a brand-new token costs
@@ -203,12 +207,12 @@ Every transaction pays an æternity network fee in AE, independent of everything
 | --- | --- | --- |
 | Create a token | 1 contract call | About 0.001 AE |
 | Buy | 1 contract call | Depends on contract execution |
-| Sell | 2 contract calls: allowance, then sell | Depends on contract execution |
+| Sell through the web app | 2 contract calls: allowance, then sell | Depends on contract execution |
 | Post | 1 contract call | Depends on contract execution |
 
-Read the exact fee off any mined transaction in [aeScan](https://aescan.io). Two things hold
-regardless: a **sell costs two transactions**, not one, because of the allowance step; and the web
-app never lets you spend your whole balance. Its "spendable" figure is
+Read the exact fee off any mined transaction in [aeScan](https://aescan.io). The web app uses
+two transactions for a sell, including its allowance step. A direct sell can use a sufficient
+existing allowance without another approval transaction. The web app's "spendable" figure is
 `balance − balance × (slippage + 1) / 100 − 0.001 AE`, so at the default 1% tolerance it holds back
 2% of your balance plus a flat 0.001 AE for the fee.
 
@@ -222,7 +226,7 @@ For a buy of `n` tokens at supply `S`:
 AE leaving your wallet
   = ∫ from S to S+n of buy(x) dx     ← the curve, including your own slippage
   × 1.005                             ← the affiliation fee; together, this is price(n)
-  + network gas
+  + network transaction fee and execution gas
   ( any buffer you attached above price(n) is refunded in the same transaction )
 ```
 
@@ -231,8 +235,8 @@ And for the matching sell later, at whatever supply `S'` prevails then:
 ```text
 AE returning to your wallet
   = ∫ from S'−n to S' of buy(x) dx
-  × 0.995                             ← the sell factor, i.e. the DAO's cut
-  − network gas
+  × 0.995                             ← the sell factor; the DAO allocation was funded on buys
+  − network transaction fee and execution gas
   ( reverts entirely if below minimal_return_required )
 ```
 

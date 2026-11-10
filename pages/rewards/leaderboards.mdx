@@ -42,9 +42,9 @@ all
             and to 0 if both are
 ```
 
-The 7d and 30d boards measure portfolio *growth*, which a deposit inflates and a withdrawal
-deflates. The All board measures return on invested capital. A wallet can rank very
-differently on each.
+The 7d and 30d boards measure change in the backend's computed token-portfolio value;
+buys can increase that value and sells can decrease it. The All board measures return on
+invested capital. A wallet can rank very differently on each.
 
 For the All window, the window-based figures (the sparkline, the maximum drawdown, and the
 buy and sell counts) cover **the last 365 days**. Only PnL and ROI are all-time.
@@ -60,8 +60,8 @@ buy and sell counts) cover **the last 365 days**. Only PnL and ROI are all-time.
 
 Custom ranges are entered as `dd/mm/yyyy hh:mm` in local time and converted to ISO-8601
 before the request. Both ends are required; a start after the end is rejected in the client,
-and an unparseable date disables the query. When a custom range is applied, `window` and
-`points` are omitted.
+and an unparseable date disables the query. The API rejects periods longer than 14 days.
+When a custom range is applied, the app omits `window` and `points`.
 
 ## What each row shows
 
@@ -76,7 +76,7 @@ and an unparseable date disables the query. When a custom range is applied, `win
 | `created_tokens_count` | Tokens this account created |
 | `owned_trends_count` | Owned trends |
 | `portfolio_value_usd_sparkline` | The inline sparkline, an array of point pairs |
-| `volume_usd` | Present in the response; not rendered on the card |
+| `volume_usd` | Present for custom ranges; not rendered on the card |
 
 Rank is computed client-side from the page offset (`(page − 1) × 15 + index + 1`), so it is
 the rank within the currently selected metric and window.
@@ -96,15 +96,18 @@ below one US dollar. Pass `minAumUsd=0` to include them.
 
 Custom ranges bypass the snapshot and compute live. The candidate pool is then the top
 addresses by USD volume of buy and sell transactions **inside that range** rather than
-all-time, sized by `maxCandidates`, default 100, maximum 500.
+all-time. `maxCandidates` defaults to 100 and its requested value is clamped to 500, then
+raised to at least the page offset plus limit. Deep pages can therefore enlarge the pool
+beyond 500 candidates.
 
 ## Which trades count
 
-Bonding-curve trades only: `buy`, `sell` and `create_community` calls on community token
-sales. [DEX swaps](/defi/swap), liquidity provision and plain AE transfers are not counted,
-either for the volume ranking that decides who is a candidate or for the `buy_count` and
-`sell_count` on each card. Portfolio value is whatever the account's holdings are worth, so
-AUM and the sparkline can move for reasons the buy and sell counts never show.
+The candidate and activity queries use indexed bonding-curve transactions, excluding
+[DEX swaps](/defi/swap), liquidity provision and plain AE transfers. Snapshot candidate volume
+includes `create_community` rows; custom-range candidate volume uses only `buy` and `sell`.
+In both modes, `buy_count` counts only `buy` rows and `sell_count` only `sell` rows, so a
+creator's initial purchase is not included in that buy counter. AUM and the sparkline come
+from the backend's token-PnL calculations and can move independently of those counts.
 
 `tradingOnly=true` narrows it further, for custom ranges only: it switches the
 selected-period PnL and ROI to realised token-trading PnL and cost basis, excluding portfolio
@@ -124,16 +127,16 @@ Base URL is Superhero's API: `https://api.superhero.com` on mainnet.
 | `sortDir` | `ASC` or `DESC`. Defaults to `DESC`, except `sortBy=mdd` which defaults to `ASC`. |
 | `window` | `7d`, `30d`, `all`. Default `7d`. |
 | `points` | Number of sparkline points. **Ignored for `window` requests**: the snapshot fixes it at 8 for 7d, 12 for 30d and 24 for all. For a custom range it is clamped to 2–12, default 8. |
-| `startDate`, `endDate` | ISO-8601, both required together, end after start. Switches to the live path; mutually exclusive with `window`. |
+| `startDate`, `endDate` | ISO-8601, both required together, end after start, at most 14 days apart. Selects the live path even if `window` is also supplied. |
 | `minAumUsd` | Integer, 0 or more. **Defaults to 1**, which excludes near-zero portfolios. |
 | `tradingOnly` | Boolean. Custom ranges only: bases PnL and ROI on realised trading PnL rather than portfolio value change. |
 | `page` | 1-based. Default 1. |
 | `limit` | Page size, 1–50. Server default 18; the UI sends 15. |
-| `maxCandidates` | Ignored for `window` requests. For a custom range it sizes the live candidate pool, default 100, maximum 500. |
+| `maxCandidates` | Ignored for snapshot windows. For a custom range, defaults to 100; clamped to 500, then raised to at least the page offset plus limit. |
 
-The response is the standard paginated envelope: an `items` array of the fields above, plus a
+The response has an `items` array of the fields above, plus a
 `meta` object carrying `page`, `limit`, `totalItems`, `totalPages`, `window`, `sortBy`,
-`sortDir` and a `timeFilter` block with the resolved `value`, `unit`, `start` and `end`.
+`sortDir` and, for custom ranges only, `timeFilter: { start, end }` with ISO timestamps.
 
 ```bash
 curl "https://api.superhero.com/api/accounts/leaderboard?sortBy=pnl&sortDir=DESC&window=7d&points=7&page=1&limit=15"

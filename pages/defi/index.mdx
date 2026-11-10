@@ -23,11 +23,12 @@ prices for the same token are independent, and nothing arbitrages them automatic
 | Counterparty | The curve contract's reserve | Other liquidity providers |
 | Contracts | `AffiliationBondingCurveTokenSale`, `BondingCurveExponential` | `AedexV2Router`, `AedexV2Factory`, `AedexV2Pair` |
 | Fee | 1% spread, split 0.5% DAO and 0.5% affiliation | 0.3% per swap, to liquidity providers |
-| Can it run out of liquidity | No: the reserve always covers the full supply | Yes: a thin pool gives poor prices or no route |
+| Liquidity model | Buys fund a reserve for sellers; full redemption follows in the continuous model, subject to integer-rounding analysis | A thin pool gives poor prices or no route |
 | Main risk | Price falls back down the curve | Price impact, no route, and impermanent loss if you provide liquidity |
 
-The curve can always buy back its entire supply. A liquidity pool makes no such promise: if the
-liquidity providers leave, there is no price to sell at.
+The curve's reserve is funded by buys. Its continuous-model redemption argument needs a separate
+check for integer rounding; see [Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
+In a liquidity pool, providers can withdraw the reserves used for swaps.
 
 ## Routes
 

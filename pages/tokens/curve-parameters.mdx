@@ -5,7 +5,7 @@ description: "The constants, decimals and fixed-point conventions you need to co
 
 # Curve Parameters & Units
 
-Every integer that crosses the boundary between your code and a Superhero contract is scaled. AE
+Monetary amounts passed between your code and Superhero contracts are scaled integers. AE
 amounts are in aettos (10^18 to the AE), token counts are in the token's own decimal units (also
 10^18), and the curve formula is written in *whole* tokens and *whole* AE. Mixing those three
 conventions is how implementations end up off by a factor of 10^18.
@@ -39,8 +39,8 @@ The scaling rule: for a curve `f(x) = α·e^(β·x) − γ`, the constants are `
 
 `calculate_price` requires `count >= minimum_count` and aborts with `MINIMUM_TOKENS_REQUIRED`
 otherwise. `minimum_count` is `10^12` token decimal units (`10^12 / 10^18 = 10^-6` tokens, one
-millionth of a token), so it only guards against a trade rounding to zero inside the integer
-arithmetic. In practice it fires when you pass a **whole-token** count where the contract expects
+millionth of a token). It is a hard minimum on every buy, sell and quote, so a balance below it
+cannot be sold. In practice it fires when you pass a **whole-token** count where the contract expects
 decimal units: sending `5` instead of `5000000000000000000` aborts with `MINIMUM_TOKENS_REQUIRED`
 rather than silently buying five attotokens.
 
@@ -56,7 +56,7 @@ code, or read `sell_return()` on the sale contract instead of reconstructing the
 | --- | --- | --- | --- |
 | AE amount | aettos, an integer | AE, a decimal | divide by 10^18 |
 | Token count | token decimal units, an integer | whole tokens, a decimal | divide by 10^(decimals) |
-| Curve value | `Frac.frac` rational, or an integer of aettos | AE per token | see below |
+| Curve value | `Frac.frac` rational from `buy_curve`/`sell_curve`; `buy_price`/`sell_price` round it up/down to an integer | AE per token | see below |
 
 `1 AE = 10^18 aettos`. The æternity SDK exposes this as `AE_AMOUNT_FORMATS.AETTOS` /
 `AE_AMOUNT_FORMATS.AE` and the helpers `toAe()` and `formatAmount()`. Do the division with
@@ -80,8 +80,8 @@ the factory creates: `create_community` passes `decimals = 18` to the sale, and
 Read the value from one of those entrypoints rather than hardcoding 18.
 
 `GET /api/tokens/{address}` also returns `decimals` (as a string) alongside `total_supply`.
-`total_supply` from the API is already in token decimal units. Divide it by 10^18 before feeding it
-to the curve.
+`total_supply` from the API is already in token base units. Pass it unchanged to the contract's
+curve entrypoints. Divide it by 10^18 only when using the idealised formula expressed in whole tokens.
 
 ## What each entrypoint expects
 
@@ -213,14 +213,15 @@ Three properties matter if you are reimplementing this:
    to `0` under integer division. In the supply range these tokens trade in, the second bound always
    fires first; the terms collapse long before the hundredth.
 2. **`mc2` starts at the quadratic term.** It returns `scale · (e^z − 1 − z)` rather than
-   `scale · e^z`, where `z = k·supply / 10^18` is the curve exponent. The missing linear term is
+   `scale · e^z`, where `z = k·supply / 10^36` for supply in token base units. The missing linear term is
    what the `(initial_price * count) / decimals` summand restores; that is where the `−0.0009999`
    offset of the closed form comes from.
-3. **Every division floors, and the order is load-bearing.** `(term * x) / (i * scale)` divides once,
-   after both multiplications. Splitting it into `term * x / i / scale` or pre-scaling `x` changes
-   the truncation and the answers drift apart.
+3. **Integer truncation matters.** Preserve the multiplication before division in
+   `(term * x) / (i * scale)`. Pre-scaling `x` can discard precision. For non-negative
+   integers, dividing the product successively by `i` and `scale` gives the same floor as
+   dividing by their product.
 
-`sell_price` is not a separate curve evaluation: `calculate_sell_return(supply, n)` is
+`calculate_sell_return` is not a separate curve evaluation: `calculate_sell_return(supply, n)` is
 `calculate_price(supply − n, n) × 9950 / 10000`, floored.
 
 ## Reference implementation: exact
@@ -322,8 +323,8 @@ buyPriceAettos(10_000_000, 1000).toFixed(0); // "105276443948657760" vs 10527644
 ```
 
 The residual, a couple of hundred aettos on each, is double rounding, not a difference in the
-model: the contract's truncated Taylor series tracks the closed form to within `4e-19 AE` across
-this range. A double has about 15–16 significant digits in total while an aettos figure needs 18,
+model: the contract's integer result is the closed form rounded down, under 1 aetto below it for
+whole-token counts. A double has about 15–16 significant digits in total while an aettos figure needs 18,
 so **no floating-point implementation can be exact at the aettos level.** Use these for estimates
 and the contract's own return value for anything you sign.
 
@@ -345,7 +346,7 @@ Because the curve is convex, the trapezoidal rule always *overestimates* slightl
 
 | Trade | Exact (AE) | Trapezoidal, n = 100 (AE) | Error |
 | --- | --- | --- | --- |
-| 1,000 tokens from supply 0 | 0.000105000 | 0.000105000 | +0.03 ppm |
+| 1,000 tokens from supply 0 | 0.000105000 | 0.000105000 | +0.00000794 ppm |
 | 1,000,000 tokens from supply 0 | 5.116708417 | 5.116709254 | +0.16 ppm |
 | 10,000,000 tokens from supply 0 | 518.091807565 | 518.092683989 | +1.69 ppm |
 | 100,000,000 tokens from supply 0 | 71,838.182845904 | 71,839.614745042 | +19.9 ppm |

@@ -17,7 +17,7 @@ you personally kept.
 | A Ledger or AirGap account inside Superhero Wallet | The device's own recovery words | Wherever that device's maker tells you |
 | An account imported into Superhero Wallet by private key | That private key | Offline; the seed phrase will not restore it |
 | Built-in wallet created **from a phrase** | The 12 words, plus the recovery code | Offline; the code is not a substitute for the words |
-| Built-in wallet created **from a passkey** | Confirm your passkey **syncs**; keep the recovery code | Sync is the backup; the code only helps on this device |
+| Built-in wallet created **from a passkey** | Save the optional 12-word phrase backup; confirm your passkey syncs if you rely on it across devices | Keep the phrase offline; this path does not enroll a recovery code |
 | An agent key (`AE_PRIVATE_KEY`) | The secret key string | Offline, never in git, never in a log |
 
 ## Back up a seed phrase
@@ -25,9 +25,10 @@ you personally kept.
 1. **Write it down by hand.** Screenshots and text files end up in cloud sync and disk indexes.
 2. **Copy it exactly**: all 12 or 24 words, in order, lowercase. BIP39 phrases carry a checksum,
    so a wrong or transposed word is usually caught on import.
-3. **Verify it.** Superhero's built-in wallet makes you re-enter the words before a vault is
-   created. In the standalone Superhero Wallet the step is **optional and comes later** (see
-   below).
+3. **Verify it.** The built-in phrase-creation flow asks you to re-enter two words before creating
+   the vault, but allows you to skip, and does not offer the check again later. Passkey
+   creation instead offers an optional phrase backup after creation. In the standalone Superhero
+   Wallet the step is **optional and comes later** (see below).
 4. **Store two copies in different physical places.**
 5. **Never type it into anything but the wallet.** No support agent, no "validator", no airdrop
    checker will ever need it. See [Security Best Practices](/wallets/security).
@@ -64,7 +65,8 @@ It exports **one account**, not the wallet. Use it to move a single account into
 that supports private-key import. An account you *imported* by private key cannot be restored
 with your seed phrase, only with that private key, so such accounts need their own backup.
 
-The built-in wallet offers no export of any kind.
+The built-in wallet does not offer this single-account private-key export. Its passkey
+create/restore flow offers a backup of the full recovery phrase instead.
 
 ### Change the wallet password
 
@@ -74,7 +76,8 @@ sets the auto-lock interval: immediately, 1, 5, 15 or 30 minutes of inactivity.
 
 ## Back up the built-in wallet
 
-The built-in wallet has three unlock factors and they are **not interchangeable as backups**:
+The built-in wallet supports three unlock factors and they are **not interchangeable as backups**.
+The table assumes the factor is enrolled; passkey creation does not enroll a recovery code.
 
 | Factor | Unlocks on this device | Restores on a new device |
 | --- | --- | --- |
@@ -92,10 +95,13 @@ phrase and, for a wallet created by the passkey path, the passkey itself, becaus
 
 - **Phrase-created built-in wallet**: the 12 words are your only portable backup. The recovery
   code is a same-device fallback for a forgotten passphrase or a broken passkey. Keep both.
-- **Passkey-created built-in wallet**: the passkey *is* the backup, but only if it syncs. Confirm
-  it landed in iCloud Keychain or Google Password Manager. There is no phrase reveal or export
-  screen, so a device-bound credential like Windows Hello leaves **no other copy of the seed**.
-  Still enroll the recovery code: it is the only factor that survives a passkey rekey.
+- **Passkey-created built-in wallet**: save the optional 12-word phrase backup offered after
+  creation or passkey restore. Press **Reveal** to write it down. Copy and download options are
+  also available, but the download is an unencrypted text file, so keep it offline. The phrase
+  restores the wallet without the passkey, including after passkey
+  loss or rekeying. If you rely on the passkey across devices, confirm it landed in iCloud
+  Keychain or Google Password Manager. A device-bound credential like Windows Hello cannot leave
+  its device. This creation path does not enroll a recovery code.
 
 ## Recover on a new device
 
@@ -118,7 +124,9 @@ before anything is stored, then sealed under a new passphrase on the new device.
 
 ### Built-in wallet, from a passkey
 
-Choose **"Restore a wallet you created with a passkey."** This runs a discoverable WebAuthn
+Tap the **Passkey** card and **cancel** the prompt to create a new passkey (approving it creates a
+new, empty wallet). On the screen that follows, choose **"Restore a wallet you created with a
+passkey."** This runs a discoverable WebAuthn
 assertion, derives the wallet the credential implies, and **shows you the derived address before
 saving anything.** The confirm screen also checks that address for on-chain activity:
 
@@ -128,6 +136,9 @@ saving anything.** The confirm screen also checks that address for on-chain acti
   persist the wrong one and then block your correct import with "a vault already exists".
 - **"Couldn't check on-chain activity"**: the node was unreachable. Advisory only; judge by the
   address itself.
+
+After confirmation, the app offers the optional recovery phrase backup again. You can also import
+a phrase saved from passkey creation into Superhero Wallet without the passkey.
 
 ### An agent key
 
@@ -144,23 +155,26 @@ node scripts/superhero-wallet.mjs balance
 - **A lost seed phrase with no other factor.** Nobody can reconstruct it. Not Superhero, not
   æternity, not the wallet developers.
 - **A built-in wallet whose vault was deleted**, if your only factors were a passphrase and a
-  recovery code. Clearing site data for superhero.com deletes the IndexedDB vault; Safari's
-  Intelligent Tracking Prevention can evict it after about seven days of no interaction. Neither
-  the passphrase nor the code opens anything afterwards.
-- **A passkey-created wallet whose device-bound passkey is gone**, if the credential never synced.
+  recovery code. Deleting the browser storage containing the IndexedDB vault removes it. In a
+  Safari tab, ITP can also remove it after seven days of Safari use without site interaction;
+  first-party Home Screen web-app storage is exempt from that rule. Neither the passphrase nor
+  the code opens anything after the vault is gone.
+- **A passkey-created wallet whose device-bound passkey is gone**, if the credential never synced
+  and you did not save its recovery phrase.
 - **Funds sent to a wrong address.** Transactions are final.
 - **A private key that was logged, pasted into a chat, or committed to git.** Treat it as
   compromised from that moment and move the funds to a fresh account.
 
 One common loss that *is* recoverable: the built-in wallet's address list, living in local storage.
-If that is cleared while the encrypted vault survives, unlock once and the app re-derives your
-addresses from index 0 upward.
+If that is cleared while the encrypted vault survives, unlock once and the app rebuilds it (the
+built-in wallet has one account, at index 0).
 
 ## A backup routine that holds
 
 - Write the phrase down and read it back **before** funding the account.
 - Store two copies in two places.
-- Store the recovery code separately from the phrase. They fail in different ways, so hide them in different places.
+- If your wallet has a recovery code, store it separately from the phrase. They fail in different
+  ways, so hide them in different places.
 - If you rely on a passkey, verify it is present on a *second* device before you trust it as a
   backup.
 - Do a restore drill once: import into a second wallet and confirm the first address matches.
@@ -169,10 +183,11 @@ addresses from index 0 upward.
 
 There is no passphrase-change flow in the built-in wallet, and no way to remove a factor.
 
-- **To change your passphrase, recreate the wallet.** Unlock with any enrolled factor, write down
-  the recovery phrase, erase the wallet, and create a new one with the same phrase and a new
-  passphrase. You get a new recovery code; the account and its address are unchanged, because they
-  come from the seed.
+- **To change your passphrase, recreate the wallet in the installed app.** First verify the
+  recovery phrase you saved at setup. Then open the installed app (Add to Home Screen), erase the
+  wallet there if it has one, and import that same phrase with a new passphrase. A browser tab
+  offers no import, so do not erase the wallet from a tab. You get a new recovery code; the
+  account and its address are unchanged, because they come from the seed.
 - **A compromised factor cannot be revoked.** Any one factor opens the vault, so a passphrase
   someone has seen stays valid until the wallet is recreated. Recreate it the same day.
 

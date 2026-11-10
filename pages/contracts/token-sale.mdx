@@ -80,8 +80,9 @@ record state =
   , dao_contract         : ReplaceableDAO }
 ```
 
-`get_state()` is the way to get the DAO address from the sale, because the factory has no getter for
-it.
+`beneficiary()` returns the DAO (decoded as `ak_`; swap the prefix to `ct_`), and so does `owner()`
+unless a replacement DAO has moved ownership; `get_state().dao_contract` gives it as `ct_`. The
+factory has no getter for it.
 
 ## Events
 
@@ -102,7 +103,7 @@ entrypoints capture it before the mint or burn and emit that value at the end.
 `PriceChange` carries unit prices sampled before and after the trade. `calculate_unit_price()` is
 `price(10 ^ 18)`, the cost of one whole token *including* the affiliation fee.
 
-A single `buy` emits four events across three contracts:
+An ordinary `buy` includes these four core events across the sale and the two token contracts:
 
 | Event | Emitted by | Carries |
 | --- | --- | --- |
@@ -110,6 +111,11 @@ A single `buy` emits four events across three contracts:
 | `Mint` | the ProtocolDAO AEX-9 token | buyer, ProtocolDAO tokens minted |
 | `PriceChange` | the sale | previous unit price, next unit price |
 | `Buy` | the sale | total price paid, affiliation amount, pre-buy total supply |
+
+When the protected affiliation-treasury call succeeds, the receipt also includes its
+`RecordSaleTransaction` event and a `RewardAdded` event for each credited referral level.
+These treasury events are absent if that protected call fails. A replacement DAO can emit
+additional events from its own income handler, so this table is not a fixed receipt length.
 
 Distinguish the two `Mint` events by the emitting contract address, not by order. On the sale
 contract itself `PriceChange` is emitted **before** `Buy` and before `Sell`.
@@ -172,9 +178,11 @@ In the order the contract pays them, for a buy of `count` tokens:
 | Reserve | stays in this contract | `calculate_sell_return(new_supply, count)` |
 | Spread | `DAO.record_sale_transaction` | whatever is left |
 
-The reserve line is the solvency mechanism: the contract retains exactly what it would owe if
-that same `count` were sold straight back, and only the remainder reaches the DAO. It is
-computed against the supply **after** the mint.
+The reserve line funds sellers: the contract retains the integer quote for immediately selling
+that same `count`, and only the remainder after the affiliation fee reaches the DAO. It is
+computed against the supply **after** the mint. See
+[Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding) for the
+continuous-model redemption argument and its implementation limits.
 
 Both outbound contract calls are made with `protected = true`, so a DAO or treasury that
 aborts cannot block a buy. The AE stays in the sale contract.
@@ -267,9 +275,10 @@ state.token_contract.transfer_allowance(Call.caller, Contract.address, count)
 Passing `0` as `minimal_return_required` disables slippage protection. Quote first and set a
 floor on every live trade.
 
-There is no revert for "the reserve is empty". The sell curve sits strictly below the buy
-curve at every supply level, so the reserve always covers a full buy-back of the circulating
-supply.
+`sell` pays the quoted return with `Chain.spend`, which requires enough AE in the sale contract.
+Buys retain the immediate sell quote to fund that reserve. The continuous-model argument for
+full redemption needs separate integer-rounding analysis; see
+[Reserve accounting and rounding](/concepts/value-flow#reserve-accounting-and-rounding).
 
 ## Ownership and beneficiary
 

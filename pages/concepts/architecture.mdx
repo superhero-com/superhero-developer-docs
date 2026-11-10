@@ -6,8 +6,9 @@ description: "How the on-chain contracts, the indexer, the API and the clients f
 # Architecture Overview
 
 Superhero is a set of Sophia contracts on æternity, an off-chain indexer that turns their events
-into a queryable API, and three clients that talk to both. Every write goes to the chain; every read
-that needs to be fast goes to the API.
+into a queryable API, and clients that talk to both. Posts, trades and governance actions are
+written to the chain. Indexed reads, profile workflows, notifications and chat also use
+off-chain services.
 
 ## The stack in one view
 
@@ -35,24 +36,23 @@ that needs to be fast goes to the API.
 
 The Tipping and factory contracts are **singletons**: one address per network. The Tipping address
 is in [Deployed Addresses](/contracts/addresses); the active factory is returned by
-`GET /api/factory`. Everything else is **per community**: creating a token deploys a fresh token,
-curve, sale, DAO and management contract in a single transaction.
+`GET /api/factory`. Each community has its own token, sale, DAO and management contracts.
+The sale references the factory's shared bonding curve and affiliation treasury.
 
-The factory's deployment sequence:
+The community-creation flow:
 
-1. A new AEX-9 token contract for the community.
-2. A `BondingCurveExponential` contract with the community's pricing parameters.
-3. An `AffiliationBondingCurveTokenSale` referencing the token and the curve.
-4. A `DAO` contract, which becomes the sale's owner and beneficiary.
-5. A `CommunityManagement` contract with initial moderator and threshold settings.
-6. Registration of the community in the factory's on-chain registry.
-7. An optional initial buy, executed in the same transaction.
+1. Deploy a `CommunityManagement` contract and a `DAO` contract.
+2. Deploy an `AffiliationBondingCurveTokenSale`, which creates the community's AEX-9 token
+   and references the shared curve and treasury.
+3. Set the DAO as the sale's owner and beneficiary and the management contract's owner.
+4. Execute any initial buy and register the community in the factory, all in the same
+   transaction. See [CommunityFactory](/contracts/community-factory) for the detailed flow.
 
 ## Off-chain layer
 
 The service behind `api.superhero.com` is one NestJS process doing several jobs:
 
-- **Indexer**: a general-purpose chain indexer. It stores key blocks, micro blocks and transactions
+- **Indexer**: a general-purpose chain indexer. It stores key blocks and transactions
   in Postgres and runs two loops: a **live indexer** fed by middleware WebSocket subscriptions for
   transactions and key blocks, and a **backward/bulk indexer** that backfills history, seeding its
   tip height from the middleware's `/v3/status` → `mdw_height`. The indexer reads the middleware,
@@ -61,8 +61,8 @@ The service behind `api.superhero.com` is one NestJS process doing several jobs:
 - **Plugins**: all domain decoding. Each plugin declares a `startFromHeight()` and a `filters()`
   list matching contract calls by contract id and entrypoint name (or spend transactions by
   predicate), then receives `onTransactionsSaved(txs)`. The shipped set is `bcl` (token sales),
-  `bcl-affiliation`, `dex`, `governance`, `social` (posts), `social-tipping`, `social-graph` and
-  `address-links`.
+  `bcl-affiliation`, `dex`, `governance`, `social` (posts), `social-tipping`, `social-graph`,
+  `address-links`, and the token-gated-room plugins `aex9-transfer` and `community-room-state`.
 - **Reorg handling**: the chain is re-validated every 10 minutes. On a rollback, derived rows
   disappear automatically because plugin entities carry a foreign key to the transaction with
   `onDelete: 'CASCADE'`; a plugin can also implement `onReorg(rollBackToHeight)` for anything the
@@ -148,12 +148,13 @@ The web app shows this as a two-step progress indicator; the agent CLI runs both
 ## The live-update path
 
 Token views do not poll. The web app opens a single socket.io connection to the `websocketUrl` from
-config (`https://api.superhero.com` on mainnet). The backend emits two channels:
+config (`https://api.superhero.com` on mainnet). The backend emits two token channels, plus a
+`social-graph-updated` hint when the follow graph changes:
 
 | Channel | Emitted when |
 | --- | --- |
 | `token-updated` | A token's aggregate state changes; the payload carries `sale_address` |
-| `token-history` | A new chart point exists for a `sale_address` |
+| `token-history` | A buy, sell or create for a `sale_address` has been indexed live |
 
 Use `token-updated` as your signal to refresh token lists and transaction feeds from the REST
 endpoints.
@@ -181,7 +182,7 @@ else is mainnet). A deployed container can override most of these at runtime thr
 
 | Key | Mainnet | Testnet |
 | --- | --- | --- |
-| `BACKEND_URL` | `https://api.superhero.com` | Not publicly documented |
+| `BACKEND_URL` | `https://api.superhero.com` | Configure your own testnet backend |
 | `NODE_URL` | `https://mdw.wordcraft.fun` | `https://testnet.aeternity.io` |
 | `MIDDLEWARE_URL` | `https://mdw.wordcraft.fun/mdw` | `https://testnet.aeternity.io/mdw` |
 | `EXPLORER_URL` | `https://aescan.io` | `https://testnet.aescan.io` |

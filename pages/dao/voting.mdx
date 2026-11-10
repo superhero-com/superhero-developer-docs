@@ -91,13 +91,14 @@ The relevant AEX-9 entrypoints:
 | `allowance(allowance_accounts)` | Read the current allowance; returns `option(int)` |
 | `create_allowance(for_account, value)` | Create an allowance where none exists |
 | `change_allowance(for_account, value_change)` | Adjust an existing allowance by a delta |
-| `reset_allowance(for_account)` | Remove the allowance entirely |
+| `reset_allowance(for_account)` | Set an existing allowance to zero, retaining its record |
 | `allowance_for_caller(from_account)` | Read the allowance granted to you by another account |
 
 `allowance` takes a record (`allowance_accounts` is `from_account` plus `for_account`) and
 returns `None` when no allowance exists. Calling `create_allowance` when one already exists
 fails; calling `change_allowance` when none exists fails too, so handle the two cases
-separately.
+separately. After a reset, the record still exists with value zero; use `change_allowance`
+to grant it again.
 
 ### Code
 
@@ -216,7 +217,7 @@ contract state. See [Contract events](/contracts/events).
   the bonding curve; revoking is the only early exit.
 - **Voting power is plain token weight.** A single holder above 55% of participating stake
   decides any vote they show up for. The 10% quorum limits capture by tiny minorities only.
-- **The allowance persists** until you reset it. It is scoped to one vote contract.
+- **Transfers consume the allowance.** Any unused approval is scoped to that vote contract and remains until used, reduced or reset.
 - **Nothing reminds you to withdraw.** Closed votes do not return tokens automatically.
 
 ## Related

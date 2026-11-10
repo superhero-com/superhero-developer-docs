@@ -125,8 +125,9 @@ function require_moderator() =
 ```
 
 Moderators are not owners: a moderator cannot add another moderator, change the
-threshold, or touch the metadata. The owner is not automatically a moderator either, so the DAO
-cannot mute anyone without first voting itself onto the moderator set. The initial moderator
+threshold, or touch the metadata. The owner is not a moderator, and the stock DAO has no vote
+subject that calls `mute_user_id`, so it can never mute anyone directly: it acts by appointing
+or removing moderators. Only a replacement DAO could add a mute path. The initial moderator
 is the community creator, set once in `init`; the owner becomes the DAO immediately afterwards.
 
 Muting is the one action that does not need a vote: governance sets the policy and appoints
